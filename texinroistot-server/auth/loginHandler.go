@@ -32,7 +32,6 @@ func LoginHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	fmt.Print(token.Claims)
 
 	err = setAuthenticationCookies(token, c)
 	if err != nil {
