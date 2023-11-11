@@ -27,7 +27,12 @@ type VersionRepository interface {
 }
 
 type AuthorRepository interface {
-	List() ([]*Author, error)
+	List(version Version) ([]*Author, error)
 	Read(authorID int) (*Author, error)
-	BulkCreate(authors []*Author, version Version) (int, error)
+	BulkCreate(authors []*Author, version Version) ([]*Author, error)
+}
+
+type StoryRepository interface {
+	List(version Version) ([]*Story, error)
+	BulkCreate(stories []*Story, version Version) ([]*Story, error)
 }

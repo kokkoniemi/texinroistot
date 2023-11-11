@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -49,6 +50,7 @@ func parseExcel() error {
 	}
 
 	var authors []*db.Author
+	var stories []*db.Story
 
 	for i, row := range rows[1:] {
 		// Todo: remove after the function is ready
@@ -56,18 +58,21 @@ func parseExcel() error {
 			break
 		}
 
-		// create authors:
-		authors = addAuthors(authors, row, "story_written_by")
-		authors = addAuthors(authors, row, "story_drawn_by")
-		authors = addAuthors(authors, row, "story_invented_by")
+		story, err := createStory(row)
+		if err != nil {
+			return err
+		}
 
-		// create stories:
-		//
+		// create authors:
+		authors, story = handleAuthors(authors, story, row, "story_written_by")
+		authors, story = handleAuthors(authors, story, row, "story_drawn_by")
+		authors, story = handleAuthors(authors, story, row, "story_invented_by")
 
 		// create villains & attach them to stories
 
 		// create publications & attach stories to them
 
+		stories = append(stories, story)
 	}
 
 	authorRepo := db.NewAuthorRepository()
@@ -76,10 +81,29 @@ func parseExcel() error {
 		return err
 	}
 
+	storyRepo := db.NewStoryRepository()
+	_, err = storyRepo.BulkCreate(stories, *version)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func addAuthors(authors []*db.Author, row []string, key string) []*db.Author {
+func createStory(row []string) (*db.Story, error) {
+	orderNum, err := strconv.Atoi(getValue(row, "story_order_num"))
+	if err != nil {
+		return nil, err
+	}
+
+	return &db.Story{
+		Title:         getValue(row, "story_title"),
+		OriginalTitle: getValue(row, "italy_story_title"),
+		OrderNumber:   orderNum,
+	}, nil
+}
+
+func handleAuthors(authors []*db.Author, story *db.Story, row []string, key string) ([]*db.Author, *db.Story) {
 	names := strings.Split(getValue(row, key), ";")
 
 	for _, n := range names {
@@ -111,13 +135,17 @@ func addAuthors(authors []*db.Author, row []string, key string) []*db.Author {
 
 		if key == "story_written_by" {
 			author.IsWriter = true
+			story.WrittenBy = author
 		} else if key == "story_drawn_by" {
 			author.IsDrawer = true
+			story.DrawnBy = author
 		} else if key == "story_invented_by" {
 			author.IsInventor = true
+			story.InventedBy = author
 		}
 	}
-	return authors
+
+	return authors, story
 }
 
 func getValue(row []string, key string) string {

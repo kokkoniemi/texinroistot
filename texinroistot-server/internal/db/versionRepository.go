@@ -45,6 +45,7 @@ FROM versions
 WHERE id = $1;
 `
 
+// Read implements VersionRepository.
 func (*versionRepo) Read(versionID int) (*Version, error) {
 	rows, err := Query(readVersionSQL, versionID)
 	if err != nil {

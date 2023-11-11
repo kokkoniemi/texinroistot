@@ -1,6 +1,9 @@
 package db
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type User struct {
 	ID        int
@@ -47,7 +50,42 @@ type Story struct {
 	Title         string `json:"title"`
 	OriginalTitle string `json:"originalTitle"`
 	OrderNumber   int    `json:"orderNumber"`
-	WrittenBy     Author
-	DrawnBy       Author
-	InventedBy    Author
+	WrittenBy     *Author
+	DrawnBy       *Author
+	InventedBy    *Author
+}
+
+func (s *Story) GetOriginalTitleForDB() string {
+	if s.OriginalTitle != "" {
+		return fmt.Sprintf("%v", s.OriginalTitle)
+	}
+	return "null"
+}
+
+func (s *Story) GetOrderNumberForDB() string {
+	if s.OrderNumber != 0 {
+		return fmt.Sprintf("%v", s.OrderNumber)
+	}
+	return "null"
+}
+
+func (s *Story) GetWriterIDForDB() string {
+	if s.WrittenBy != nil {
+		return fmt.Sprintf("%v", s.WrittenBy.ID)
+	}
+	return "null"
+}
+
+func (s *Story) GetDrawerIDForDB() string {
+	if s.DrawnBy != nil {
+		return fmt.Sprintf("%v", s.DrawnBy.ID)
+	}
+	return "null"
+}
+
+func (s *Story) GetInventorIDForDB() string {
+	if s.InventedBy != nil {
+		return fmt.Sprintf("%v", s.InventedBy.ID)
+	}
+	return "null"
 }

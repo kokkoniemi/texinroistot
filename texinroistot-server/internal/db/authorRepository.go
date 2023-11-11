@@ -14,36 +14,45 @@ VALUES
 `
 
 // BulkCreate implements AuthorRepository.
-func (*authorRepo) BulkCreate(authors []*Author, version Version) (int, error) {
+func (a *authorRepo) BulkCreate(authors []*Author, version Version) ([]*Author, error) {
 	if len(authors) > 100 {
-		return 0, fmt.Errorf("too many authors")
+		return nil, fmt.Errorf("too many authors")
 	}
 
 	var values []string
 
-	for _, a := range authors {
+	for _, author := range authors {
 		values = append(values, fmt.Sprintf(
 			"('%s', '%s', %v, %v, %v, %v)",
-			a.FirstName,
-			a.LastName,
-			a.IsWriter,
-			a.IsDrawer,
-			a.IsInventor,
+			author.FirstName,
+			author.LastName,
+			author.IsWriter,
+			author.IsDrawer,
+			author.IsInventor,
 			version.ID))
 	}
 
 	createString := fmt.Sprintf(bulkCreateAuthorsSQL, strings.Join(values, ","))
 	res, err := Execute(createString)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return int(rows), nil
+	if int(rows) != len(authors) {
+		return nil, fmt.Errorf("something went wrong creating authors")
+	}
+
+	return a.list(version, true, int(rows))
+}
+
+// List implements AuthorRepository.
+func (a *authorRepo) List(version Version) ([]*Author, error) {
+	return a.list(version, false, 0)
 }
 
 const listAuthorsSQL = `
@@ -54,12 +63,21 @@ SELECT
 	is_writer,
 	is_drawer,
 	is_inventor
-FROM authors;
+FROM authors
+WHERE
+	version = $1
+%v;
 `
 
-// List implements AuthorRepository.
-func (*authorRepo) List() ([]*Author, error) {
-	rows, err := Query(listAuthorsSQL)
+func (*authorRepo) list(version Version, descending bool, limit int) ([]*Author, error) {
+	var queryString string
+	if descending {
+		queryString = fmt.Sprintf(listAuthorsSQL, "ORDER BY id DESC %v")
+	}
+	if limit > 0 {
+		queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
+	}
+	rows, err := Query(queryString, version.ID)
 	if err != nil {
 		return nil, err
 	}
