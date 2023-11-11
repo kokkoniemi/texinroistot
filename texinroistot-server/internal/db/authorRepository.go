@@ -8,13 +8,13 @@ import (
 type authorRepo struct{}
 
 const bulkCreateAuthorsSQL = `
-INSERT INTO authors(first_name, last_name, is_writer, is_drawer, is_inventor)
+INSERT INTO authors(first_name, last_name, is_writer, is_drawer, is_inventor, version)
 VALUES
 	%s;
 `
 
 // BulkCreate implements AuthorRepository.
-func (*authorRepo) BulkCreate(authors []Author) (int, error) {
+func (*authorRepo) BulkCreate(authors []*Author, version Version) (int, error) {
 	if len(authors) > 100 {
 		return 0, fmt.Errorf("too many authors")
 	}
@@ -23,12 +23,13 @@ func (*authorRepo) BulkCreate(authors []Author) (int, error) {
 
 	for _, a := range authors {
 		values = append(values, fmt.Sprintf(
-			"(%v, %v, %v, %v, %v)",
+			"('%s', '%s', %v, %v, %v, %v)",
 			a.FirstName,
 			a.LastName,
 			a.IsWriter,
 			a.IsDrawer,
-			a.IsInventor))
+			a.IsInventor,
+			version.ID))
 	}
 
 	createString := fmt.Sprintf(bulkCreateAuthorsSQL, strings.Join(values, ","))

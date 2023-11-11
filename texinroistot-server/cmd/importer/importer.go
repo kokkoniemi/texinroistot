@@ -42,7 +42,7 @@ func parseExcel() error {
 
 	// create version
 	versionRepo := db.NewVersionRepository()
-	_, err = versionRepo.Create(db.Version{IsActive: false})
+	version, err := versionRepo.Create(db.Version{IsActive: false})
 
 	if err != nil {
 		return err
@@ -68,6 +68,12 @@ func parseExcel() error {
 
 		// create publications & attach stories to them
 
+	}
+
+	authorRepo := db.NewAuthorRepository()
+	_, err = authorRepo.BulkCreate(authors, *version)
+	if err != nil {
+		return err
 	}
 
 	return nil

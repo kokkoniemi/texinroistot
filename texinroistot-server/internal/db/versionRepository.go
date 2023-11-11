@@ -31,8 +31,9 @@ func (v *versionRepo) Create(version Version) (*Version, error) {
 	if err != nil {
 		return nil, err
 	}
+	lastVersion := versions[len(versions)-1]
 
-	return versions[len(versions)-1], nil
+	return lastVersion, nil
 }
 
 const readVersionSQL = `
@@ -63,7 +64,8 @@ SELECT
 	id,
 	created_at,
 	is_active
-FROM versions;
+FROM versions
+ORDER BY created_at;
 `
 
 // List implements VersionRepository.

@@ -34,9 +34,9 @@ type VersionRepository interface {
 type AuthorRepository interface {
 	List() ([]*Author, error)
 	Read(authorID int) (*Author, error)
-	BulkCreate(authors []Author) (int, error)
+	BulkCreate(authors []*Author, version Version) (int, error)
 }
 
 func getDBContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	return context.WithTimeout(context.Background(), 3000*time.Millisecond)
 }
