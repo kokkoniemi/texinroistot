@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/kokkoniemi/texinroistot/internal/config"
@@ -35,10 +36,7 @@ func Execute(q string, args ...any) (sql.Result, error) {
 		return nil, err
 	}
 
-	ctx, cancelCtx := getDBContext()
-	defer cancelCtx()
-
-	return db.ExecContext(ctx, q, args...)
+	return db.ExecContext(context.Background(), q, args...)
 }
 
 func Query(q string, args ...any) (*sql.Rows, error) {
@@ -47,8 +45,5 @@ func Query(q string, args ...any) (*sql.Rows, error) {
 		return nil, err
 	}
 
-	ctx, cancelCtx := getDBContext()
-	defer cancelCtx()
-
-	return db.QueryContext(ctx, q, args...)
+	return db.QueryContext(context.Background(), q, args...)
 }
