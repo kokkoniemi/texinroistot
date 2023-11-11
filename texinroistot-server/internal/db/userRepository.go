@@ -1,10 +1,5 @@
 package db
 
-import (
-	"context"
-	"time"
-)
-
 type userRepo struct{}
 
 // Create implements UserRepository.
@@ -14,19 +9,12 @@ func (*userRepo) Create(user User) (*User, error) {
 
 // List implements UserRepository.
 func (*userRepo) List(pageIndex int) ([]*User, *ListMeta, error) {
-	db, err := GetDB()
+	rows, err := Query("SELECT id, created_at, hash, is_admin FROM users;")
 	if err != nil {
 		return nil, nil, err
 	}
-
-	ctx, cancelCtx := context.WithTimeout(context.Background(), 1500*time.Millisecond)
-	defer cancelCtx()
 
 	var users []*User
-	rows, err := db.QueryContext(ctx, "SELECT id, created_at, hash, is_admin FROM users;")
-	if err != nil {
-		return nil, nil, err
-	}
 
 	for rows.Next() {
 		var u User
