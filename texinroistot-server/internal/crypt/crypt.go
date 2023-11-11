@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/kokkoniemi/texinroistot/config"
+	"github.com/kokkoniemi/texinroistot/internal/config"
 )
 
 func Encrypt(input string) (Encrypted, error) {

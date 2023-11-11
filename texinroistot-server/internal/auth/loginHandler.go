@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kokkoniemi/texinroistot/config"
-	"github.com/kokkoniemi/texinroistot/crypt"
+	"github.com/kokkoniemi/texinroistot/internal/config"
+	"github.com/kokkoniemi/texinroistot/internal/crypt"
 	"google.golang.org/api/idtoken"
 )
 

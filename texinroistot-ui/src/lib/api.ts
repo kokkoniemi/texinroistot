@@ -39,4 +39,10 @@ const auth = {
     }
 }
 
-export const api = {auth}
+const admin = {
+    users: {
+        list: () => httpClient.get("/api/admin/users"),
+    },
+}
+
+export const api = {auth, admin}

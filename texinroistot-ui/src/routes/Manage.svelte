@@ -1,6 +1,7 @@
 <script lang="ts">
     import LoginButton from "../lib/LoginButton.svelte";
     import LogoutButton from "../lib/LogoutButton.svelte";
+    import UsersList from "../lib/UsersList.svelte";
     import { user } from "../lib/store";
     let userVal: any;
 
@@ -15,4 +16,5 @@
     <LoginButton />
 {:else}
     <LogoutButton email="{userVal.email}"/>
+    <UsersList />
 {/if}

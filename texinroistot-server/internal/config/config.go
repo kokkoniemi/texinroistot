@@ -20,6 +20,10 @@ var (
 	GoogleOauth2ClientID string = getEnvConfig("GOOGLE_OAUTH2_CLIENT_ID", "")
 )
 
+var (
+	DBConnectionString string = getEnvConfig("DB_CONNECTION_STRING", "")
+)
+
 func getEnvConfig(envVar string, defaultVal string) string {
 	val := os.Getenv(envVar)
 	if len(val) == 0 {

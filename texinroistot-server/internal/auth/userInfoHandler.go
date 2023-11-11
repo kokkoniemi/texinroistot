@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kokkoniemi/texinroistot/crypt"
+	"github.com/kokkoniemi/texinroistot/internal/crypt"
 )
 
 type UserInfo struct {

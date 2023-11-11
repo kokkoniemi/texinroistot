@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/kokkoniemi/texinroistot/config"
-	"github.com/kokkoniemi/texinroistot/crypt"
+	"github.com/kokkoniemi/texinroistot/internal/config"
+	"github.com/kokkoniemi/texinroistot/internal/crypt"
 )
 
 type AuthService struct{}
@@ -114,8 +114,7 @@ func (a AuthService) verifyToken(secret string, token string, jwtOpts ...JWTVeri
 	})
 
 	if err != nil {
-		fmt.Errorf("error occured while parsing jwt token")
-		return nil, err
+		return nil, fmt.Errorf("error occured while parsing jwt token")
 	}
 
 	if claims, ok := jwtToken.Claims.(*JWTClaims); ok && jwtToken.Valid {

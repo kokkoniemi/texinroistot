@@ -6,8 +6,9 @@ test: ## Execute unit tests
 
 ## Build:
 build: ## Build project
-	go build -o out/roistot server.go
+	go build -o out/roistot cmd/server/server.go
+	go build -o out/importer cmd/importer/importer.go
 
 ## Run:
 run: ## Run project
-	go run server.go
+	go run cmd/server/server.go
