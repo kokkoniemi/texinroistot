@@ -9,14 +9,18 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "texinroistot-server/cmd/server/server.go"
+            "program": "${workspaceFolder}/texinroistot-server/cmd/server/server.go",
+            "envFile": "${workspaceFolder}/texinroistot-server/.env",
+            "cwd": "${workspaceFolder}/texinroistot-server/"
         },
         {
             "name": "Launch importer tool",
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "texinroistot-server/cmd/importer/importer.go"
+            "program": "${workspaceFolder}/texinroistot-server/cmd/importer/importer.go",
+            "envFile": "${workspaceFolder}/texinroistot-server/.env",
+            "cwd": "${workspaceFolder}/texinroistot-server/"
         },
     ]
 }
