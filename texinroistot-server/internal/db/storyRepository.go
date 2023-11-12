@@ -62,19 +62,28 @@ SELECT
 	s.title,
 	s.original_title,
 	s.order_num,
-	s.written_by,
-	s.drawn_by,
-	s.invented_by,
-	a.id,
-	a.first_name,
-	a.last_name,
-	a.is_writer,
-	a.is_drawer,
-	a.is_inventor
+	w.id,
+	w.first_name,
+	w.last_name,
+	w.is_writer,
+	w.is_drawer,
+	w.is_inventor,
+	d.id,
+	d.first_name,
+	d.last_name,
+	d.is_writer,
+	d.is_drawer,
+	d.is_inventor,
+	i.id,
+	i.first_name,
+	i.last_name,
+	i.is_writer,
+	i.is_drawer,
+	i.is_inventor,
 FROM stories AS s
-INNER JOIN authors AS a ON s.written_by = a.id
-	OR s.drawn_by = a.id
-	OR s.invented_by = a.id 
+INNER JOIN authors AS w ON s.written_by = a.id
+INNER JOIN authors AS d ON s.drawn_by = d.id
+INNER JOIN authors AS i ON s.invented_by = i.id
 WHERE
 	version = $1
 %v;
@@ -95,11 +104,46 @@ func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, e
 	var stories []*Story
 
 	for rows.Next() {
-		var s Story
-		if err = rows.Scan( /*TODO: add scanning*/ ); err != nil {
+		var s *Story
+		var writer *Author
+		var drawer *Author
+		var inventor *Author
+		if err = rows.Scan(
+			s.ID,
+			s.Title,
+			s.OriginalTitle,
+			s.OrderNumber,
+			writer.ID,
+			writer.FirstName,
+			writer.LastName,
+			writer.IsWriter,
+			writer.IsDrawer,
+			writer.IsInventor,
+			drawer.ID,
+			drawer.FirstName,
+			drawer.LastName,
+			drawer.IsWriter,
+			drawer.IsDrawer,
+			drawer.IsInventor,
+			inventor.ID,
+			inventor.FirstName,
+			inventor.LastName,
+			inventor.IsWriter,
+			inventor.IsDrawer,
+			inventor.IsInventor,
+		); err != nil {
 			return nil, err
 		}
-		stories = append(stories, &s)
+		if writer.Exists() {
+			s.WrittenBy = writer
+		}
+		if drawer.Exists() {
+			s.DrawnBy = drawer
+		}
+		if inventor.Exists() {
+			s.InventedBy = inventor
+		}
+		stories = append(stories, s)
 	}
 
 	return stories, nil

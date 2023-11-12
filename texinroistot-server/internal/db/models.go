@@ -21,6 +21,10 @@ type Author struct {
 	IsInventor bool   `json:"isInventor"`
 }
 
+func (a *Author) Exists() bool {
+	return a.ID != 0 && len(a.FirstName) > 0
+}
+
 type Version struct {
 	ID        int       `json:"id"`
 	CreatedAt time.Time `json:"createdAt"`

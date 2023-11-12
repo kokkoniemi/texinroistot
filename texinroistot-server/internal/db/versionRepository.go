@@ -51,13 +51,13 @@ func (*versionRepo) Read(versionID int) (*Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	var v Version
+	var v *Version
 	for rows.Next() {
-		if err = rows.Scan(&v.ID, &v.CreatedAt, &v.IsActive); err != nil {
+		if err = rows.Scan(v.ID, v.CreatedAt, v.IsActive); err != nil {
 			return nil, err
 		}
 	}
-	return &v, nil
+	return v, nil
 }
 
 const listVersionsSQL = `
@@ -78,11 +78,11 @@ func (*versionRepo) List() ([]*Version, error) {
 	var versions []*Version
 
 	for rows.Next() {
-		var v Version
-		if err = rows.Scan(&v.ID, &v.CreatedAt, &v.IsActive); err != nil {
+		var v *Version
+		if err = rows.Scan(v.ID, v.CreatedAt, v.IsActive); err != nil {
 			return nil, err
 		}
-		versions = append(versions, &v)
+		versions = append(versions, v)
 	}
 
 	return versions, nil

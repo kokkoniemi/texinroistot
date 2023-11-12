@@ -84,17 +84,17 @@ func (*authorRepo) list(version Version, descending bool, limit int) ([]*Author,
 	var authors []*Author
 
 	for rows.Next() {
-		var a Author
-		if err = rows.Scan(&a.ID,
-			&a.FirstName,
-			&a.LastName,
-			&a.IsWriter,
-			&a.IsDrawer,
-			&a.IsInventor,
+		var a *Author
+		if err = rows.Scan(a.ID,
+			a.FirstName,
+			a.LastName,
+			a.IsWriter,
+			a.IsDrawer,
+			a.IsInventor,
 		); err != nil {
 			return nil, err
 		}
-		authors = append(authors, &a)
+		authors = append(authors, a)
 	}
 
 	return authors, nil
@@ -118,20 +118,20 @@ func (*authorRepo) Read(authorID int) (*Author, error) {
 	if err != nil {
 		return nil, err
 	}
-	var a Author
+	var a *Author
 	for rows.Next() {
 		if err = rows.Scan(
-			&a.ID,
-			&a.FirstName,
-			&a.LastName,
-			&a.IsWriter,
-			&a.IsDrawer,
-			&a.IsInventor,
+			a.ID,
+			a.FirstName,
+			a.LastName,
+			a.IsWriter,
+			a.IsDrawer,
+			a.IsInventor,
 		); err != nil {
 			return nil, err
 		}
 	}
-	return &a, nil
+	return a, nil
 }
 
 func NewAuthorRepository() AuthorRepository {
