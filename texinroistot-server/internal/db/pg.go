@@ -47,3 +47,12 @@ func Query(q string, args ...any) (*sql.Rows, error) {
 
 	return db.QueryContext(context.Background(), q, args...)
 }
+
+func StartTransaction() (*sql.Tx, error) {
+	db, err := GetDB()
+	if err != nil {
+		return nil, err
+	}
+
+	return db.Begin()
+}

@@ -2,16 +2,11 @@ package db
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/lib/pq"
 )
 
 type storyRepo struct{}
-
-const bulkCreateStorySQL = `
-INSERT INTO stories(title, original_title, order_num, written_by, drawn_by, invented_by, version)
-VALUES
-	%s;
-`
 
 // BulkCreate implements StoryRepository.
 func (*storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error) {
@@ -19,22 +14,50 @@ func (*storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error
 		return nil, fmt.Errorf("too many stories")
 	}
 
-	var values []string
+	txn, err := StartTransaction()
+	if err != nil {
+		return nil, err
+	}
+
+	stmt, err := txn.Prepare(pq.CopyIn(
+		"stories",
+		"title",
+		"original_title",
+		"order_num",
+		"written_by",
+		"drawn_by",
+		"invented_by",
+		"version",
+	))
+	if err != nil {
+		return nil, err
+	}
 
 	for _, s := range stories {
-		values = append(values, fmt.Sprintf(
-			"('%s', '%s', %v, %v, %v, %v, %v)",
+		_, err = stmt.Exec(
 			s.Title,
 			s.GetOriginalTitleForDB(),
 			s.GetOrderNumberForDB(),
 			s.GetWriterIDForDB(),
 			s.GetDrawerIDForDB(),
 			s.GetInventorIDForDB(),
-			version.ID))
+			version.ID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	createString := fmt.Sprintf(bulkCreateStorySQL, strings.Join(values, ","))
-	res, err := Execute(createString)
+	res, err := stmt.Exec()
+	if err != nil {
+		return nil, err
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	err = txn.Commit()
 	if err != nil {
 		return nil, err
 	}
@@ -109,28 +132,28 @@ func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, e
 		var drawer *Author
 		var inventor *Author
 		if err = rows.Scan(
-			s.ID,
-			s.Title,
-			s.OriginalTitle,
-			s.OrderNumber,
-			writer.ID,
-			writer.FirstName,
-			writer.LastName,
-			writer.IsWriter,
-			writer.IsDrawer,
-			writer.IsInventor,
-			drawer.ID,
-			drawer.FirstName,
-			drawer.LastName,
-			drawer.IsWriter,
-			drawer.IsDrawer,
-			drawer.IsInventor,
-			inventor.ID,
-			inventor.FirstName,
-			inventor.LastName,
-			inventor.IsWriter,
-			inventor.IsDrawer,
-			inventor.IsInventor,
+			&s.ID,
+			&s.Title,
+			&s.OriginalTitle,
+			&s.OrderNumber,
+			&writer.ID,
+			&writer.FirstName,
+			&writer.LastName,
+			&writer.IsWriter,
+			&writer.IsDrawer,
+			&writer.IsInventor,
+			&drawer.ID,
+			&drawer.FirstName,
+			&drawer.LastName,
+			&drawer.IsWriter,
+			&drawer.IsDrawer,
+			&drawer.IsInventor,
+			&inventor.ID,
+			&inventor.FirstName,
+			&inventor.LastName,
+			&inventor.IsWriter,
+			&inventor.IsDrawer,
+			&inventor.IsInventor,
 		); err != nil {
 			return nil, err
 		}

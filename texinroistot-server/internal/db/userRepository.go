@@ -17,11 +17,11 @@ func (*userRepo) List(pageIndex int) ([]*User, *ListMeta, error) {
 	var users []*User
 
 	for rows.Next() {
-		var u *User
-		if err = rows.Scan(u.ID, u.CreatedAt, u.Hash, u.IsAdmin); err != nil {
+		var u User
+		if err = rows.Scan(&u.ID, &u.CreatedAt, &u.Hash, &u.IsAdmin); err != nil {
 			return nil, nil, err
 		}
-		users = append(users, u)
+		users = append(users, &u)
 	}
 
 	return users, nil, nil

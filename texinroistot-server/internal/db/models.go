@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -59,37 +58,37 @@ type Story struct {
 	InventedBy    *Author
 }
 
-func (s *Story) GetOriginalTitleForDB() string {
+func (s *Story) GetOriginalTitleForDB() interface{} {
 	if s.OriginalTitle != "" {
-		return fmt.Sprintf("%v", s.OriginalTitle)
+		return s.OriginalTitle
 	}
-	return "null"
+	return nil
 }
 
-func (s *Story) GetOrderNumberForDB() string {
+func (s *Story) GetOrderNumberForDB() interface{} {
 	if s.OrderNumber != 0 {
-		return fmt.Sprintf("%v", s.OrderNumber)
+		return s.OrderNumber
 	}
-	return "null"
+	return nil
 }
 
-func (s *Story) GetWriterIDForDB() string {
+func (s *Story) GetWriterIDForDB() interface{} {
 	if s.WrittenBy != nil {
-		return fmt.Sprintf("%v", s.WrittenBy.ID)
+		return s.WrittenBy.ID
 	}
-	return "null"
+	return nil
 }
 
-func (s *Story) GetDrawerIDForDB() string {
+func (s *Story) GetDrawerIDForDB() interface{} {
 	if s.DrawnBy != nil {
-		return fmt.Sprintf("%v", s.DrawnBy.ID)
+		return s.DrawnBy.ID
 	}
-	return "null"
+	return nil
 }
 
-func (s *Story) GetInventorIDForDB() string {
+func (s *Story) GetInventorIDForDB() interface{} {
 	if s.InventedBy != nil {
-		return fmt.Sprintf("%v", s.InventedBy.ID)
+		return s.InventedBy.ID
 	}
-	return "null"
+	return nil
 }

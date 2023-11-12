@@ -54,7 +54,7 @@ func parseExcel() error {
 
 	for i, row := range rows[1:] {
 		// Todo: remove after the function is ready
-		if i > 10 {
+		if i > 100 {
 			break
 		}
 
@@ -72,13 +72,31 @@ func parseExcel() error {
 
 		// create publications & attach stories to them
 
-		stories = append(stories, story)
+		storyIdx := slices.IndexFunc(stories, func(s *db.Story) bool {
+			return s.Title == story.Title
+		})
+		if storyIdx == -1 {
+			stories = append(stories, story)
+		}
 	}
 
 	authorRepo := db.NewAuthorRepository()
-	_, err = authorRepo.BulkCreate(authors, *version)
+	authors, err = authorRepo.BulkCreate(authors, *version)
 	if err != nil {
 		return err
+	}
+
+	// attach id's for authors
+	for _, story := range stories {
+		if story.WrittenBy != nil {
+			story.WrittenBy = findMatchingAuthor(authors, story.WrittenBy)
+		}
+		if story.DrawnBy != nil {
+			story.DrawnBy = findMatchingAuthor(authors, story.DrawnBy)
+		}
+		if story.InventedBy != nil {
+			story.InventedBy = findMatchingAuthor(authors, story.InventedBy)
+		}
 	}
 
 	storyRepo := db.NewStoryRepository()
@@ -88,6 +106,13 @@ func parseExcel() error {
 	}
 
 	return nil
+}
+
+func findMatchingAuthor(authors []*db.Author, author *db.Author) *db.Author {
+	authorIdx := slices.IndexFunc(authors, func(a *db.Author) bool {
+		return a.FirstName == author.FirstName && a.LastName == author.LastName
+	})
+	return authors[authorIdx]
 }
 
 func createStory(row []string) (*db.Story, error) {
