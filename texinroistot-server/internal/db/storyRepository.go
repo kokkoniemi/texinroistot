@@ -2,12 +2,13 @@ package db
 
 import (
 	"fmt"
+	"slices"
 )
 
 type storyRepo struct{}
 
 // BulkCreate implements StoryRepository.
-func (*storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error) {
+func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error) {
 	if len(stories) > 100 {
 		return nil, fmt.Errorf("too many stories")
 	}
@@ -25,7 +26,7 @@ func (*storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error
 		})
 	}
 
-	_, err := BulkInsertTxn(bulkInsertParams{
+	rows, err := BulkInsertTxn(bulkInsertParams{
 		Table: "stories",
 		Columns: []string{
 			"title", "original_title", "order_num", "written_by", "drawn_by", "invented_by", "version",
@@ -37,7 +38,13 @@ func (*storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error
 		return nil, err
 	}
 
-	return stories, nil
+	createdStories, err := s.list(version, true, int(rows))
+	if err != nil {
+		return nil, err
+	}
+	slices.Reverse(createdStories)
+
+	return createdStories, nil
 }
 
 // List implements StoryRepository.
@@ -68,20 +75,20 @@ SELECT
 	i.last_name,
 	i.is_writer,
 	i.is_drawer,
-	i.is_inventor,
+	i.is_inventor
 FROM stories AS s
-INNER JOIN authors AS w ON s.written_by = a.id
-INNER JOIN authors AS d ON s.drawn_by = d.id
-INNER JOIN authors AS i ON s.invented_by = i.id
+LEFT JOIN authors AS w ON s.written_by = w.id
+LEFT JOIN authors AS d ON s.drawn_by = d.id
+LEFT JOIN authors AS i ON s.invented_by = i.id
 WHERE
-	version = $1
+	s.version = $1
 %v;
 `
 
 func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, error) {
 	var queryString string
 	if descending {
-		queryString = fmt.Sprintf(listStoriesSQL, "ORDER BY id DESC %v")
+		queryString = fmt.Sprintf(listStoriesSQL, "ORDER BY s.id DESC %v")
 	}
 	if limit > 0 {
 		queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
@@ -93,46 +100,46 @@ func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, e
 	var stories []*Story
 
 	for rows.Next() {
-		var s *Story
-		var writer *Author
-		var drawer *Author
-		var inventor *Author
+		var s Story
+		var writerBp AuthorBlueprint
+		var drawerBp AuthorBlueprint
+		var inventorBp AuthorBlueprint
 		if err = rows.Scan(
 			&s.ID,
 			&s.Title,
 			&s.OriginalTitle,
 			&s.OrderNumber,
-			&writer.ID,
-			&writer.FirstName,
-			&writer.LastName,
-			&writer.IsWriter,
-			&writer.IsDrawer,
-			&writer.IsInventor,
-			&drawer.ID,
-			&drawer.FirstName,
-			&drawer.LastName,
-			&drawer.IsWriter,
-			&drawer.IsDrawer,
-			&drawer.IsInventor,
-			&inventor.ID,
-			&inventor.FirstName,
-			&inventor.LastName,
-			&inventor.IsWriter,
-			&inventor.IsDrawer,
-			&inventor.IsInventor,
+			&writerBp.ID,
+			&writerBp.FirstName,
+			&writerBp.LastName,
+			&writerBp.IsWriter,
+			&writerBp.IsDrawer,
+			&writerBp.IsInventor,
+			&drawerBp.ID,
+			&drawerBp.FirstName,
+			&drawerBp.LastName,
+			&drawerBp.IsWriter,
+			&drawerBp.IsDrawer,
+			&drawerBp.IsInventor,
+			&inventorBp.ID,
+			&inventorBp.FirstName,
+			&inventorBp.LastName,
+			&inventorBp.IsWriter,
+			&inventorBp.IsDrawer,
+			&inventorBp.IsInventor,
 		); err != nil {
 			return nil, err
 		}
-		if writer.Exists() {
-			s.WrittenBy = writer
+		if writerBp.AuthorExists() {
+			s.WrittenBy = writerBp.ToAuthor()
 		}
-		if drawer.Exists() {
-			s.DrawnBy = drawer
+		if drawerBp.AuthorExists() {
+			s.DrawnBy = drawerBp.ToAuthor()
 		}
-		if inventor.Exists() {
-			s.InventedBy = inventor
+		if inventorBp.AuthorExists() {
+			s.InventedBy = inventorBp.ToAuthor()
 		}
-		stories = append(stories, s)
+		stories = append(stories, &s)
 	}
 
 	return stories, nil

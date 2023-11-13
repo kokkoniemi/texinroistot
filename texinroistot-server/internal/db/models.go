@@ -1,6 +1,7 @@
 package db
 
 import (
+	"reflect"
 	"time"
 )
 
@@ -20,8 +21,44 @@ type Author struct {
 	IsInventor bool   `json:"isInventor"`
 }
 
-func (a *Author) Exists() bool {
-	return a.ID != 0 && len(a.FirstName) > 0
+type AuthorBlueprint struct {
+	ID         interface{}
+	FirstName  interface{}
+	LastName   interface{}
+	IsWriter   interface{}
+	IsDrawer   interface{}
+	IsInventor interface{}
+}
+
+func (a *AuthorBlueprint) AuthorExists() bool {
+	return a.ID != nil
+}
+
+func (a *AuthorBlueprint) ToAuthor() *Author {
+	from := reflect.ValueOf(a).Elem()
+	to := &Author{}
+	t := reflect.TypeOf(to).Elem()
+	v := reflect.ValueOf(to).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		f := v.Field(i)
+		fieldName := t.Field(i).Name
+
+		fromf := from.FieldByName(fieldName)
+		if fromf.IsNil() || !f.IsValid() || !f.CanSet() {
+			continue
+		}
+		switch f.Kind() {
+		case reflect.Int, reflect.Int64:
+			f.SetInt(fromf.Elem().Int())
+		case reflect.Bool:
+			val := fromf.Elem().Bool()
+			f.SetBool(val)
+		case reflect.String:
+			f.SetString(fromf.Elem().String())
+		}
+	}
+
+	return to
 }
 
 type Version struct {

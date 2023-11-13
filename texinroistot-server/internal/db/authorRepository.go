@@ -75,17 +75,20 @@ func (*authorRepo) list(version Version, descending bool, limit int) ([]*Author,
 	var authors []*Author
 
 	for rows.Next() {
-		var a Author
-		if err = rows.Scan(&a.ID,
-			&a.FirstName,
-			&a.LastName,
-			&a.IsWriter,
-			&a.IsDrawer,
-			&a.IsInventor,
+		var aBp AuthorBlueprint
+		if err = rows.Scan(
+			&aBp.ID,
+			&aBp.FirstName,
+			&aBp.LastName,
+			&aBp.IsWriter,
+			&aBp.IsDrawer,
+			&aBp.IsInventor,
 		); err != nil {
 			return nil, err
 		}
-		authors = append(authors, &a)
+		if aBp.AuthorExists() {
+			authors = append(authors, aBp.ToAuthor())
+		}
 	}
 
 	return authors, nil
@@ -109,20 +112,23 @@ func (*authorRepo) Read(authorID int) (*Author, error) {
 	if err != nil {
 		return nil, err
 	}
-	var a Author
+	var aBp AuthorBlueprint
 	for rows.Next() {
 		if err = rows.Scan(
-			&a.ID,
-			&a.FirstName,
-			&a.LastName,
-			&a.IsWriter,
-			&a.IsDrawer,
-			&a.IsInventor,
+			&aBp.ID,
+			&aBp.FirstName,
+			&aBp.LastName,
+			&aBp.IsWriter,
+			&aBp.IsDrawer,
+			&aBp.IsInventor,
 		); err != nil {
 			return nil, err
 		}
 	}
-	return &a, nil
+	if aBp.AuthorExists() {
+		return aBp.ToAuthor(), nil
+	}
+	return nil, fmt.Errorf("corrupted author data")
 }
 
 func NewAuthorRepository() AuthorRepository {
