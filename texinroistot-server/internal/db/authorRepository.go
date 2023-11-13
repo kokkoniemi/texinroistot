@@ -2,8 +2,7 @@ package db
 
 import (
 	"fmt"
-
-	"github.com/lib/pq"
+	"slices"
 )
 
 type authorRepo struct{}
@@ -14,56 +13,32 @@ func (a *authorRepo) BulkCreate(authors []*Author, version Version) ([]*Author, 
 		return nil, fmt.Errorf("too many authors")
 	}
 
-	txn, err := StartTransaction()
-	if err != nil {
-		return nil, err
-	}
-
-	stmt, err := txn.Prepare(pq.CopyIn(
-		"authors",
-		"first_name",
-		"last_name",
-		"is_writer",
-		"is_drawer",
-		"is_inventor",
-		"version",
-	))
-	if err != nil {
-		return nil, err
-	}
-
+	var values [][]interface{}
 	for _, a := range authors {
-		_, err = stmt.Exec(a.FirstName, a.LastName, a.IsWriter, a.IsDrawer, a.IsInventor, version.ID)
-		if err != nil {
-			return nil, err
-		}
+		values = append(values, []interface{}{
+			a.FirstName, a.LastName, a.IsWriter, a.IsDrawer, a.IsInventor, version.ID,
+		})
 	}
 
-	res, err := stmt.Exec()
+	rows, err := BulkInsertTxn(bulkInsertParams{
+		Table: "authors",
+		Columns: []string{
+			"first_name", "last_name", "is_writer", "is_drawer", "is_inventor", "version",
+		},
+		Values: values,
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	err = stmt.Close()
+	createdAuthors, err := a.list(version, true, int(rows))
 	if err != nil {
 		return nil, err
 	}
+	slices.Reverse(createdAuthors)
 
-	err = txn.Commit()
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if int(rows) != len(authors) {
-		return nil, fmt.Errorf("something went wrong creating authors")
-	}
-
-	return a.list(version, true, int(rows))
+	return createdAuthors, nil
 }
 
 // List implements AuthorRepository.

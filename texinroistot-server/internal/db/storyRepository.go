@@ -2,8 +2,6 @@ package db
 
 import (
 	"fmt"
-
-	"github.com/lib/pq"
 )
 
 type storyRepo struct{}
@@ -14,61 +12,29 @@ func (*storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error
 		return nil, fmt.Errorf("too many stories")
 	}
 
-	txn, err := StartTransaction()
-	if err != nil {
-		return nil, err
-	}
-
-	stmt, err := txn.Prepare(pq.CopyIn(
-		"stories",
-		"title",
-		"original_title",
-		"order_num",
-		"written_by",
-		"drawn_by",
-		"invented_by",
-		"version",
-	))
-	if err != nil {
-		return nil, err
-	}
-
+	var values [][]interface{}
 	for _, s := range stories {
-		_, err = stmt.Exec(
+		values = append(values, []interface{}{
 			s.Title,
 			s.GetOriginalTitleForDB(),
 			s.GetOrderNumberForDB(),
 			s.GetWriterIDForDB(),
 			s.GetDrawerIDForDB(),
 			s.GetInventorIDForDB(),
-			version.ID)
-		if err != nil {
-			return nil, err
-		}
+			version.ID,
+		})
 	}
 
-	res, err := stmt.Exec()
+	_, err := BulkInsertTxn(bulkInsertParams{
+		Table: "stories",
+		Columns: []string{
+			"title", "original_title", "order_num", "written_by", "drawn_by", "invented_by", "version",
+		},
+		Values: values,
+	})
+
 	if err != nil {
 		return nil, err
-	}
-
-	err = stmt.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if int(rows) != len(stories) {
-		return nil, fmt.Errorf("something went wrong when creating stories")
 	}
 
 	return stories, nil
