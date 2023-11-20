@@ -16,8 +16,7 @@ func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, err
 	var values [][]interface{}
 	for _, s := range stories {
 		values = append(values, []interface{}{
-			s.Title,
-			s.GetOriginalTitleForDB(),
+			s.Hash,
 			s.GetOrderNumberForDB(),
 			s.GetWriterIDForDB(),
 			s.GetDrawerIDForDB(),
@@ -29,7 +28,7 @@ func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, err
 	rows, err := BulkInsertTxn(bulkInsertParams{
 		Table: "stories",
 		Columns: []string{
-			"title", "original_title", "order_num", "written_by", "drawn_by", "invented_by", "version",
+			"hash", "order_num", "written_by", "drawn_by", "invented_by", "version",
 		},
 		Values: values,
 	})
@@ -55,22 +54,24 @@ func (s *storyRepo) List(version Version) ([]*Story, error) {
 const listStoriesSQL = `
 SELECT
 	s.id,
-	s.title,
-	s.original_title,
+	s.hash,
 	s.order_num,
 	w.id,
+	w.hash,
 	w.first_name,
 	w.last_name,
 	w.is_writer,
 	w.is_drawer,
 	w.is_inventor,
 	d.id,
+	d.hash,
 	d.first_name,
 	d.last_name,
 	d.is_writer,
 	d.is_drawer,
 	d.is_inventor,
 	i.id,
+	i.hash,
 	i.first_name,
 	i.last_name,
 	i.is_writer,
@@ -106,22 +107,24 @@ func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, e
 		var inventorBp AuthorBlueprint
 		if err = rows.Scan(
 			&s.ID,
-			&s.Title,
-			&s.OriginalTitle,
+			&s.Hash,
 			&s.OrderNumber,
 			&writerBp.ID,
+			&writerBp.Hash,
 			&writerBp.FirstName,
 			&writerBp.LastName,
 			&writerBp.IsWriter,
 			&writerBp.IsDrawer,
 			&writerBp.IsInventor,
 			&drawerBp.ID,
+			&drawerBp.Hash,
 			&drawerBp.FirstName,
 			&drawerBp.LastName,
 			&drawerBp.IsWriter,
 			&drawerBp.IsDrawer,
 			&drawerBp.IsInventor,
 			&inventorBp.ID,
+			&inventorBp.Hash,
 			&inventorBp.FirstName,
 			&inventorBp.LastName,
 			&inventorBp.IsWriter,

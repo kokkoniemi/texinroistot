@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/kokkoniemi/texinroistot/internal/crypt"
 	"github.com/kokkoniemi/texinroistot/internal/db"
 	"github.com/xuri/excelize/v2"
 )
@@ -51,6 +52,7 @@ func parseExcel() error {
 
 	var authors []*db.Author
 	var stories []*db.Story
+	var publications []*db.Publication
 
 	for i, row := range rows[1:] {
 		// Todo: remove after the function is ready
@@ -70,10 +72,22 @@ func parseExcel() error {
 
 		// create villains & attach them to stories
 
-		// create publications & attach stories to them
+		// create publications
+		publications, story, err = handleBasePublications(publications, story, row, "pub_year", "pub_from", "pub_to")
+		if err != nil {
+			return err
+		}
+		publications, story, err = handleBasePublications(publications, story, row, "repub_year", "repub_from", "repub_to")
+		if err != nil {
+			return err
+		}
+		publications, story, err = handleBasePublications(publications, story, row, "italy_year", "italy_pub_from", "italy_pub_to")
+		if err != nil {
+			return err
+		}
 
 		storyIdx := slices.IndexFunc(stories, func(s *db.Story) bool {
-			return s.Title == story.Title
+			return s.Hash == story.Hash
 		})
 		if storyIdx == -1 {
 			stories = append(stories, story)
@@ -108,6 +122,117 @@ func parseExcel() error {
 	return nil
 }
 
+func getPublishedAnnualCount(year int) int {
+	if year == 1953 {
+		return 25
+	}
+	if year == 1954 || year == 1965 {
+		return 27
+	}
+	if year >= 1955 && year <= 1964 {
+		return 26
+	}
+	if year == 1971 || year == 1972 || (year >= 1974 && year <= 1978) {
+		return 12
+	}
+	if year == 1973 {
+		return 11
+	}
+	if year == 1979 {
+		return 13
+	}
+	if year >= 1980 {
+		return 16
+	}
+	return 0
+
+}
+
+func getPublicationType(key string) string {
+	if key == "pub_year" || key == "repub_year" {
+		return "perus"
+	}
+	if key == "italy_year" {
+		return "italia_perus"
+	}
+	return ""
+}
+
+func parseIssueNum(key string) (int, error) {
+	parts := strings.Split(key, "(")
+	key = parts[0]
+	parts = strings.Split(key, "/")
+	key = parts[len(parts)-1]
+	return strconv.Atoi(key)
+}
+
+func handleBasePublications(publications []*db.Publication, story *db.Story, row []string, ykey string, fkey string, tokey string) ([]*db.Publication, *db.Story, error) {
+	year, err := strconv.Atoi(getValue(row, ykey))
+	if err != nil {
+		return nil, nil, err
+	}
+	from, err := parseIssueNum(getValue(row, fkey))
+	if err != nil {
+		return nil, nil, err
+	}
+	to, err := parseIssueNum(getValue(row, tokey))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if year == 0 {
+		return publications, story, nil
+	}
+	if from == 0 {
+		from = to
+	}
+	if to == 0 {
+		to = from
+	}
+
+	type issue struct {
+		year int
+		num  int
+	}
+	var issues []issue
+
+	upTo := to
+	if to < from {
+		upTo = getPublishedAnnualCount(year)
+	}
+
+	// fill issues
+	for i := from; i <= upTo; i++ {
+		issues = append(issues, issue{year: year, num: i})
+	}
+
+	if to < from {
+		for i := 1; i <= to; i++ {
+			issues = append(issues, issue{year: year + 1, num: i})
+		}
+	}
+
+	for _, iss := range issues {
+		pubType := getPublicationType(ykey)
+		pub := &db.Publication{
+			Hash:  crypt.Hash(pubType + string(iss.year) + string(iss.num)),
+			Type:  pubType,
+			Year:  year,
+			Issue: string(iss.num),
+		}
+		pubIndex := slices.IndexFunc(publications, func(p *db.Publication) bool {
+			return p.Hash == pub.Hash
+		})
+		if pubIndex == -1 {
+			publications = append(publications, pub)
+		}
+	}
+
+	// attach story to publication
+
+	return publications, story, nil
+}
+
 func findMatchingAuthor(authors []*db.Author, author *db.Author) *db.Author {
 	authorIdx := slices.IndexFunc(authors, func(a *db.Author) bool {
 		return a.FirstName == author.FirstName && a.LastName == author.LastName
@@ -121,10 +246,16 @@ func createStory(row []string) (*db.Story, error) {
 		return nil, err
 	}
 
+	hash := ""
+	if orderNum != 0 {
+		hash = crypt.Hash(string(orderNum))
+	} else {
+		hash = crypt.Hash(getValue(row, "story_title"))
+	}
+
 	return &db.Story{
-		Title:         getValue(row, "story_title"),
-		OriginalTitle: getValue(row, "italy_story_title"),
-		OrderNumber:   orderNum,
+		Hash:        hash,
+		OrderNumber: orderNum,
 	}, nil
 }
 
@@ -150,6 +281,7 @@ func handleAuthors(authors []*db.Author, story *db.Story, row []string, key stri
 		})
 		if authorIdx == -1 {
 			author = &db.Author{
+				Hash:      crypt.Hash(firstName + lastName),
 				FirstName: firstName,
 				LastName:  lastName,
 			}

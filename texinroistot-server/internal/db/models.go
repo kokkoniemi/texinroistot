@@ -6,14 +6,15 @@ import (
 )
 
 type User struct {
-	ID        int
+	ID        int       `json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 	Hash      string    `json:"hash"`
 	IsAdmin   bool      `json:"isAdmin"`
 }
 
 type Author struct {
-	ID         int
+	ID         int    `json:"-"`
+	Hash       string `json:"hash"`
 	FirstName  string `json:"firstName"`
 	LastName   string `json:"lastName"`
 	IsWriter   bool   `json:"isWriter"`
@@ -23,6 +24,7 @@ type Author struct {
 
 type AuthorBlueprint struct {
 	ID         interface{}
+	Hash       interface{}
 	FirstName  interface{}
 	LastName   interface{}
 	IsWriter   interface{}
@@ -34,6 +36,7 @@ func (a *AuthorBlueprint) AuthorExists() bool {
 	return a.ID != nil
 }
 
+// ToAuthor converts AuthorBlueprint to corresponding Author struct
 func (a *AuthorBlueprint) ToAuthor() *Author {
 	from := reflect.ValueOf(a).Elem()
 	to := &Author{}
@@ -67,15 +70,24 @@ type Version struct {
 	IsActive  bool      `json:"isActive"`
 }
 
+// Publication may have multiple stories and a story can be published in multiple publications
 type Publication struct {
-	ID    int
+	ID    int    `json:"-"`
+	Hash  string `json:"hash"`
 	Type  string `json:"type"`
 	Year  int    `json:"year"`
 	Issue string `json:"issue"`
 }
 
+type StoryPublication struct {
+	ID    int          `json:"-"`
+	Title string       `json:"title"`
+	In    *Publication `json:"in"`
+}
+
 type Villain struct {
-	ID         int
+	ID         int      `json:"-"`
+	Hash       string   `json:"hash"`
 	Ranks      []string `json:"ranks"`
 	FirstNames []string `json:"firstNames"`
 	LastName   string   `json:"lastName"`
@@ -86,20 +98,13 @@ type Villain struct {
 }
 
 type Story struct {
-	ID            int
-	Title         string `json:"title"`
-	OriginalTitle string `json:"originalTitle"`
-	OrderNumber   int    `json:"orderNumber"`
-	WrittenBy     *Author
-	DrawnBy       *Author
-	InventedBy    *Author
-}
-
-func (s *Story) GetOriginalTitleForDB() interface{} {
-	if s.OriginalTitle != "" {
-		return s.OriginalTitle
-	}
-	return nil
+	ID           int                 `json:"-"`
+	Hash         string              `json:"hash"`
+	OrderNumber  int                 `json:"orderNumber"`
+	WrittenBy    *Author             `json:"writtenBy"`
+	DrawnBy      *Author             `json:"drawnBy"`
+	InventedBy   *Author             `json:"inventedBy"`
+	Publications []*StoryPublication `json:"publications"`
 }
 
 func (s *Story) GetOrderNumberForDB() interface{} {
