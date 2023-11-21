@@ -95,15 +95,16 @@ type Villain struct {
 	Aliases    []string `json:"aliases"`
 	Role       string   `json:"role"`
 	Destiny    string   `json:"destiny"`
+	Stories    *Story   `json:"stories"`
 }
 
 type Story struct {
 	ID           int                 `json:"-"`
 	Hash         string              `json:"hash"`
 	OrderNumber  int                 `json:"orderNumber"`
-	WrittenBy    *Author             `json:"writtenBy"`
-	DrawnBy      *Author             `json:"drawnBy"`
-	InventedBy   *Author             `json:"inventedBy"`
+	WrittenBy    []*Author           `json:"writtenBy"`
+	DrawnBy      []*Author           `json:"drawnBy"`
+	InventedBy   []*Author           `json:"inventedBy"`
 	Publications []*StoryPublication `json:"publications"`
 }
 
@@ -114,23 +115,23 @@ func (s *Story) GetOrderNumberForDB() interface{} {
 	return nil
 }
 
-func (s *Story) GetWriterIDForDB() interface{} {
-	if s.WrittenBy != nil {
-		return s.WrittenBy.ID
-	}
-	return nil
-}
+// func (s *Story) GetWriterIDForDB() interface{} {
+// 	if s.WrittenBy != nil {
+// 		return s.WrittenBy.ID
+// 	}
+// 	return nil
+// }
 
-func (s *Story) GetDrawerIDForDB() interface{} {
-	if s.DrawnBy != nil {
-		return s.DrawnBy.ID
-	}
-	return nil
-}
+// func (s *Story) GetDrawerIDForDB() interface{} {
+// 	if s.DrawnBy != nil {
+// 		return s.DrawnBy.ID
+// 	}
+// 	return nil
+// }
 
-func (s *Story) GetInventorIDForDB() interface{} {
-	if s.InventedBy != nil {
-		return s.InventedBy.ID
-	}
-	return nil
-}
+// func (s *Story) GetInventorIDForDB() interface{} {
+// 	if s.InventedBy != nil {
+// 		return s.InventedBy.ID
+// 	}
+// 	return nil
+// }

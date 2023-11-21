@@ -18,9 +18,10 @@ func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, err
 		values = append(values, []interface{}{
 			s.Hash,
 			s.GetOrderNumberForDB(),
-			s.GetWriterIDForDB(),
-			s.GetDrawerIDForDB(),
-			s.GetInventorIDForDB(),
+			// TODO: FIX many2many issue
+			//s.GetWriterIDForDB(),
+			//s.GetDrawerIDForDB(),
+			//s.GetInventorIDForDB(),
 			version.ID,
 		})
 	}
@@ -133,15 +134,16 @@ func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, e
 		); err != nil {
 			return nil, err
 		}
-		if writerBp.AuthorExists() {
-			s.WrittenBy = writerBp.ToAuthor()
-		}
-		if drawerBp.AuthorExists() {
-			s.DrawnBy = drawerBp.ToAuthor()
-		}
-		if inventorBp.AuthorExists() {
-			s.InventedBy = inventorBp.ToAuthor()
-		}
+		// FIXME: fix many-2-many issue in db model
+		// if writerBp.AuthorExists() {
+		// 	s.WrittenBy = writerBp.ToAuthor()
+		// }
+		// if drawerBp.AuthorExists() {
+		// 	s.DrawnBy = drawerBp.ToAuthor()
+		// }
+		// if inventorBp.AuthorExists() {
+		// 	s.InventedBy = inventorBp.ToAuthor()
+		// }
 		stories = append(stories, &s)
 	}
 
