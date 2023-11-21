@@ -18,6 +18,14 @@ type row struct {
 	columns  []string
 }
 
+func (r row) getValue(key string) string {
+	index, ok := r.importer.columnIndexes[key]
+	if !ok {
+		return ""
+	}
+	return r.columns[index]
+}
+
 type importerAuthor struct {
 	ID   id
 	item *db.Author
@@ -82,14 +90,6 @@ var defaultColumns = map[string]string{
 	"Italian tarina":           "italy_story_title",
 	"Järjestysluku":            "story_order_num",
 	"Sama numero, sama roisto": "villain_id",
-}
-
-func (r row) getValue(key string) string {
-	index, ok := r.importer.columnIndexes[key]
-	if !ok {
-		return ""
-	}
-	return r.columns[index]
 }
 
 type sprdImporter struct {

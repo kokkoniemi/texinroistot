@@ -34,7 +34,10 @@ func parseExcel() error {
 	}
 
 	importer := admin.NewSpreadsheetImporter(rows[0])
-	importer.LoadData(rows[1:])
+	err = importer.LoadData(rows[1:])
+	if err != nil {
+		return err
+	}
 	importer.SaveData()
 
 	return nil
