@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-type sprdImporter struct {
+type Importer struct {
 	authors           []*importerAuthor
 	stories           []*importerStory
 	publications      []*importerPublication
@@ -16,7 +16,7 @@ type sprdImporter struct {
 	totalEntities     uint64
 }
 
-func NewSpreadsheetImporter(titleRow []string) *sprdImporter {
+func NewSpreadsheetImporter(titleRow []string) *Importer {
 	columnNames := defaultColumns
 	columnIndexes := map[string]int{}
 
@@ -25,14 +25,14 @@ func NewSpreadsheetImporter(titleRow []string) *sprdImporter {
 		columnIndexes[key] = index
 	}
 
-	return &sprdImporter{
+	return &Importer{
 		columnNames:   defaultColumns,
 		columnIndexes: columnIndexes,
 		totalEntities: 0,
 	}
 }
 
-func (i *sprdImporter) LoadData(dataRows [][]string) error {
+func (i *Importer) LoadData(dataRows [][]string) error {
 	for index, dataRow := range dataRows {
 		if index > 1000 { // FIXME: remove after importer is ready
 			break
@@ -62,7 +62,7 @@ func (i *sprdImporter) LoadData(dataRows [][]string) error {
 	return nil
 }
 
-func (i *sprdImporter) SaveData() error {
+func (i *Importer) SaveData() error {
 	fmt.Println(i)
 
 	// versionRepo := db.NewVersionRepository()
@@ -81,7 +81,7 @@ func (i *sprdImporter) SaveData() error {
 
 type id uint64
 type row struct {
-	importer *sprdImporter
+	importer *Importer
 	index    int
 	cells    []string
 }

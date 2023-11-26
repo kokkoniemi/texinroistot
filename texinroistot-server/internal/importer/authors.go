@@ -13,7 +13,7 @@ type importerAuthor struct {
 	item *db.Author
 }
 
-func (i *sprdImporter) importWriters(storyID id, r row) {
+func (i *Importer) importWriters(storyID id, r row) {
 	writers := i.loadAuthorColumn(r, "story_written_by")
 	for _, writer := range writers {
 		writer.item.IsWriter = true
@@ -21,7 +21,7 @@ func (i *sprdImporter) importWriters(storyID id, r row) {
 	}
 }
 
-func (i *sprdImporter) importDrawer(storyID id, r row) {
+func (i *Importer) importDrawer(storyID id, r row) {
 	drawers := i.loadAuthorColumn(r, "story_drawn_by")
 	for _, drawer := range drawers {
 		drawer.item.IsDrawer = true
@@ -29,7 +29,7 @@ func (i *sprdImporter) importDrawer(storyID id, r row) {
 	}
 }
 
-func (i *sprdImporter) importInventor(storyID id, r row) {
+func (i *Importer) importInventor(storyID id, r row) {
 	inventors := i.loadAuthorColumn(r, "story_invented_by")
 	for _, inventor := range inventors {
 		inventor.item.IsInventor = true
@@ -37,17 +37,17 @@ func (i *sprdImporter) importInventor(storyID id, r row) {
 	}
 }
 
-func (i *sprdImporter) getAuthorIndexWithName(firstName string, lastName string) int {
+func (i *Importer) getAuthorIndexWithName(firstName string, lastName string) int {
 	return slices.IndexFunc(i.authors, func(a *importerAuthor) bool {
 		return a.item.FirstName == firstName && a.item.LastName == lastName
 	})
 }
 
-func (i *sprdImporter) hasAuthorWithName(firstName string, lastName string) bool {
+func (i *Importer) hasAuthorWithName(firstName string, lastName string) bool {
 	return i.getAuthorIndexWithName(firstName, lastName) != -1
 }
 
-func (i *sprdImporter) getAuthorWithName(firstName string, lastName string) *importerAuthor {
+func (i *Importer) getAuthorWithName(firstName string, lastName string) *importerAuthor {
 	idx := i.getAuthorIndexWithName(firstName, lastName)
 	if idx != -1 {
 		return i.authors[idx]
@@ -55,7 +55,7 @@ func (i *sprdImporter) getAuthorWithName(firstName string, lastName string) *imp
 	return nil
 }
 
-func (i *sprdImporter) addAuthor(author *db.Author) *importerAuthor {
+func (i *Importer) addAuthor(author *db.Author) *importerAuthor {
 	i.totalEntities++
 
 	importerAuthor := &importerAuthor{
@@ -68,7 +68,7 @@ func (i *sprdImporter) addAuthor(author *db.Author) *importerAuthor {
 	return importerAuthor
 }
 
-func (i *sprdImporter) loadAuthorColumn(r row, columnName string) []*importerAuthor {
+func (i *Importer) loadAuthorColumn(r row, columnName string) []*importerAuthor {
 	names := strings.Split(r.getValue(columnName), ";")
 	var authors []*importerAuthor
 	for _, n := range names {

@@ -13,4 +13,4 @@ type importerStoryVillain struct {
 	villain id
 }
 
-func (i *sprdImporter) importVillain(storyID id, r row) {}
+func (i *Importer) importVillain(storyID id, r row) {}

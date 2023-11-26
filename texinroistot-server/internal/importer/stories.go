@@ -17,7 +17,7 @@ type importerStory struct {
 	inventors []id
 }
 
-func (i *sprdImporter) importStory(r row) (id, error) {
+func (i *Importer) importStory(r row) (id, error) {
 	orderNumStr := r.getValue("story_order_num")
 
 	orderNum := -1
@@ -55,7 +55,7 @@ func (i *sprdImporter) importStory(r row) (id, error) {
 	return story.ID, nil
 }
 
-func (i *sprdImporter) getStory(storyID id) *importerStory {
+func (i *Importer) getStory(storyID id) *importerStory {
 	storyIdx := slices.IndexFunc(i.stories, func(s *importerStory) bool {
 		return s.ID == storyID
 	})
@@ -65,7 +65,7 @@ func (i *sprdImporter) getStory(storyID id) *importerStory {
 	return nil
 }
 
-func (i *sprdImporter) getStoryWithHash(hash string) *importerStory {
+func (i *Importer) getStoryWithHash(hash string) *importerStory {
 	storyIdx := slices.IndexFunc(i.stories, func(s *importerStory) bool {
 		return s.item.Hash == hash
 	})
@@ -75,11 +75,11 @@ func (i *sprdImporter) getStoryWithHash(hash string) *importerStory {
 	return nil
 }
 
-func (i *sprdImporter) hasStoryWithHash(hash string) bool {
+func (i *Importer) hasStoryWithHash(hash string) bool {
 	return i.getStoryWithHash(hash) != nil
 }
 
-func (i *sprdImporter) addStory(story *db.Story) *importerStory {
+func (i *Importer) addStory(story *db.Story) *importerStory {
 	i.totalEntities++
 
 	importerStory := &importerStory{
@@ -95,21 +95,21 @@ func (i *sprdImporter) addStory(story *db.Story) *importerStory {
 	return importerStory
 }
 
-func (i *sprdImporter) setWriterForStory(storyID id, writerID id) {
+func (i *Importer) setWriterForStory(storyID id, writerID id) {
 	story := i.getStory(storyID)
 	if story != nil && !slices.Contains(story.writers, writerID) {
 		story.writers = append(story.writers, writerID)
 	}
 }
 
-func (i *sprdImporter) setDrawerForStory(storyID id, drawerID id) {
+func (i *Importer) setDrawerForStory(storyID id, drawerID id) {
 	story := i.getStory(storyID)
 	if story != nil && !slices.Contains(story.drawers, drawerID) {
 		story.drawers = append(story.drawers, drawerID)
 	}
 }
 
-func (i *sprdImporter) setInventorForStory(storyID id, inventorID id) {
+func (i *Importer) setInventorForStory(storyID id, inventorID id) {
 	story := i.getStory(storyID)
 	if story != nil && !slices.Contains(story.inventors, inventorID) {
 		story.inventors = append(story.inventors, inventorID)

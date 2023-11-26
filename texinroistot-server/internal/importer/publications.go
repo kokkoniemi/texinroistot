@@ -22,7 +22,7 @@ type importerStoryPublication struct {
 	title       string
 }
 
-func (i *sprdImporter) addPublication(pub *db.Publication) *importerPublication {
+func (i *Importer) addPublication(pub *db.Publication) *importerPublication {
 	i.totalEntities++
 
 	importerPublication := &importerPublication{
@@ -34,7 +34,7 @@ func (i *sprdImporter) addPublication(pub *db.Publication) *importerPublication 
 	return importerPublication
 }
 
-func (i *sprdImporter) addStoryPublication(storyID id, pubID id, title string) *importerStoryPublication {
+func (i *Importer) addStoryPublication(storyID id, pubID id, title string) *importerStoryPublication {
 	i.totalEntities++
 
 	importerStoryPublication := &importerStoryPublication{
@@ -48,13 +48,13 @@ func (i *sprdImporter) addStoryPublication(storyID id, pubID id, title string) *
 	return importerStoryPublication
 }
 
-func (i *sprdImporter) hasStoryPublication(storyID id, pubID id) bool {
+func (i *Importer) hasStoryPublication(storyID id, pubID id) bool {
 	return slices.IndexFunc(i.storyPublications, func(sp *importerStoryPublication) bool {
 		return sp.story == storyID && sp.publication == pubID
 	}) != -1
 }
 
-func (i *sprdImporter) importBasePublication(storyID id, r row) error {
+func (i *Importer) importBasePublication(storyID id, r row) error {
 	year, err := strconv.Atoi(r.getValue("pub_year"))
 	if err != nil {
 		return err
@@ -102,19 +102,19 @@ func (i *sprdImporter) importBasePublication(storyID id, r row) error {
 	return nil
 }
 
-func (i *sprdImporter) importBaseRePublication(storyID id, r row) {}
+func (i *Importer) importBaseRePublication(storyID id, r row) {}
 
-func (i *sprdImporter) importItalianBasePublication(storyID id, r row) {}
+func (i *Importer) importItalianBasePublication(storyID id, r row) {}
 
-func (i *sprdImporter) importSpecialPublication(storyID id, r row) {}
+func (i *Importer) importSpecialPublication(storyID id, r row) {}
 
-func (i *sprdImporter) importItalianSpecialPublication(storyID id, r row) {}
+func (i *Importer) importItalianSpecialPublication(storyID id, r row) {}
 
-func (i *sprdImporter) importKronikka(storyID id, r row) {}
+func (i *Importer) importKronikka(storyID id, r row) {}
 
-func (i *sprdImporter) importKirjasto(storyID id, r row) {}
+func (i *Importer) importKirjasto(storyID id, r row) {}
 
-func (i *sprdImporter) parseIssueNum(val string) (int, error) {
+func (i *Importer) parseIssueNum(val string) (int, error) {
 	parts := strings.Split(val, "(")
 	val = parts[0]
 	parts = strings.Split(val, "/")
@@ -122,7 +122,7 @@ func (i *sprdImporter) parseIssueNum(val string) (int, error) {
 	return strconv.Atoi(val)
 }
 
-func (i *sprdImporter) hasPublicationWithHash(hash string) bool {
+func (i *Importer) hasPublicationWithHash(hash string) bool {
 	return slices.IndexFunc(i.publications, func(p *importerPublication) bool {
 		return p.item.Hash == hash
 	}) != -1
