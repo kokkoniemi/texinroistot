@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/kokkoniemi/texinroistot/internal/admin"
+	"github.com/kokkoniemi/texinroistot/internal/importer"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -33,11 +33,12 @@ func parseExcel() error {
 		return fmt.Errorf("no content")
 	}
 
-	importer := admin.NewSpreadsheetImporter(rows[0])
+	importer := importer.NewSpreadsheetImporter(rows[0])
 	err = importer.LoadData(rows[1:])
 	if err != nil {
 		return err
 	}
+
 	importer.SaveData()
 
 	return nil
