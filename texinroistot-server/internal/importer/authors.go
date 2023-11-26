@@ -33,7 +33,7 @@ func (i *sprdImporter) importInventor(storyID id, r row) {
 	inventors := i.loadAuthorColumn(r, "story_invented_by")
 	for _, inventor := range inventors {
 		inventor.item.IsInventor = true
-		i.setDrawerForStory(storyID, inventor.ID)
+		i.setInventorForStory(storyID, inventor.ID)
 	}
 }
 
