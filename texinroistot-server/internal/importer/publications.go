@@ -22,6 +22,17 @@ type importerStoryPublication struct {
 	title       string
 }
 
+const (
+	PUB_PERUS    = "perus"
+	PUB_MAXI     = "maxi"
+	PUB_SUUR     = "suur"
+	PUB_MUU      = "muu_erikois"
+	PUB_KRONIKKA = "kronikka"
+	PUB_KIRJASTO = "kirjasto"
+	PUB_IT_PERUS = "italia_perus"
+	PUB_IT_ERIK  = "italia_erikois"
+)
+
 func (i *importer) addPublication(pub *db.Publication) *importerPublication {
 	i.totalEntities++
 
@@ -54,16 +65,33 @@ func (i *importer) hasStoryPublication(storyID id, pubID id) bool {
 	}) != -1
 }
 
-func (i *importer) importBasePublication(storyID id, r row) error {
-	year, err := strconv.Atoi(r.getValue("pub_year"))
+func (i *importer) handleBasePublications(
+	storyID id,
+	r row,
+	pubType string,
+	titleCol string,
+	titleIndex int,
+	yearCol string,
+	fromCol string,
+	toCol string,
+) error {
+	yearVal := r.getValue(yearCol)
+	fromVal := r.getValue(fromCol)
+	toVal := r.getValue(toCol)
+
+	if len(fromVal) == 0 || len(toVal) == 0 || len(yearVal) == 0 {
+		return nil
+	}
+
+	year, err := strconv.Atoi(yearVal)
 	if err != nil {
 		return err
 	}
-	from, err := i.parseIssueNum(r.getValue("pub_from"))
+	from, err := i.parseIssueNum(fromVal)
 	if err != nil {
 		return err
 	}
-	to, err := i.parseIssueNum(r.getValue("pub_to"))
+	to, err := i.parseIssueNum(toVal)
 	if err != nil {
 		return err
 	}
@@ -78,13 +106,16 @@ func (i *importer) importBasePublication(storyID id, r row) error {
 		to = from
 	}
 
-	titles := strings.Split(r.getValue("story_title"), ";")
+	titles := strings.Split(r.getValue(titleCol), ";")
 	if len(titles) == 0 {
 		return fmt.Errorf("title is missing")
 	}
+	title := titles[0]
+	if len(titles) >= titleIndex+1 {
+		title = titles[titleIndex]
+	}
 
 	for _, issue := range getIssuesBetween(from, to, year) {
-		pubType := "perus"
 		pub := &db.Publication{
 			Hash:  crypt.Hash(fmt.Sprintf("%s%v%v", pubType, issue["year"], issue["num"])),
 			Type:  pubType,
@@ -94,7 +125,7 @@ func (i *importer) importBasePublication(storyID id, r row) error {
 		if !i.hasPublicationWithHash(pub.Hash) {
 			importerPublication := i.addPublication(pub)
 			if !i.hasStoryPublication(storyID, importerPublication.ID) {
-				i.addStoryPublication(storyID, importerPublication.ID, titles[0])
+				i.addStoryPublication(storyID, importerPublication.ID, title)
 			}
 		}
 	}
@@ -102,9 +133,23 @@ func (i *importer) importBasePublication(storyID id, r row) error {
 	return nil
 }
 
-func (i *importer) importBaseRePublication(storyID id, r row) {}
+func (i *importer) importBasePublication(storyID id, r row) error {
+	return i.handleBasePublications(
+		storyID, r, PUB_PERUS, "story_title", 0, "pub_year", "pub_from",
+		"pub_to")
+}
 
-func (i *importer) importItalianBasePublication(storyID id, r row) {}
+func (i *importer) importBaseRePublication(storyID id, r row) error {
+	return i.handleBasePublications(
+		storyID, r, PUB_PERUS, "story_title", 1, "repub_year", "repub_from",
+		"repub_to")
+}
+
+func (i *importer) importItalianBasePublication(storyID id, r row) error {
+	return i.handleBasePublications(
+		storyID, r, PUB_IT_PERUS, "italy_story_title", 1, "italy_year",
+		"italy_pub_from", "italy_pub_to")
+}
 
 func (i *importer) importSpecialPublication(storyID id, r row) {}
 
@@ -150,7 +195,7 @@ func getPublishedAnnualCount(year int) int {
 	if year >= 1980 {
 		return 16
 	}
-	return 0
+	return 99999
 
 }
 

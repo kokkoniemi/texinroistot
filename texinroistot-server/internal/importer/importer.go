@@ -50,8 +50,14 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		if err != nil {
 			return err
 		}
-		i.importBaseRePublication(storyID, row)
-		i.importItalianBasePublication(storyID, row)
+		err = i.importBaseRePublication(storyID, row)
+		if err != nil {
+			return err
+		}
+		err = i.importItalianBasePublication(storyID, row)
+		if err != nil {
+			return err
+		}
 		i.importSpecialPublication(storyID, row)
 		i.importItalianSpecialPublication(storyID, row)
 		i.importKronikka(storyID, row)
