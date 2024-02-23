@@ -58,8 +58,14 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		if err != nil {
 			return err
 		}
-		i.importSpecialPublication(storyID, row)
-		i.importItalianSpecialPublication(storyID, row)
+		err = i.importSpecialPublication(storyID, row)
+		if err != nil {
+			return err
+		}
+		err = i.importItalianSpecialPublication(storyID, row)
+		if err != nil {
+			return err
+		}
 		i.importKronikka(storyID, row)
 		i.importKirjasto(storyID, row)
 		i.importVillain(storyID, row)
@@ -97,8 +103,8 @@ func (r row) getValue(key string) string {
 	if !ok {
 		return ""
 	}
-	if len(r.cells) < index+1 {
-		fmt.Sprintln("no value for key '%s' in row '%v'", key, r.index)
+	if len(r.cells) <= index {
+		fmt.Printf("no value for key '%s' in row '%v'\n", key, r.index)
 		return ""
 	}
 

@@ -147,15 +147,109 @@ func (i *importer) importBaseRePublication(storyID id, r row) error {
 
 func (i *importer) importItalianBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
-		storyID, r, PUB_IT_PERUS, "italy_story_title", 1, "italy_year",
+		storyID, r, PUB_IT_PERUS, "italy_story_title", 0, "italy_year",
 		"italy_pub_from", "italy_pub_to")
 }
 
-func (i *importer) importSpecialPublication(storyID id, r row) {}
+func (i *importer) importSpecialPublication(storyID id, r row) error {
+	val := strings.TrimSpace(r.getValue("pub_special"))
+	if len(val) == 0 {
+		return nil
+	}
 
-func (i *importer) importItalianSpecialPublication(storyID id, r row) {}
+	pubType := PUB_MUU
+	if strings.Contains(strings.ToLower(val), "suuralbumi") {
+		pubType = PUB_SUUR
+	} else if strings.Contains(strings.ToLower(val), "maxi-tex") {
+		pubType = PUB_MAXI
+	}
 
-func (i *importer) importKronikka(storyID id, r row) {}
+	pub := &db.Publication{
+		Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
+		Type:  pubType,
+		Issue: val,
+	}
+
+	titles := strings.Split(r.getValue("story_title"), ";")
+	if len(titles) == 0 {
+		return fmt.Errorf("title is missing")
+	}
+	title := titles[0]
+	if len(titles) >= 3 {
+		title = titles[2]
+	}
+
+	if !i.hasPublicationWithHash(pub.Hash) {
+		importerPublication := i.addPublication(pub)
+		if !i.hasStoryPublication(storyID, importerPublication.ID) {
+			i.addStoryPublication(storyID, importerPublication.ID, title)
+		}
+	}
+
+	return nil
+}
+
+func (i *importer) importItalianSpecialPublication(storyID id, r row) error {
+	val := strings.TrimSpace(r.getValue("italy_pub_special"))
+	if len(val) == 0 {
+		return nil
+	}
+
+	pub := &db.Publication{
+		Hash:  crypt.Hash(fmt.Sprintf("%s%s", PUB_IT_ERIK, val)),
+		Type:  PUB_IT_ERIK,
+		Issue: val,
+	}
+
+	titles := strings.Split(r.getValue("italy_story_title"), ";")
+	if len(titles) == 0 {
+		return fmt.Errorf("title is missing")
+	}
+	title := titles[0]
+	if len(titles) >= 2 {
+		title = titles[1]
+	}
+
+	if !i.hasPublicationWithHash(pub.Hash) {
+		importerPublication := i.addPublication(pub)
+		if !i.hasStoryPublication(storyID, importerPublication.ID) {
+			i.addStoryPublication(storyID, importerPublication.ID, title)
+		}
+	}
+
+	return nil
+}
+
+func (i *importer) importKronikka(storyID id, r row) error {
+	val := strings.TrimSpace(r.getValue("pub_kronikka"))
+	if len(val) == 0 {
+		return nil
+	}
+
+	pub := &db.Publication{
+		Hash:  crypt.Hash(fmt.Sprintf("%s%s", PUB_KRONIKKA, val)),
+		Type:  PUB_KRONIKKA,
+		Issue: val,
+	}
+
+	titles := strings.Split(r.getValue("story_title"), ";")
+	if len(titles) == 0 {
+		return fmt.Errorf("title is missing")
+	}
+	title := titles[0]
+	if len(titles) >= 4 {
+		title = titles[3]
+	}
+
+	if !i.hasPublicationWithHash(pub.Hash) {
+		importerPublication := i.addPublication(pub)
+		if !i.hasStoryPublication(storyID, importerPublication.ID) {
+			i.addStoryPublication(storyID, importerPublication.ID, title)
+		}
+	}
+
+	return nil
+}
 
 func (i *importer) importKirjasto(storyID id, r row) {}
 
