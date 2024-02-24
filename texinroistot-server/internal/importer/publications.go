@@ -83,7 +83,7 @@ func (i *importer) handleBasePublications(
 		return nil
 	}
 
-	year, err := strconv.Atoi(yearVal)
+	year, err := strconv.Atoi(strings.TrimSpace(yearVal))
 	if err != nil {
 		return err
 	}
@@ -251,6 +251,7 @@ func (i *importer) importKronikka(storyID id, r row) error {
 	return nil
 }
 
+// TODO: Implement
 func (i *importer) importKirjasto(storyID id, r row) {}
 
 func (i *importer) parseIssueNum(val string) (int, error) {
@@ -258,7 +259,7 @@ func (i *importer) parseIssueNum(val string) (int, error) {
 	val = parts[0]
 	parts = strings.Split(val, "/")
 	val = parts[0]
-	return strconv.Atoi(val)
+	return strconv.Atoi(strings.TrimSpace(val))
 }
 
 func (i *importer) hasPublicationWithHash(hash string) bool {

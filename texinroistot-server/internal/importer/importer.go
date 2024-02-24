@@ -66,7 +66,10 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		if err != nil {
 			return err
 		}
-		i.importKronikka(storyID, row)
+		err = i.importKronikka(storyID, row)
+		if err != nil {
+			return err
+		}
 		i.importKirjasto(storyID, row)
 		i.importVillain(storyID, row)
 	}

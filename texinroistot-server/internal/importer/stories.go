@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/kokkoniemi/texinroistot/internal/crypt"
 	"github.com/kokkoniemi/texinroistot/internal/db"
@@ -23,7 +24,7 @@ func (i *importer) importStory(r row) (id, error) {
 	orderNum := -1
 
 	if len(orderNumStr) > 0 {
-		parsed, err := strconv.Atoi(orderNumStr)
+		parsed, err := strconv.Atoi(strings.TrimSpace(orderNumStr))
 		if err != nil {
 			return 0, err
 		}
