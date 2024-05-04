@@ -2,6 +2,7 @@ package importer
 
 import (
 	"fmt"
+	"strings"
 )
 
 type importer struct {
@@ -70,7 +71,10 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		if err != nil {
 			return err
 		}
-		i.importKirjasto(storyID, row)
+		err = i.importKirjasto(storyID, row)
+		if err != nil {
+			return err
+		}
 		i.importVillain(storyID, row)
 	}
 
@@ -94,6 +98,14 @@ func (i *importer) SaveData() error {
 	return nil
 }
 
+func (i *importer) TrimmedSplit(str string, delimiter string) []string {
+	values := strings.Split(str, delimiter)
+	for index := range values {
+		values[index] = strings.TrimSpace(values[index])
+	}
+	return values
+}
+
 type id uint64
 type row struct {
 	importer *importer
@@ -115,12 +127,12 @@ func (r row) getValue(key string) string {
 }
 
 var defaultColumns = map[string]string{
-	"Arvo":                     "rank",
-	"Etunimi":                  "first_name",
+	"Arvo":                     "ranks",
+	"Etunimi":                  "first_names",
 	"Sukunimi":                 "last_name",
-	"Lempinimi/Intiaaninimi":   "nickname",
-	"Salanimi/Alias":           "alias",
-	"Rooli":                    "role",
+	"Lempinimi/Intiaaninimi":   "nicknames",
+	"Salanimi/Alias":           "aliases",
+	"Rooli":                    "roles",
 	"Kohtalo":                  "destiny",
 	"Tarina":                   "story_title",
 	"Kertoi":                   "story_written_by",

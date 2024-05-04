@@ -151,6 +151,37 @@ func (i *importer) importItalianBasePublication(storyID id, r row) error {
 		"italy_pub_from", "italy_pub_to")
 }
 
+// parseNonBaseTitle parses the title for publications other than PUB_PERUS, PUB_IT_PERUS, PUB_IT_ERIK
+func (i *importer) parseNonBaseTitle(pubType string, r row) (string, error) {
+	titles := strings.Split(r.getValue("story_title"), ";")
+	if len(titles) == 0 {
+		return "", fmt.Errorf("Could not find title")
+	}
+
+	index := 0
+	incrementIndex := func(fields ...string) {
+		for _, field := range fields {
+			if len(strings.TrimSpace(r.getValue(field))) > 0 {
+				index++
+			}
+		}
+	}
+
+	if pubType == PUB_MAXI || pubType == PUB_SUUR || pubType == PUB_MUU {
+		incrementIndex("pub_from", "repub_from")
+
+	} else if pubType == PUB_KRONIKKA {
+		incrementIndex("pub_from", "repub_from", "pub_special")
+	} else if pubType == PUB_KIRJASTO {
+		incrementIndex("pub_from", "repub_from", "pub_special", "pub_kronikka")
+	}
+
+	if index < len(titles) {
+		return titles[index], nil
+	}
+	return titles[0], nil
+}
+
 func (i *importer) importSpecialPublication(storyID id, r row) error {
 	val := strings.TrimSpace(r.getValue("pub_special"))
 	if len(val) == 0 {
@@ -170,13 +201,9 @@ func (i *importer) importSpecialPublication(storyID id, r row) error {
 		Issue: val,
 	}
 
-	titles := strings.Split(r.getValue("story_title"), ";")
-	if len(titles) == 0 {
-		return fmt.Errorf("title is missing")
-	}
-	title := titles[0]
-	if len(titles) >= 3 {
-		title = titles[2]
+	title, err := i.parseNonBaseTitle(pubType, r)
+	if err != nil {
+		return err
 	}
 
 	if !i.hasPublicationWithHash(pub.Hash) {
@@ -205,9 +232,9 @@ func (i *importer) importItalianSpecialPublication(storyID id, r row) error {
 	if len(titles) == 0 {
 		return fmt.Errorf("title is missing")
 	}
-	title := titles[0]
+	title := strings.TrimSpace(titles[0])
 	if len(titles) >= 2 {
-		title = titles[1]
+		title = strings.TrimSpace(titles[1])
 	}
 
 	if !i.hasPublicationWithHash(pub.Hash) {
@@ -231,14 +258,9 @@ func (i *importer) importKronikka(storyID id, r row) error {
 		Type:  PUB_KRONIKKA,
 		Issue: val,
 	}
-
-	titles := strings.Split(r.getValue("story_title"), ";")
-	if len(titles) == 0 {
-		return fmt.Errorf("title is missing")
-	}
-	title := titles[0]
-	if len(titles) >= 4 {
-		title = titles[3]
+	title, err := i.parseNonBaseTitle(PUB_KRONIKKA, r)
+	if err != nil {
+		return err
 	}
 
 	if !i.hasPublicationWithHash(pub.Hash) {
@@ -251,8 +273,31 @@ func (i *importer) importKronikka(storyID id, r row) error {
 	return nil
 }
 
-// TODO: Implement
-func (i *importer) importKirjasto(storyID id, r row) {}
+func (i *importer) importKirjasto(storyID id, r row) error {
+	val := strings.TrimSpace(r.getValue("pub_kirjasto"))
+	if len(val) == 0 {
+		return nil
+	}
+
+	pub := &db.Publication{
+		Hash:  crypt.Hash(fmt.Sprintf("%s%s", PUB_KIRJASTO, val)),
+		Type:  PUB_KIRJASTO,
+		Issue: val,
+	}
+	title, err := i.parseNonBaseTitle(PUB_KRONIKKA, r)
+	if err != nil {
+		return err
+	}
+
+	if !i.hasPublicationWithHash(pub.Hash) {
+		importerPublication := i.addPublication(pub)
+		if !i.hasStoryPublication(storyID, importerPublication.ID) {
+			i.addStoryPublication(storyID, importerPublication.ID, title)
+		}
+	}
+
+	return nil
+}
 
 func (i *importer) parseIssueNum(val string) (int, error) {
 	parts := strings.Split(val, "(")
@@ -278,11 +323,8 @@ func getPublishedAnnualCount(year int) int {
 	if year >= 1955 && year <= 1964 {
 		return 26
 	}
-	if year == 1971 || year == 1972 || (year >= 1974 && year <= 1978) {
+	if year >= 1971 || year <= 1978 {
 		return 12
-	}
-	if year == 1973 {
-		return 11
 	}
 	if year == 1979 {
 		return 13
@@ -290,7 +332,7 @@ func getPublishedAnnualCount(year int) int {
 	if year >= 1980 {
 		return 16
 	}
-	return 99999
+	return -1
 
 }
 

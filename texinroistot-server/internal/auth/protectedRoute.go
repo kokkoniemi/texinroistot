@@ -17,7 +17,7 @@ func ProtectedRoute(c *fiber.Ctx) error {
 		return fmt.Errorf("unauthorized")
 	}
 
-	// Todo: check that user has admin role
+	// TODO: check that user has admin role
 
 	c.Locals("user", user)
 	return c.Next()
