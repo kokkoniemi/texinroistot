@@ -45,6 +45,12 @@ func (i *importer) addPublication(pub *db.Publication) *importerPublication {
 	return importerPublication
 }
 
+func (i *importer) getPublicationIndexWithHash(hash string) int {
+	return slices.IndexFunc(i.publications, func(p *importerPublication) bool {
+		return p.item.Hash == hash
+	})
+}
+
 func (i *importer) addStoryPublication(storyID id, pubID id, title string) *importerStoryPublication {
 	i.totalEntities++
 
@@ -133,19 +139,19 @@ func (i *importer) handleBasePublications(
 	return nil
 }
 
-func (i *importer) importBasePublication(storyID id, r row) error {
+func (i *importer) loadBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_PERUS, "story_title", 0, "pub_year", "pub_from",
 		"pub_to")
 }
 
-func (i *importer) importBaseRePublication(storyID id, r row) error {
+func (i *importer) loadBaseRePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_PERUS, "story_title", 1, "repub_year", "repub_from",
 		"repub_to")
 }
 
-func (i *importer) importItalianBasePublication(storyID id, r row) error {
+func (i *importer) loadItalianBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_IT_PERUS, "italy_story_title", 0, "italy_year",
 		"italy_pub_from", "italy_pub_to")
@@ -182,7 +188,7 @@ func (i *importer) parseNonBaseTitle(pubType string, r row) (string, error) {
 	return titles[0], nil
 }
 
-func (i *importer) importSpecialPublication(storyID id, r row) error {
+func (i *importer) loadSpecialPublication(storyID id, r row) error {
 	val := strings.TrimSpace(r.getValue("pub_special"))
 	if len(val) == 0 {
 		return nil
@@ -216,7 +222,7 @@ func (i *importer) importSpecialPublication(storyID id, r row) error {
 	return nil
 }
 
-func (i *importer) importItalianSpecialPublication(storyID id, r row) error {
+func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
 	val := strings.TrimSpace(r.getValue("italy_pub_special"))
 	if len(val) == 0 {
 		return nil
@@ -247,7 +253,7 @@ func (i *importer) importItalianSpecialPublication(storyID id, r row) error {
 	return nil
 }
 
-func (i *importer) importKronikka(storyID id, r row) error {
+func (i *importer) loadKronikka(storyID id, r row) error {
 	val := strings.TrimSpace(r.getValue("pub_kronikka"))
 	if len(val) == 0 {
 		return nil
@@ -273,7 +279,7 @@ func (i *importer) importKronikka(storyID id, r row) error {
 	return nil
 }
 
-func (i *importer) importKirjasto(storyID id, r row) error {
+func (i *importer) loadKirjasto(storyID id, r row) error {
 	val := strings.TrimSpace(r.getValue("pub_kirjasto"))
 	if len(val) == 0 {
 		return nil
@@ -311,6 +317,50 @@ func (i *importer) hasPublicationWithHash(hash string) bool {
 	return slices.IndexFunc(i.publications, func(p *importerPublication) bool {
 		return p.item.Hash == hash
 	}) != -1
+}
+
+func (i *importer) getPublicationItems() []*db.Publication {
+	var items []*db.Publication
+
+	for index := range i.publications {
+		items = append(items, i.publications[index].item)
+	}
+
+	return items
+}
+
+// setPublicationItems sets persisted Publications to importer after save to db
+func (i *importer) setPublicationItems(items []*db.Publication) error {
+	if len(items) != len(i.publications) {
+		return fmt.Errorf("Mismatch in the number of Publications")
+	}
+
+	for index := range items {
+		importerIndex := i.getPublicationIndexWithHash(items[index].Hash)
+		if importerIndex == -1 {
+			return fmt.Errorf("Tried to set unknown Publication")
+		}
+		i.publications[importerIndex].item = items[index]
+	}
+
+	return nil
+}
+
+// persistPublications writes Publications loaded in importer to db
+func (i *importer) persistPublications(version *db.Version) error {
+	var err error
+	storyRepo := db.NewStoryRepository()
+	chunks := ChunkSlice(i.getPublicationItems(), db.MaxBulkCreateSize)
+
+	for _, chunk := range chunks {
+		publications, err := storyRepo.BulkCreatePublications(chunk, version)
+		if err != nil {
+			return err
+		}
+
+		err = i.setPublicationItems(publications)
+	}
+	return err
 }
 
 func getPublishedAnnualCount(year int) int {

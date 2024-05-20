@@ -18,7 +18,7 @@ type importerStory struct {
 	inventors []id
 }
 
-func (i *importer) importStory(r row) (id, error) {
+func (i *importer) loadStory(r row) (id, error) {
 	orderNumStr := r.getValue("story_order_num")
 
 	orderNum := -1

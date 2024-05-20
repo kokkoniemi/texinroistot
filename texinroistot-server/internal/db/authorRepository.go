@@ -8,7 +8,7 @@ import (
 type authorRepo struct{}
 
 // BulkCreate implements AuthorRepository.
-func (a *authorRepo) BulkCreate(authors []*Author, version Version) ([]*Author, error) {
+func (a *authorRepo) BulkCreate(authors []*Author, version *Version) ([]*Author, error) {
 	if len(authors) > 100 {
 		return nil, fmt.Errorf("too many authors")
 	}
@@ -42,7 +42,7 @@ func (a *authorRepo) BulkCreate(authors []*Author, version Version) ([]*Author, 
 }
 
 // List implements AuthorRepository.
-func (a *authorRepo) List(version Version) ([]*Author, error) {
+func (a *authorRepo) List(version *Version) ([]*Author, error) {
 	return a.list(version, false, 0)
 }
 
@@ -61,7 +61,7 @@ WHERE
 %v;
 `
 
-func (*authorRepo) list(version Version, descending bool, limit int) ([]*Author, error) {
+func (*authorRepo) list(version *Version, descending bool, limit int) ([]*Author, error) {
 	var queryString string
 	if descending {
 		queryString = fmt.Sprintf(listAuthorsSQL, "ORDER BY id DESC %v")

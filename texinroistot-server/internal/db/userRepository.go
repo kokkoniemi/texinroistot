@@ -4,7 +4,7 @@ type userRepo struct{}
 
 // Create implements UserRepository.
 func (*userRepo) Create(user User) (*User, error) {
-	panic("unimplemented")
+	panic("unimplemented") // TODO: implement
 }
 
 // List implements UserRepository.
@@ -29,12 +29,12 @@ func (*userRepo) List(pageIndex int) ([]*User, *ListMeta, error) {
 
 // Remove implements UserRepository.
 func (*userRepo) Remove(userHash string) error {
-	panic("unimplemented")
+	panic("unimplemented") // TODO: implement
 }
 
 // SetAdmin implements UserRepository.
 func (*userRepo) SetAdmin(userHash string) (*User, error) {
-	panic("unimplemented")
+	panic("unimplemented") // TODO: implement
 }
 
 func NewUserRepository() UserRepository {

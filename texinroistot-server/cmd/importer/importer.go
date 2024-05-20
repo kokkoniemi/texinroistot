@@ -39,7 +39,10 @@ func parseExcel() error {
 		return err
 	}
 
-	importer.SaveData()
+	err = importer.PersistData()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

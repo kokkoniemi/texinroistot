@@ -3,6 +3,8 @@ package importer
 import (
 	"fmt"
 	"strings"
+
+	"github.com/kokkoniemi/texinroistot/internal/db"
 )
 
 type importer struct {
@@ -40,38 +42,38 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		}
 		row := row{importer: i, cells: dataRow, index: index}
 
-		storyID, err := i.importStory(row)
+		storyID, err := i.loadStory(row)
 		if err != nil {
 			return err
 		}
-		i.importWriters(storyID, row)
-		i.importDrawer(storyID, row)
-		i.importInventor(storyID, row)
-		err = i.importBasePublication(storyID, row)
+		i.loadWriters(storyID, row)
+		i.loadDrawers(storyID, row)
+		i.loadInventors(storyID, row)
+		err = i.loadBasePublication(storyID, row)
 		if err != nil {
 			return err
 		}
-		err = i.importBaseRePublication(storyID, row)
+		err = i.loadBaseRePublication(storyID, row)
 		if err != nil {
 			return err
 		}
-		err = i.importItalianBasePublication(storyID, row)
+		err = i.loadItalianBasePublication(storyID, row)
 		if err != nil {
 			return err
 		}
-		err = i.importSpecialPublication(storyID, row)
+		err = i.loadSpecialPublication(storyID, row)
 		if err != nil {
 			return err
 		}
-		err = i.importItalianSpecialPublication(storyID, row)
+		err = i.loadItalianSpecialPublication(storyID, row)
 		if err != nil {
 			return err
 		}
-		err = i.importKronikka(storyID, row)
+		err = i.loadKronikka(storyID, row)
 		if err != nil {
 			return err
 		}
-		err = i.importKirjasto(storyID, row)
+		err = i.loadKirjasto(storyID, row)
 		if err != nil {
 			return err
 		}
@@ -81,18 +83,36 @@ func (i *importer) LoadData(dataRows [][]string) error {
 	return nil
 }
 
-func (i *importer) SaveData() error {
+func (i *importer) PersistData() error {
 	fmt.Println(i)
 
-	// versionRepo := db.NewVersionRepository()
-	// version, err := versionRepo.Create(db.Version{IsActive: false})
-	// if err != nil {
-	// 	return err
-	// }
+	versionRepo := db.NewVersionRepository()
+	version, err := versionRepo.Create(db.Version{IsActive: false})
+	if err != nil {
+		return err
+	}
 
-	// Save authors
+	// Save other models in following order:
+	//  1. Author -> 2. Publication -> 3. Story -> 4. StoryPublication -> 5. Villain -> 6. StoryVillain
+	//
+	// Notes for step 3. and 4. Story:
+	//      - Stories must be created in the db before StoryPublications
+	// 	- Attach Author to Story (db column authors_in_stories)
+	// Notes for step 5.
+	//      - Attach villain to story
 
-	// Save stories
+	err = i.persistAuthors(version)
+	if err != nil {
+		return err
+	}
+
+	err = i.persistPublications(version)
+	if err != nil {
+		return err
+	}
+	// i.persistStories(version)
+	// i.persistStoryPublications(verion)
+	// i.persistVillains(version)
 
 	//fmt.Println(version)
 	return nil
@@ -104,6 +124,19 @@ func (i *importer) TrimmedSplit(str string, delimiter string) []string {
 		values[index] = strings.TrimSpace(values[index])
 	}
 	return values
+}
+
+// helper function to chunk slices for appropriate size to be imported
+func ChunkSlice[T any](items []T, size int) [][]T {
+	var chunks [][]T
+	for i := 0; i < len(items); i += size {
+		end := i + size
+		if end > len(items) {
+			end = len(items)
+		}
+		chunks = append(chunks, items[i:end])
+	}
+	return chunks
 }
 
 type id uint64

@@ -1,8 +1,9 @@
 package db
 
 const (
-	DefaultPageSize = 25
-	StartPage       = 0
+	DefaultPageSize   = 25
+	StartPage         = 0
+	MaxBulkCreateSize = 100
 )
 
 type ListMeta struct {
@@ -27,12 +28,13 @@ type VersionRepository interface {
 }
 
 type AuthorRepository interface {
-	List(version Version) ([]*Author, error)
+	List(version *Version) ([]*Author, error)
 	Read(authorID int) (*Author, error)
-	BulkCreate(authors []*Author, version Version) ([]*Author, error)
+	BulkCreate(authors []*Author, version *Version) ([]*Author, error)
 }
 
 type StoryRepository interface {
-	List(version Version) ([]*Story, error)
-	BulkCreate(stories []*Story, version Version) ([]*Story, error)
+	List(version *Version) ([]*Story, error)
+	BulkCreate(stories []*Story, version *Version) ([]*Story, error)
+	BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error)
 }

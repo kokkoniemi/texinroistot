@@ -7,10 +7,10 @@ import (
 
 type storyRepo struct{}
 
-// BulkCreate implements StoryRepository.
-func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, error) {
-	if len(stories) > 100 {
-		return nil, fmt.Errorf("too many stories")
+// BulkCreate implements StoryRepository. TODO: add support for publications
+func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, error) {
+	if len(stories) > MaxBulkCreateSize {
+		return nil, fmt.Errorf("max number of %d stories exceeded", MaxBulkCreateSize)
 	}
 
 	var values [][]interface{}
@@ -18,7 +18,7 @@ func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, err
 		values = append(values, []interface{}{
 			s.Hash,
 			s.GetOrderNumberForDB(),
-			// TODO: FIX many2many issue
+			// TODO: FIX many2many issue with authors
 			//s.GetWriterIDForDB(),
 			//s.GetDrawerIDForDB(),
 			//s.GetInventorIDForDB(),
@@ -48,7 +48,7 @@ func (s *storyRepo) BulkCreate(stories []*Story, version Version) ([]*Story, err
 }
 
 // List implements StoryRepository.
-func (s *storyRepo) List(version Version) ([]*Story, error) {
+func (s *storyRepo) List(version *Version) ([]*Story, error) {
 	return s.list(version, false, 0)
 }
 
@@ -87,14 +87,18 @@ WHERE
 %v;
 `
 
-func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, error) {
+func (*storyRepo) list(version *Version, descending bool, limit int) ([]*Story, error) {
+	if version.ID == 0 || limit <= 0 {
+		return nil, fmt.Errorf("invalid parameters")
+	}
+
 	var queryString string
 	if descending {
 		queryString = fmt.Sprintf(listStoriesSQL, "ORDER BY s.id DESC %v")
 	}
-	if limit > 0 {
-		queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
-	}
+
+	queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
+
 	rows, err := Query(queryString, version.ID)
 	if err != nil {
 		return nil, err
@@ -148,6 +152,88 @@ func (*storyRepo) list(version Version, descending bool, limit int) ([]*Story, e
 	}
 
 	return stories, nil
+}
+
+const listPublicationsSQL = `
+SELECT
+	p.id,
+	p.hash,
+	p.type,
+	p.year,
+	p.issue
+FROM publications as p
+WHERE
+	p.version = $1
+%v;
+`
+
+func (*storyRepo) listPublications(version *Version, descending bool, limit int) ([]*Publication, error) {
+	if version.ID == 0 || limit <= 0 {
+		return nil, fmt.Errorf("invalid parameters")
+	}
+
+	var queryString string
+	if descending {
+		queryString = fmt.Sprintf(listPublicationsSQL, "ORDER BY p.id DESC %v")
+	}
+	queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
+
+	rows, err := Query(queryString, version.ID)
+	if err != nil {
+		return nil, err
+	}
+	var publications []*Publication
+	for rows.Next() {
+		var p Publication
+		if err = rows.Scan(
+			&p.ID,
+			&p.Hash,
+			&p.Type,
+			&p.Year,
+			&p.Issue,
+		); err != nil {
+			return nil, err
+		}
+		publications = append(publications, &p)
+	}
+
+	return publications, nil
+}
+
+func (s *storyRepo) BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error) {
+	if len(publications) > MaxBulkCreateSize {
+		return nil, fmt.Errorf("max number of %d publications exceeded", MaxBulkCreateSize)
+	}
+
+	var values [][]interface{}
+	for _, p := range publications {
+		values = append(values, []interface{}{
+			p.Hash,
+			p.Type,
+			p.Year,
+			p.Issue,
+			version.ID,
+		})
+	}
+
+	rows, err := BulkInsertTxn(bulkInsertParams{
+		Table:   "publications",
+		Columns: []string{"hash", "type", "year", "issue", "version"},
+		Values:  values,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	descending := true
+	limit := int(rows)
+	createdPublications, err := s.listPublications(version, descending, limit)
+	if err != nil {
+		return nil, err
+	}
+	slices.Reverse(createdPublications)
+
+	return createdPublications, nil
 }
 
 func NewStoryRepository() StoryRepository {

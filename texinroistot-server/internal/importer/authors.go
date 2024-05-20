@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -13,7 +14,7 @@ type importerAuthor struct {
 	item *db.Author
 }
 
-func (i *importer) importWriters(storyID id, r row) {
+func (i *importer) loadWriters(storyID id, r row) {
 	writers := i.loadAuthorColumn(r, "story_written_by")
 	for _, writer := range writers {
 		writer.item.IsWriter = true
@@ -21,7 +22,7 @@ func (i *importer) importWriters(storyID id, r row) {
 	}
 }
 
-func (i *importer) importDrawer(storyID id, r row) {
+func (i *importer) loadDrawers(storyID id, r row) {
 	drawers := i.loadAuthorColumn(r, "story_drawn_by")
 	for _, drawer := range drawers {
 		drawer.item.IsDrawer = true
@@ -29,7 +30,7 @@ func (i *importer) importDrawer(storyID id, r row) {
 	}
 }
 
-func (i *importer) importInventor(storyID id, r row) {
+func (i *importer) loadInventors(storyID id, r row) {
 	inventors := i.loadAuthorColumn(r, "story_invented_by")
 	for _, inventor := range inventors {
 		inventor.item.IsInventor = true
@@ -40,6 +41,12 @@ func (i *importer) importInventor(storyID id, r row) {
 func (i *importer) getAuthorIndexWithName(firstName string, lastName string) int {
 	return slices.IndexFunc(i.authors, func(a *importerAuthor) bool {
 		return a.item.FirstName == firstName && a.item.LastName == lastName
+	})
+}
+
+func (i *importer) getAuthorIndexWithHash(hash string) int {
+	return slices.IndexFunc(i.authors, func(a *importerAuthor) bool {
+		return a.item.Hash == hash
 	})
 }
 
@@ -101,4 +108,44 @@ func (i *importer) loadAuthorColumn(r row, columnName string) []*importerAuthor 
 	}
 
 	return authors
+}
+
+func (i *importer) getAuthorItems() []*db.Author {
+	var items []*db.Author
+
+	for index := range i.authors {
+		items = append(items, i.authors[index].item)
+	}
+
+	return items
+}
+
+// setAuthorItems sets persisted Authors to importer after save to db
+func (i *importer) setAuthorItems(items []*db.Author) error {
+	if len(items) != len(i.authors) {
+		return fmt.Errorf("Mismatch in the number of Authors")
+	}
+	for index := range items {
+		importerIndex := i.getAuthorIndexWithHash(items[index].Hash)
+		if importerIndex == -1 {
+			return fmt.Errorf("Tried to set unknown Author")
+		}
+		i.authors[importerIndex].item = items[index]
+	}
+	return nil
+}
+
+// persistAuthors writes Authors loaded in importer to db
+func (i *importer) persistAuthors(version *db.Version) error {
+	var err error
+	authorRepo := db.NewAuthorRepository()
+	chunks := ChunkSlice(i.getAuthorItems(), db.MaxBulkCreateSize)
+	for _, chunk := range chunks {
+		authors, err := authorRepo.BulkCreate(chunk, version)
+		if err != nil {
+			return err
+		}
+		err = i.setAuthorItems(authors)
+	}
+	return err
 }
