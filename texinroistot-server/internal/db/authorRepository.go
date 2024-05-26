@@ -76,6 +76,7 @@ func (*authorRepo) list(version *Version, descending bool, limit int) ([]*Author
 	var authors []*Author
 
 	for rows.Next() {
+		// TODO: Why do I use AuthorBlueprint instead of Author?
 		var aBp AuthorBlueprint
 		if err = rows.Scan(
 			&aBp.ID,

@@ -62,6 +62,16 @@ func (i *importer) getAuthorWithName(firstName string, lastName string) *importe
 	return nil
 }
 
+func (i *importer) getAuthorItemsWithIDs(ids []id) []*db.Author {
+	var filtered []*db.Author
+	for idx := range i.authors {
+		if slices.Contains(ids, i.authors[idx].ID) {
+			filtered = append(filtered, i.authors[idx].item)
+		}
+	}
+	return filtered
+}
+
 func (i *importer) addAuthor(author *db.Author) *importerAuthor {
 	i.totalEntities++
 
@@ -122,7 +132,7 @@ func (i *importer) getAuthorItems() []*db.Author {
 
 // setAuthorItems sets persisted Authors to importer after save to db
 func (i *importer) setAuthorItems(items []*db.Author) error {
-	if len(items) != len(i.authors) {
+	if len(items) != len(i.authors)%db.MaxBulkCreateSize && len(items) != db.MaxBulkCreateSize {
 		return fmt.Errorf("Mismatch in the number of Authors")
 	}
 	for index := range items {
@@ -146,6 +156,9 @@ func (i *importer) persistAuthors(version *db.Version) error {
 			return err
 		}
 		err = i.setAuthorItems(authors)
+		if err != nil {
+			return err
+		}
 	}
 	return err
 }

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 
 	"github.com/kokkoniemi/texinroistot/internal/config"
@@ -63,6 +64,13 @@ type bulkInsertParams struct {
 	Table   string
 	Columns []string
 	Values  [][]interface{}
+}
+
+func ArrayParam(param interface{}) interface {
+	driver.Valuer
+	sql.Scanner
+} {
+	return pq.Array(param)
 }
 
 func BulkInsertTxn(params bulkInsertParams) (int64, error) {

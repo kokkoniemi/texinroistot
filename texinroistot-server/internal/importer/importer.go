@@ -110,7 +110,10 @@ func (i *importer) PersistData() error {
 	if err != nil {
 		return err
 	}
-	// i.persistStories(version)
+	err = i.persistStories(version)
+	if err != nil {
+		return err
+	}
 	// i.persistStoryPublications(verion)
 	// i.persistVillains(version)
 

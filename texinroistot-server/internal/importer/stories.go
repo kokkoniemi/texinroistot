@@ -116,3 +116,55 @@ func (i *importer) setInventorForStory(storyID id, inventorID id) {
 		story.inventors = append(story.inventors, inventorID)
 	}
 }
+
+func (i *importer) setStoryItems(items []*db.Story) {
+	for idx := range i.stories {
+		for _, story := range items {
+			if i.stories[idx].item.Hash == story.Hash {
+				i.stories[idx].item = story
+			}
+		}
+	}
+
+}
+
+func (i *importer) persistStories(version *db.Version) error {
+	var err error
+
+	// set authors for stories in a loop
+	// set storyPublications for stories in a loop
+	var storyItems []*db.Story
+
+	for _, importerStory := range i.stories {
+		importerStory.item.WrittenBy = i.getAuthorItemsWithIDs(importerStory.writers)
+		importerStory.item.DrawnBy = i.getAuthorItemsWithIDs(importerStory.drawers)
+		importerStory.item.InventedBy = i.getAuthorItemsWithIDs(importerStory.inventors)
+
+		storyID := importerStory.ID
+		importerStoryPublications := i.getStoryPublications(storyID)
+		for _, sp := range importerStoryPublications {
+			importerStory.item.Publications = append(importerStory.item.Publications,
+				&db.StoryPublication{
+					Title: sp.title,
+					In:    i.getPublicationWithID(sp.publication).item,
+				})
+		}
+
+		storyItems = append(storyItems, importerStory.item)
+	}
+
+	// create chunks of stories
+	storyRepo := db.NewStoryRepository()
+	chunks := ChunkSlice(storyItems, db.MaxBulkCreateSize)
+	for _, chunk := range chunks {
+		stories, err := storyRepo.BulkCreate(chunk, version)
+		if err != nil {
+			return err
+		}
+		i.setStoryItems(stories)
+	}
+
+	// bulkCreate stories one chunk at a time
+
+	return err
+}

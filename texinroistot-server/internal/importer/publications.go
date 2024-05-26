@@ -71,6 +71,16 @@ func (i *importer) hasStoryPublication(storyID id, pubID id) bool {
 	}) != -1
 }
 
+func (i *importer) getStoryPublications(storyID id) []*importerStoryPublication {
+	var filtered []*importerStoryPublication
+	for idx := range i.storyPublications {
+		if i.storyPublications[idx].story == storyID {
+			filtered = append(filtered, i.storyPublications[idx])
+		}
+	}
+	return filtered
+}
+
 func (i *importer) handleBasePublications(
 	storyID id,
 	r row,
@@ -319,6 +329,15 @@ func (i *importer) hasPublicationWithHash(hash string) bool {
 	}) != -1
 }
 
+func (i *importer) getPublicationWithID(pubID id) *importerPublication {
+	for _, p := range i.publications {
+		if p.ID == pubID {
+			return p
+		}
+	}
+	return nil
+}
+
 func (i *importer) getPublicationItems() []*db.Publication {
 	var items []*db.Publication
 
@@ -331,7 +350,8 @@ func (i *importer) getPublicationItems() []*db.Publication {
 
 // setPublicationItems sets persisted Publications to importer after save to db
 func (i *importer) setPublicationItems(items []*db.Publication) error {
-	if len(items) != len(i.publications) {
+	if len(items) != len(i.publications)%db.MaxBulkCreateSize && len(items) != db.MaxBulkCreateSize {
+		fmt.Println(len(items), db.MaxBulkCreateSize, len(i.publications))
 		return fmt.Errorf("Mismatch in the number of Publications")
 	}
 
@@ -351,14 +371,15 @@ func (i *importer) persistPublications(version *db.Version) error {
 	var err error
 	storyRepo := db.NewStoryRepository()
 	chunks := ChunkSlice(i.getPublicationItems(), db.MaxBulkCreateSize)
-
 	for _, chunk := range chunks {
 		publications, err := storyRepo.BulkCreatePublications(chunk, version)
 		if err != nil {
 			return err
 		}
-
 		err = i.setPublicationItems(publications)
+		if err != nil {
+			return err
+		}
 	}
 	return err
 }

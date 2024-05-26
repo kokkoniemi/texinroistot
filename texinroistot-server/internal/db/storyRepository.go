@@ -1,44 +1,102 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"slices"
 )
 
 type storyRepo struct{}
 
-// BulkCreate implements StoryRepository. TODO: add support for publications
+// BulkCreate implements StoryRepository.
 func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, error) {
 	if len(stories) > MaxBulkCreateSize {
 		return nil, fmt.Errorf("max number of %d stories exceeded", MaxBulkCreateSize)
 	}
 
-	var values [][]interface{}
+	var storyValues [][]interface{}
+	// create stories
 	for _, s := range stories {
-		values = append(values, []interface{}{
-			s.Hash,
+		storyValues = append(storyValues, []interface{}{
 			s.GetOrderNumberForDB(),
-			// TODO: FIX many2many issue with authors
-			//s.GetWriterIDForDB(),
-			//s.GetDrawerIDForDB(),
-			//s.GetInventorIDForDB(),
+			s.Hash,
 			version.ID,
 		})
 	}
-
-	rows, err := BulkInsertTxn(bulkInsertParams{
+	numRows, err := BulkInsertTxn(bulkInsertParams{
 		Table: "stories",
 		Columns: []string{
-			"hash", "order_num", "written_by", "drawn_by", "invented_by", "version",
+			"order_num", "hash", "version",
 		},
-		Values: values,
+		Values: storyValues,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	createdStories, err := s.list(version, true, int(rows))
+	// update stories with their ids
+	stories, err = s.setIDsFromDB(stories, numRows)
+	if err != nil {
+		return nil, err
+	}
+
+	// create story authors
+	var storyAuthorValues [][]interface{}
+
+	appendAuthorValue := func(story *Story, authors []*Author, atype string) {
+		for _, a := range authors {
+			storyAuthorValues = append(storyAuthorValues, []interface{}{
+				story.ID,
+				a.ID,
+				atype,
+			})
+		}
+
+	}
+
+	for _, s := range stories {
+		appendAuthorValue(s, s.WrittenBy, "writer")
+		appendAuthorValue(s, s.DrawnBy, "drawer")
+		appendAuthorValue(s, s.InventedBy, "inventor")
+	}
+
+	_, err = BulkInsertTxn(bulkInsertParams{
+		Table:   "authors_in_stories",
+		Columns: []string{"story", "author", "type"},
+		Values:  storyAuthorValues,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// create storyPublications
+	var storyPubValues [][]interface{}
+
+	for _, s := range stories {
+		for _, p := range s.Publications {
+			// fmt.Println("----", p.ID, p.In.ID, s.ID)
+			storyPubValues = append(storyPubValues, []interface{}{
+				s.ID,
+				p.In.ID,
+				p.Title,
+			})
+		}
+	}
+
+	_, err = BulkInsertTxn(bulkInsertParams{
+		Table:   "stories_in_publications",
+		Columns: []string{"story", "publication", "title"},
+		Values:  storyPubValues,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// return a list of created stories
+	descending := true // to get latest rows, order by descending
+	limit := numRows
+	createdStories, err := s.list(version, descending, int(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -47,108 +105,269 @@ func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, er
 	return createdStories, nil
 }
 
+const setIDsSQL = `
+SELECT
+	s.id,
+	s.hash
+FROM stories AS s
+ORDER BY s.id DESC
+LIMIT %v;
+`
+
+func (s *storyRepo) setIDsFromDB(stories []*Story, savedRows int64) ([]*Story, error) {
+	queryString := fmt.Sprintf(setIDsSQL, savedRows)
+	rows, err := Query(queryString)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var row struct {
+			ID   int
+			Hash string
+		}
+
+		if err = rows.Scan(&row.ID, &row.Hash); err != nil {
+			return nil, err
+		}
+
+		for idx := range stories {
+			if stories[idx].Hash == row.Hash {
+				stories[idx].ID = row.ID
+				break
+			}
+			if idx == len(stories)-1 && stories[idx].Hash != row.Hash {
+				return nil, fmt.Errorf("matching story not found from db")
+			}
+		}
+	}
+
+	return stories, nil
+}
+
 // List implements StoryRepository.
 func (s *storyRepo) List(version *Version) ([]*Story, error) {
 	return s.list(version, false, 0)
 }
 
-const listStoriesSQL = `
+const selectStoriesSQL = `
 SELECT
 	s.id,
 	s.hash,
-	s.order_num,
-	w.id,
-	w.hash,
-	w.first_name,
-	w.last_name,
-	w.is_writer,
-	w.is_drawer,
-	w.is_inventor,
-	d.id,
-	d.hash,
-	d.first_name,
-	d.last_name,
-	d.is_writer,
-	d.is_drawer,
-	d.is_inventor,
-	i.id,
-	i.hash,
-	i.first_name,
-	i.last_name,
-	i.is_writer,
-	i.is_drawer,
-	i.is_inventor
+	s.order_num
 FROM stories AS s
-LEFT JOIN authors AS w ON s.written_by = w.id
-LEFT JOIN authors AS d ON s.drawn_by = d.id
-LEFT JOIN authors AS i ON s.invented_by = i.id
 WHERE
 	s.version = $1
 %v;
 `
+const selectAuthorsInStoriesSQL = `
+SELECT
+	sa.story,
+	sa.author,
+	sa.type
+FROM authors_in_stories AS sa
+WHERE sa.story = ANY($1);
+`
+const selectAuthorsByIDsSQL = `
+SELECT
+	a.id,
+	a.hash,
+	a.first_name,
+	a.last_name,
+	a.is_writer,
+	a.is_drawer,
+	a.is_inventor
+FROM authors AS a
+WHERE a.id = ANY($1);
+`
+const selectStoryPublicationsSQL = `
+SELECT
+	p.id,
+	p.hash,
+	p.type,
+	p.year,
+	p.issue,
+	sip.id,
+	sip.title,
+	sip.story
+FROM publications as p
+JOIN stories_in_publications AS sip ON p.id = sip.publication
+WHERE p.id IN (
+	SELECT sip.publication
+	FROM stories_in_publications AS sip
+	WHERE sip.story = ANY($1)
+);
+`
 
-func (*storyRepo) list(version *Version, descending bool, limit int) ([]*Story, error) {
+func (*storyRepo) selectStoryRows(version *Version, descending bool, limit int) ([]*Story, []int, error) {
 	if version.ID == 0 || limit <= 0 {
-		return nil, fmt.Errorf("invalid parameters")
+		return nil, nil, fmt.Errorf("invalid parameters")
 	}
 
 	var queryString string
 	if descending {
-		queryString = fmt.Sprintf(listStoriesSQL, "ORDER BY s.id DESC %v")
+		queryString = fmt.Sprintf(selectStoriesSQL, "ORDER BY s.id DESC %v")
 	}
 
 	queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
 
 	rows, err := Query(queryString, version.ID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var stories []*Story
+	var storyIDs []int
 
 	for rows.Next() {
 		var s Story
-		var writerBp AuthorBlueprint
-		var drawerBp AuthorBlueprint
-		var inventorBp AuthorBlueprint
 		if err = rows.Scan(
 			&s.ID,
 			&s.Hash,
 			&s.OrderNumber,
-			&writerBp.ID,
-			&writerBp.Hash,
-			&writerBp.FirstName,
-			&writerBp.LastName,
-			&writerBp.IsWriter,
-			&writerBp.IsDrawer,
-			&writerBp.IsInventor,
-			&drawerBp.ID,
-			&drawerBp.Hash,
-			&drawerBp.FirstName,
-			&drawerBp.LastName,
-			&drawerBp.IsWriter,
-			&drawerBp.IsDrawer,
-			&drawerBp.IsInventor,
-			&inventorBp.ID,
-			&inventorBp.Hash,
-			&inventorBp.FirstName,
-			&inventorBp.LastName,
-			&inventorBp.IsWriter,
-			&inventorBp.IsDrawer,
-			&inventorBp.IsInventor,
+		); err != nil {
+			return nil, nil, err
+		}
+		stories = append(stories, &s)
+		storyIDs = append(storyIDs, s.ID)
+	}
+
+	return stories, storyIDs, nil
+}
+
+type ainfo struct {
+	Story  int
+	Author int
+	Type   string
+}
+
+func (*storyRepo) selectStoryAuthorRows(storyIDs []int) (map[int][]*ainfo, []*Author, error) {
+	rows, err := Query(selectAuthorsInStoriesSQL, ArrayParam(storyIDs))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var authorInfos = make(map[int][]*ainfo)
+	var authorIDs []int
+
+	for rows.Next() {
+		var info ainfo
+		if err = rows.Scan(
+			&info.Story,
+			&info.Author,
+			&info.Type,
+		); err != nil {
+			return nil, nil, err
+		}
+
+		authorInfos[info.Story] = append(authorInfos[info.Story], &info)
+		authorIDs = append(authorIDs, info.Author)
+	}
+
+	rows, err = Query(selectAuthorsByIDsSQL, ArrayParam(authorIDs))
+	if err != nil {
+		return nil, nil, err
+	}
+	var authors []*Author
+
+	for rows.Next() {
+		var a Author
+		if err = rows.Scan(
+			&a.ID,
+			&a.Hash,
+			&a.FirstName,
+			&a.LastName,
+			&a.IsWriter,
+			&a.IsDrawer,
+			&a.IsInventor,
+		); err != nil {
+			return nil, nil, err
+		}
+		authors = append(authors, &a)
+	}
+	return authorInfos, authors, nil
+}
+
+func (*storyRepo) selectStoryPublicationRows(storyIDs []int) (map[int][]*StoryPublication, error) {
+	rows, err := Query(selectStoryPublicationsSQL, ArrayParam(storyIDs))
+	if err != nil {
+		return nil, err
+	}
+
+	var storyPublications = make(map[int][]*StoryPublication)
+
+	for rows.Next() {
+		var p Publication
+		var sp StoryPublication
+		var storyID sql.NullInt64
+
+		if err = rows.Scan(
+			&p.ID,
+			&p.Hash,
+			&p.Type,
+			&p.Year,
+			&p.Issue,
+			&sp.ID,
+			&sp.Title,
+			&storyID,
 		); err != nil {
 			return nil, err
 		}
-		// FIXME: fix many-2-many issue in db model
-		// if writerBp.AuthorExists() {
-		// 	s.WrittenBy = writerBp.ToAuthor()
-		// }
-		// if drawerBp.AuthorExists() {
-		// 	s.DrawnBy = drawerBp.ToAuthor()
-		// }
-		// if inventorBp.AuthorExists() {
-		// 	s.InventedBy = inventorBp.ToAuthor()
-		// }
-		stories = append(stories, &s)
+
+		sp.In = &p
+
+		if storyID.Int64 == 0 {
+			return nil, fmt.Errorf("something went wrong")
+		}
+		k := int(storyID.Int64)
+		storyPublications[k] = append(storyPublications[k], &sp)
+	}
+	return storyPublications, nil
+}
+
+// here I have experimented combining the list both with and without JOINS.
+func (s *storyRepo) list(version *Version, descending bool, limit int) ([]*Story, error) {
+	stories, storyIDs, err := s.selectStoryRows(version, descending, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	authorInfos, authors, err := s.selectStoryAuthorRows(storyIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	storyPublications, err := s.selectStoryPublicationRows(storyIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	getAuthorsByInfo := func(infos []*ainfo) ([]*Author, []*Author, []*Author) {
+		var writers []*Author
+		var drawers []*Author
+		var inventors []*Author
+
+		for _, info := range infos {
+			for _, a := range authors {
+				if info.Author == a.ID {
+					if info.Type == "writer" {
+						writers = append(writers, a)
+					} else if info.Type == "drawer" {
+						drawers = append(drawers, a)
+					} else if info.Type == "inventor" {
+						inventors = append(inventors, a)
+					}
+				}
+			}
+		}
+
+		return writers, drawers, inventors
+	}
+
+	for idx := range stories {
+		infos := authorInfos[stories[idx].ID]
+		stories[idx].WrittenBy, stories[idx].DrawnBy, stories[idx].InventedBy = getAuthorsByInfo(infos)
+
+		stories[idx].Publications = storyPublications[stories[idx].ID]
 	}
 
 	return stories, nil
