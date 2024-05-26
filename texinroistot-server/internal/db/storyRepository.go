@@ -96,7 +96,7 @@ func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, er
 	// return a list of created stories
 	descending := true // to get latest rows, order by descending
 	limit := numRows
-	createdStories, err := s.list(version, descending, int(limit))
+	createdStories, err := s.list(version, descending, int(limit), 0)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +146,8 @@ func (s *storyRepo) setIDsFromDB(stories []*Story, savedRows int64) ([]*Story, e
 }
 
 // List implements StoryRepository.
-func (s *storyRepo) List(version *Version) ([]*Story, error) {
-	return s.list(version, false, 0)
+func (s *storyRepo) List(version *Version, limit int, offset int) ([]*Story, error) {
+	return s.list(version, false, limit, offset)
 }
 
 const selectStoriesSQL = `
@@ -324,8 +324,8 @@ func (*storyRepo) selectStoryPublicationRows(storyIDs []int) (map[int][]*StoryPu
 	return storyPublications, nil
 }
 
-// here I have experimented combining the list both with and without JOINS.
-func (s *storyRepo) list(version *Version, descending bool, limit int) ([]*Story, error) {
+// here I have experimented combining the list both with and without JOINS. TODO: add offset logic
+func (s *storyRepo) list(version *Version, descending bool, limit int, offset int) ([]*Story, error) {
 	stories, storyIDs, err := s.selectStoryRows(version, descending, limit)
 	if err != nil {
 		return nil, err
