@@ -37,9 +37,6 @@ func NewSpreadsheetImporter(titleRow []string) *importer {
 
 func (i *importer) LoadData(dataRows [][]string) error {
 	for index, dataRow := range dataRows {
-		if index > 1000 { // FIXME: remove after importer is ready
-			break
-		}
 		row := row{importer: i, cells: dataRow, index: index}
 
 		storyID, err := i.loadStory(row)
@@ -77,15 +74,13 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		if err != nil {
 			return err
 		}
-		i.importVillain(storyID, row)
+		i.loadVillain(storyID, row)
 	}
 
 	return nil
 }
 
 func (i *importer) PersistData() error {
-	fmt.Println(i)
-
 	versionRepo := db.NewVersionRepository()
 	version, err := versionRepo.Create(db.Version{IsActive: false})
 	if err != nil {
@@ -114,8 +109,10 @@ func (i *importer) PersistData() error {
 	if err != nil {
 		return err
 	}
-	// i.persistStoryPublications(verion)
-	// i.persistVillains(version)
+	err = i.persistVillains(version)
+	if err != nil {
+		return err
+	}
 
 	//fmt.Println(version)
 	return nil

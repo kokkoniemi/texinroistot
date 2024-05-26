@@ -127,7 +127,8 @@ CREATE TABLE "public"."villains_in_stories" (
 	    "hash" varchar NOT NULL,
 	    "nicknames" _varchar,
 	    "aliases" _varchar,
-	    "destiny" text,
+	    "destiny" _varchar,
+	    "roles" _varchar,
 	    PRIMARY KEY ("id")
 );
 

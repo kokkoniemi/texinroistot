@@ -117,14 +117,21 @@ func (i *importer) setInventorForStory(storyID id, inventorID id) {
 	}
 }
 
-func (i *importer) setStoryItems(items []*db.Story) {
+func (i *importer) setStoryItems(items []*db.Story) error {
 	for idx := range i.stories {
 		for _, story := range items {
 			if i.stories[idx].item.Hash == story.Hash {
 				i.stories[idx].item = story
+				break
 			}
+			// TODO: must be checked against chunked story items
+			//if idx2 == len(items)-1 && i.stories[idx].item.Hash != story.Hash {
+			//	return fmt.Errorf("setStoryItems failed")
+			//}
 		}
 	}
+
+	return nil
 
 }
 
@@ -161,7 +168,10 @@ func (i *importer) persistStories(version *db.Version) error {
 		if err != nil {
 			return err
 		}
-		i.setStoryItems(stories)
+		err = i.setStoryItems(stories)
+		if err != nil {
+			return err
+		}
 	}
 
 	// bulkCreate stories one chunk at a time

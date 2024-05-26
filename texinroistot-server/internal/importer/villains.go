@@ -86,7 +86,7 @@ func (i *importer) addStoryVillain(storyVillain *db.StoryVillain, villainID id, 
 	return importerStoryVillain
 }
 
-func (i *importer) importVillain(storyID id, r row) {
+func (i *importer) loadVillain(storyID id, r row) {
 	villainID, err := strconv.ParseInt(strings.TrimSpace(r.getValue("villain_id")), 10, 64)
 	if err != nil {
 		villainID = -1
@@ -105,7 +105,8 @@ func (i *importer) importVillain(storyID id, r row) {
 		if villainID != -1 {
 			return crypt.Hash(strconv.FormatInt(villainID, 10))
 		}
-		return crypt.Hash(strings.Join(firstNames, "") +
+		return crypt.Hash(fmt.Sprintf("%d", r.index) +
+			strings.Join(firstNames, "") +
 			lastName +
 			strings.Join(nicknames, "") +
 			strings.Join(aliases, "") +
@@ -176,4 +177,40 @@ func (i *importer) importVillain(storyID id, r row) {
 			}
 		}
 	}
+}
+
+func (i *importer) getStoryVillainItems(villainID id) []*db.StoryVillain {
+	var filtered []*db.StoryVillain
+	for _, sv := range i.storyVillains {
+		if sv.villain == villainID {
+			filtered = append(filtered, sv.item)
+			importerStory := i.getStory(sv.story)
+			sv.item.Story = importerStory.item
+		}
+	}
+	return filtered
+}
+
+func (i *importer) persistVillains(version *db.Version) error {
+	villainRepo := db.NewVillainRepository()
+
+	var villainItems []*db.Villain
+
+	for _, importerVillain := range i.villains {
+		importerVillain.item.As = i.getStoryVillainItems(importerVillain.ID)
+		if len(importerVillain.item.As) == 0 {
+			return fmt.Errorf("villain not found in any story")
+		}
+		villainItems = append(villainItems, importerVillain.item)
+	}
+
+	chunks := ChunkSlice(villainItems, db.MaxBulkCreateSize)
+	for _, chunk := range chunks {
+		_, err := villainRepo.BulkCreate(chunk, version)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

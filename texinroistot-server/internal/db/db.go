@@ -38,3 +38,8 @@ type StoryRepository interface {
 	BulkCreate(stories []*Story, version *Version) ([]*Story, error)
 	BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error)
 }
+
+type VillainRepository interface {
+	BulkCreate(villains []*Villain, version *Version) ([]*Villain, error)
+	//BulkCreateStoryVillain(storyVillains []*StoryVillain) ([]*StoryVillain, error)
+}

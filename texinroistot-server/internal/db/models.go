@@ -86,12 +86,12 @@ type StoryPublication struct {
 }
 
 type Villain struct {
-	ID         int           `json:"-"`
-	Hash       string        `json:"hash"`
-	Ranks      []string      `json:"ranks"`
-	FirstNames []string      `json:"firstNames"`
-	LastName   string        `json:"lastName"`
-	As         *StoryVillain `json:"as"`
+	ID         int             `json:"-"`
+	Hash       string          `json:"hash"`
+	Ranks      []string        `json:"ranks"`
+	FirstNames []string        `json:"firstNames"`
+	LastName   string          `json:"lastName"`
+	As         []*StoryVillain `json:"as"`
 }
 
 type StoryVillain struct {
