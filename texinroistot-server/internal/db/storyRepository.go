@@ -207,6 +207,8 @@ func (*storyRepo) selectStoryRows(version *Version, descending bool, limit int) 
 	var queryString string
 	if descending {
 		queryString = fmt.Sprintf(selectStoriesSQL, "ORDER BY s.id DESC %v")
+	} else {
+		queryString = fmt.Sprintf(selectStoriesSQL, "ORDER BY s.id ASC %v")
 	}
 
 	queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
@@ -324,7 +326,7 @@ func (*storyRepo) selectStoryPublicationRows(storyIDs []int) (map[int][]*StoryPu
 	return storyPublications, nil
 }
 
-// here I have experimented combining the list both with and without JOINS. TODO: add offset logic
+// here I have experimented combining the list both with and without JOINS. TODO: do offset logic
 func (s *storyRepo) list(version *Version, descending bool, limit int, offset int) ([]*Story, error) {
 	stories, storyIDs, err := s.selectStoryRows(version, descending, limit)
 	if err != nil {

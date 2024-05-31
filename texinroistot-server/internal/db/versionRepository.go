@@ -1,5 +1,7 @@
 package db
 
+import "fmt"
+
 type versionRepo struct{}
 
 const setVersionActiveSQL = `
@@ -16,6 +18,31 @@ WHERE id = $1
 func (*versionRepo) SetActive(versionID int) error {
 	_, err := Execute(setVersionActiveSQL, versionID)
 	return err
+}
+
+const getActiveVersionSQL = `
+SELECT id, created_at, is_active
+FROM versions
+WHERE is_active = TRUE;
+`
+
+func (*versionRepo) GetActive() (*Version, error) {
+	rows, err := Query(getActiveVersionSQL)
+	if err != nil {
+		return nil, err
+	}
+	var v Version
+	count := 0
+	for rows.Next() {
+		if err = rows.Scan(&v.ID, &v.CreatedAt, &v.IsActive); err != nil {
+			return nil, err
+		}
+		count++
+	}
+	if count != 1 {
+		return nil, fmt.Errorf("invalid number of active versions: %d", count)
+	}
+	return &v, nil
 }
 
 const createVersionSQL = `INSERT INTO versions(is_active) VALUES(false);`
@@ -56,6 +83,9 @@ func (*versionRepo) Read(versionID int) (*Version, error) {
 		if err = rows.Scan(&v.ID, &v.CreatedAt, &v.IsActive); err != nil {
 			return nil, err
 		}
+	}
+	if &v == nil {
+		return nil, fmt.Errorf("version not found")
 	}
 	return &v, nil
 }
