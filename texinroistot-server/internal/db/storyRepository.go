@@ -333,6 +333,7 @@ func (s *storyRepo) list(version *Version, descending bool, limit int, offset in
 		return nil, err
 	}
 
+	// TODO: use channels to not block storyPublication request
 	authorInfos, authors, err := s.selectStoryAuthorRows(storyIDs)
 	if err != nil {
 		return nil, err
@@ -358,6 +359,7 @@ func (s *storyRepo) list(version *Version, descending bool, limit int, offset in
 					} else if info.Type == "inventor" {
 						inventors = append(inventors, a)
 					}
+					break
 				}
 			}
 		}

@@ -10,9 +10,6 @@ import (
 func main() {
 	app := fiber.New()
 
-	app.Static("/", "../texinroistot-ui/dist")
-	app.Static("/manage", "../texinroistot-ui/dist")
-
 	api := app.Group("/api")
 	api.Post("/login", auth.LoginHandler)
 	api.Post("/logout", auth.LogoutHandler)
