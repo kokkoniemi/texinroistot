@@ -1,3 +1,6 @@
+<section class="page-front">
+
+<img src="/favicon.png" class="front-logo" alt="Kuva Tex Willeristä" />
 <h1>Texin roistot -tietokanta</h1>
 
 <p>
@@ -26,3 +29,16 @@
 	<a href="#">Kirjastot</a>
 	| <a href="#">Kronikat</a> | <a href="#">Hae hakusanalla</a>
 </p>
+</section>
+<style>
+.page-front {
+	text-align: center;
+}
+.front-logo {
+	margin-top: 20px;
+	width: 150px;
+	height: 150px;
+	border-radius: 50%;
+	border: 2px solid black;
+}
+</style>
