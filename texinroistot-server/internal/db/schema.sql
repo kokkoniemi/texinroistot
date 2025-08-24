@@ -4,7 +4,7 @@
 
 -- Table Definition
 CREATE TABLE "public"."authors" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "first_name" varchar,
 	    "last_name" varchar,
 	    "is_writer" bool,
@@ -24,7 +24,7 @@ CREATE TYPE "public"."author_type" AS ENUM ('writer', 'drawer', 'inventor');
 
 -- Table Definition
 CREATE TABLE "public"."authors_in_stories" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "story" int8,
 	    "author" int8,
 	    "type" "public"."author_type",
@@ -39,7 +39,7 @@ COMMENT ON TABLE "public"."authors" IS 'An author of a story. Can be writer, dra
 
 -- Table Definition
 CREATE TABLE "public"."stories" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "order_num" int8,
 	    "version" int8 NOT NULL,
 	    "hash" varchar NOT NULL,
@@ -51,7 +51,7 @@ COMMENT ON COLUMN "public"."stories"."hash" IS 'consistent identifier between di
 
 -- Table Definition
 CREATE TABLE "public"."stories_in_publications" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "story" int8 NOT NULL,
 	    "publication" int8 NOT NULL,
 	    "title" varchar NOT NULL,
@@ -63,7 +63,7 @@ CREATE TYPE "public"."publication_type" AS ENUM ('perus', 'maxi', 'suur', 'muu_e
 
 -- Table Definition
 CREATE TABLE "public"."publications" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "type" "public"."publication_type",
 	    "year" int8,
 	    "issue" varchar NOT NULL,
@@ -80,7 +80,7 @@ COMMENT ON COLUMN "public"."publications"."hash" IS 'consistent identifier betwe
 
 -- Table Definition
 CREATE TABLE "public"."users" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "created_at" timestamptz NOT NULL DEFAULT now(),
 	    "hash" varchar NOT NULL,
 	    "is_admin" bool NOT NULL DEFAULT false,
@@ -92,7 +92,7 @@ CREATE TABLE "public"."users" (
 
 -- Table Definition
 CREATE TABLE "public"."versions" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "created_at" timestamptz NOT NULL DEFAULT now(),
 	    "is_active" bool NOT NULL DEFAULT false,
 	    PRIMARY KEY ("id")
@@ -106,7 +106,7 @@ COMMENT ON TABLE "public"."versions" IS 'Every row in database is related to cer
 
 -- Table Definition
 CREATE TABLE "public"."villains" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "ranks" _varchar,
 	    "first_names" _varchar,
 	    "last_name" varchar,
@@ -121,7 +121,7 @@ COMMENT ON COLUMN "public"."villains"."hash" IS 'consistent identifier between d
 
 -- Table Definition
 CREATE TABLE "public"."villains_in_stories" (
-	    "id" int8 NOT NULL,
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
 	    "villain" int8 NOT NULL,
 	    "story" int8 NOT NULL,
 	    "hash" varchar NOT NULL,

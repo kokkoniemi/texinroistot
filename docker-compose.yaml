@@ -1,0 +1,42 @@
+name: texinroistot
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: tex
+      POSTGRES_PASSWORD: willer
+      POSTGRES_DB: tex
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tex -d tex"]
+      interval: "5s"
+      timeout: "5s"
+      retries: 10
+
+  backend:
+    build:
+      dockerfile: Dockerfile.dev.server
+    working_dir: /tex
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - "./texinroistot-server/.env"
+    volumes:
+      - ./texinroistot-server:/tex:z
+      - go_pkg:/go/pkg
+      - go_cache:/root/.cache/go-build
+    ports:
+      - "6969:6969"
+      - "2345:2345"
+
+
+volumes:
+  pg_data:
+  go_pkg:
+  go_cache:
+

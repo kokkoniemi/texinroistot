@@ -1,0 +1,19 @@
+# Rebuild/run on changes
+root = "."
+tmp_dir = "out"
+
+[build]
+cmd = "make build"
+bin = "./out/roistot"
+full_bin = ""
+exclude_dir = ["out", "vendor"]
+include_ext = ["go", "mod", "sum"]
+exclude_regex = ["_test\\.go"]
+
+[log]
+time = true
+color = true
+
+[watch]
+# add extra dirs/files if needed
+

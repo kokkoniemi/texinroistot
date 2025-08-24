@@ -19,5 +19,5 @@ func main() {
 	adminapi := api.Group("/admin", auth.ProtectedRoute)
 	adminapi.Get("/users", admin.ListUsersHandler)
 
-	app.Listen(":6969")
+	app.Listen(":6969") // TODO: add to .env file
 }

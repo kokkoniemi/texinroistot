@@ -1,0 +1,23 @@
+FROM golang:1.25-alpine
+WORKDIR /tex
+
+RUN apk update \
+    && apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    make \
+    && update-ca-certificates
+
+
+RUN go install github.com/air-verse/air@latest && go install github.com/go-delve/delve/cmd/dlv@latest
+
+
+ENV PATH="/go/bin:${PATH}"
+ENV GO111MODULE="on"
+ENV GOOS="linux"
+ENV CGO_ENABLED=0
+
+ENTRYPOINT ["air"]
+#CMD ["air", "-c", ".air.toml"]
+
