@@ -19,5 +19,4 @@ ENV GOOS="linux"
 ENV CGO_ENABLED=0
 
 ENTRYPOINT ["air"]
-#CMD ["air", "-c", ".air.toml"]
 

@@ -34,9 +34,24 @@ services:
       - "6969:6969"
       - "2345:2345"
 
+  frontend:
+    image: node:24-alpine
+    working_dir: /ui
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      HOST: "0.0.0.0"
+      NPM_CONFIG_FUND: "false"
+      NPM_CONFIG_AUDIT: "false"
+    volumes:
+      - ./texinroistot-ui:/ui:z
+    command: 'sh -c "([ -d node_modules ] || npm ci) && npm run dev -- --host 0.0.0.0"'
+    ports:
+      - "5173:5173"
+
 
 volumes:
   pg_data:
   go_pkg:
   go_cache:
+  node_modules_ui:
 
