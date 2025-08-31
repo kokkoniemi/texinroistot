@@ -17,6 +17,9 @@
 
 {#each $stories as story}
 <hr />
-	<h3>{story.orderNumber}</h3>
+	<h3>#{story.orderNumber}</h3>
+	{#each story.publications as publication}
+	<span>{publication.title}</span>;
+	{/each}
 <hr />
 {/each}
