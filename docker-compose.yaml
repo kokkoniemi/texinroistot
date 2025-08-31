@@ -40,6 +40,7 @@ services:
     environment:
       CHOKIDAR_USEPOLLING: "true"
       HOST: "0.0.0.0"
+      BACKEND_HOST: "http://backend:6969"
       NPM_CONFIG_FUND: "false"
       NPM_CONFIG_AUDIT: "false"
     volumes:
