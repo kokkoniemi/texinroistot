@@ -17,9 +17,10 @@
 
 {#each $stories as story}
 <hr />
-	<h3>#{story.orderNumber}</h3>
-	{#each story.publications as publication}
-	<span>{publication.title}</span>;
-	{/each}
+	<h3>#{story.orderNumber} {story.title}</h3>
+	<span>Kirjoitti:</span> {#each story.writtenBy as writer}<span>{writer.firstName} {writer.lastName}</span>{/each}
+	<br />
+	<span>Piirsi:</span> {#each story.drawnBy as drawer}<span>{drawer.firstName} {drawer.lastName}</span>{/each}
+
 <hr />
 {/each}
