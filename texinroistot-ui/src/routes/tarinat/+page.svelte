@@ -86,7 +86,33 @@
 	}
 
 	function storyTitle(story: Story): string {
-		return story.publications?.[0]?.title ?? 'Nimetön tarina';
+		const publications = story.publications ?? [];
+		const finBase = publications.find(
+			(publication) => publication.in?.type === 'perus' && publication.title
+		);
+		if (finBase?.title) return finBase.title;
+
+		const nonItalian = publications.find(
+			(publication) => !publication.in?.type?.startsWith('italia_') && publication.title
+		);
+		if (nonItalian?.title) return nonItalian.title;
+
+		return publications[0]?.title ?? 'Nimetön tarina';
+	}
+
+	function italianTitles(story: Story): string {
+		const titles = (story.publications ?? [])
+			.filter((publication) => publication.in?.type?.startsWith('italia_') && publication.title)
+			.map((publication) => publication.title)
+			.filter((title, index, list) => list.indexOf(title) === index);
+
+		return titles.join(', ');
+	}
+
+	function cardTitle(story: Story): string {
+		const title = storyTitle(story);
+		const italian = italianTitles(story);
+		return italian ? `${title} (${italian})` : title;
 	}
 
 	function publicationItem(publication: StoryPublication): string {
@@ -189,7 +215,7 @@
 		<div class="story-list">
 			{#each stories as story}
 				<article class="story-card">
-					<h3>#{story.orderNumber} {storyTitle(story)}</h3>
+					<h3>{cardTitle(story)}</h3>
 					<p><strong>Kirjoitti:</strong> {authorList(story.writtenBy)}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
 					<p><strong>Ideoi:</strong> {authorList(story.inventedBy)}</p>
