@@ -1,10 +1,24 @@
+<script lang="ts">
+	import type { PageData } from './$types';
+
+	export let data: PageData;
+
+	function formatCount(value: number | null | undefined): string {
+		if (value === null || value === undefined) return '...';
+		return new Intl.NumberFormat('fi-FI').format(value);
+	}
+</script>
+
 <section class="page-front">
 	<img src="/favicon.png" class="front-logo" alt="Kuva Tex Willeristä" />
-	<h1>Texin roistot -tietokanta</h1>
+	<h1>Texin roistot-tietokanta</h1>
 
 	<p>
-		texin roistot -tietokanta sisältää tiedot ...:sta tex willer -sarjakuvassa esiintyvästä
-		roistosta, ...:sta tarinasta sekä ...:sta piirtäjästä, kirjoittajasta tai suomentajasta.
+		Texin roistot-tietokanta sisältää tiedot
+		{formatCount(data.activeVersionStats?.villains)}:sta tex willer -sarjakuvassa esiintyvästä
+		roistosta, {formatCount(data.activeVersionStats?.stories)}:sta tarinasta,
+		{formatCount(data.activeVersionStats?.drawers)}:sta piirtäjästä, sekä
+		{formatCount(data.activeVersionStats?.writers)}:sta kirjoittajasta.
 	</p>
 
 	<p>Selaa roistoja</p>

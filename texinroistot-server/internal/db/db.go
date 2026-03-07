@@ -42,6 +42,7 @@ type VersionRepository interface {
 	Remove(versionID int) error
 	SetActive(versionID int) error
 	GetActive() (*Version, error)
+	GetStats(versionID int) (*VersionStats, error)
 }
 
 type AuthorRepository interface {

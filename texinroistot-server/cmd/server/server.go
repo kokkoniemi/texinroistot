@@ -5,6 +5,7 @@ import (
 	"github.com/kokkoniemi/texinroistot/internal/admin"
 	"github.com/kokkoniemi/texinroistot/internal/auth"
 	"github.com/kokkoniemi/texinroistot/internal/stories"
+	"github.com/kokkoniemi/texinroistot/internal/versions"
 	"github.com/kokkoniemi/texinroistot/internal/villains"
 )
 
@@ -15,6 +16,7 @@ func main() {
 	api.Post("/login", auth.LoginHandler)
 	api.Post("/logout", auth.LogoutHandler)
 	api.Get("/me", auth.UserInfoHandler)
+	api.Get("/version/active", versions.GetActiveVersionHandler)
 	api.Get("/stories", stories.ListStoriesHandler)
 	api.Get("/stories/:storyHash/villains", stories.ListStoryVillainsHandler)
 	api.Get("/villains", villains.ListVillainsHandler)

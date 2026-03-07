@@ -1,6 +1,24 @@
-<script>
+<script lang="ts">
 	import '../app.css';
 	import { page } from '$app/stores';
+	import type { LayoutData } from './$types';
+
+	export let data: LayoutData;
+
+	function formatLastUpdated(rawDate: string | null | undefined): string {
+		if (!rawDate) return 'ei tiedossa';
+
+		const date = new Date(rawDate);
+		if (Number.isNaN(date.getTime())) return 'ei tiedossa';
+
+		return new Intl.DateTimeFormat('fi-FI', {
+			day: '2-digit',
+			month: '2-digit',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		}).format(date);
+	}
 </script>
 
 <ul class="top-menu">
@@ -19,7 +37,7 @@
 
 <hr />
 
-<p>Viimeisin päivitys: ....</p>
+<p>Viimeisin päivitys: {formatLastUpdated(data.activeVersionCreatedAt)}</p>
 <p>Kaikki oikeudet pidätetään | <a href="/hallinta">Hallinta</a></p>
 
 <style>

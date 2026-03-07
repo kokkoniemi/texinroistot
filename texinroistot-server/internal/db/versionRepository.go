@@ -45,6 +45,40 @@ func (*versionRepo) GetActive() (*Version, error) {
 	return &v, nil
 }
 
+const getVersionStatsSQL = `
+SELECT
+	(SELECT COUNT(*) FROM villains WHERE version = $1) AS villains,
+	(SELECT COUNT(*) FROM stories WHERE version = $1) AS stories,
+	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_drawer = true) AS drawers,
+	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_writer = true) AS writers,
+	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_inventor = true) AS translators;
+`
+
+// GetStats implements VersionRepository.
+func (*versionRepo) GetStats(versionID int) (*VersionStats, error) {
+	rows, err := Query(getVersionStatsSQL, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats VersionStats
+	for rows.Next() {
+		if err = rows.Scan(
+			&stats.Villains,
+			&stats.Stories,
+			&stats.Drawers,
+			&stats.Writers,
+			&stats.Translators,
+		); err != nil {
+			return nil, err
+		}
+		return &stats, nil
+	}
+
+	return &stats, nil
+}
+
 const createVersionSQL = `INSERT INTO versions(is_active) VALUES(false);`
 
 // Create implements VersionRepository.

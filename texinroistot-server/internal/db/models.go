@@ -70,6 +70,14 @@ type Version struct {
 	IsActive  bool      `json:"isActive"`
 }
 
+type VersionStats struct {
+	Villains    int `json:"villains"`
+	Stories     int `json:"stories"`
+	Drawers     int `json:"drawers"`
+	Writers     int `json:"writers"`
+	Translators int `json:"translators"`
+}
+
 // Publication may have multiple stories and a story can be published in multiple publications
 type Publication struct {
 	ID    int    `json:"-"`
