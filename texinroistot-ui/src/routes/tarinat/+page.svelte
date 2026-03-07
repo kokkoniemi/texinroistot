@@ -68,12 +68,17 @@
 		italia_erikois: 'Italian erikoiset'
 	};
 
-	const stories: Story[] = data.stories ?? [];
-	const meta: Meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	const filters: Filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
+	let stories: Story[] = [];
+	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
+	let filters: Filters = { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
+	let hasPrev = false;
+	let hasNext = false;
 
-	const hasPrev = meta.page > 1;
-	const hasNext = meta.page < meta.totalPages;
+	$: stories = data.stories ?? [];
+	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
+	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
+	$: hasPrev = meta.page > 1;
+	$: hasNext = meta.page < meta.totalPages;
 
 	function authorList(authors?: Author[] | null): string {
 		if (!authors || authors.length === 0) return '-';
