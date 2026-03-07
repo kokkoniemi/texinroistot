@@ -67,6 +67,8 @@
 		q: string;
 	};
 
+	type PaginationToken = number | 'ellipsis';
+
 	const publicationOptions = [
 		{ value: 'all', label: 'Näytä kaikki' },
 		{ value: 'perus_fi', label: 'Suomen perussarja' },
@@ -106,6 +108,7 @@
 	let villainsByStoryHash: Record<string, Villain[]> = {};
 	let storyListSignature = '';
 	let isFilterLoading = false;
+	let pageTokens: PaginationToken[] = [];
 
 	function normalizeStoryHash(raw?: string | null): string {
 		return (raw ?? '').trim();
@@ -117,6 +120,7 @@
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tarinat';
+	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
 	$: {
 		const nextSignature = stories.map((story) => normalizeStoryHash(story.hash)).join('|');
 		if (nextSignature !== storyListSignature) {
@@ -290,6 +294,37 @@
 		if (filters.q) params.set('q', filters.q);
 		return `/tarinat?${params.toString()}`;
 	}
+
+	function paginationTokens(currentPage: number, totalPages: number): PaginationToken[] {
+		if (totalPages <= 0) return [];
+
+		const visiblePages = new Set<number>([1, totalPages]);
+		for (let page = currentPage - 1; page <= currentPage + 1; page++) {
+			if (page >= 1 && page <= totalPages) visiblePages.add(page);
+		}
+		if (currentPage <= 3) {
+			visiblePages.add(2);
+			visiblePages.add(3);
+		}
+		if (currentPage >= totalPages - 2) {
+			visiblePages.add(totalPages - 1);
+			visiblePages.add(totalPages - 2);
+		}
+
+		const orderedPages = [...visiblePages]
+			.filter((page) => page >= 1 && page <= totalPages)
+			.sort((a, b) => a - b);
+		const tokens: PaginationToken[] = [];
+		let previousPage = 0;
+		for (const page of orderedPages) {
+			if (previousPage > 0 && page - previousPage > 1) {
+				tokens.push('ellipsis');
+			}
+			tokens.push(page);
+			previousPage = page;
+		}
+		return tokens;
+	}
 </script>
 
 <section class="tarinat-page">
@@ -350,6 +385,44 @@
 			Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
 		</p>
 	</section>
+
+	<nav class="pagination pagination-top">
+		{#if meta.totalPages > 0 && meta.page > 1 && !isFilterLoading}
+			<a href={pageHref(1)}>Ensimmäinen</a>
+		{:else}
+			<span class="disabled">Ensimmäinen</span>
+		{/if}
+
+		{#if hasPrev && !isFilterLoading}
+			<a href={pageHref(meta.page - 1)}>Edellinen</a>
+		{:else}
+			<span class="disabled">Edellinen</span>
+		{/if}
+
+		{#each pageTokens as token}
+			{#if token === 'ellipsis'}
+				<span class="ellipsis">...</span>
+			{:else if token === meta.page}
+				<span class="current-page">{token}</span>
+			{:else if !isFilterLoading}
+				<a href={pageHref(token)}>{token}</a>
+			{:else}
+				<span class="disabled">{token}</span>
+			{/if}
+		{/each}
+
+		{#if hasNext && !isFilterLoading}
+			<a href={pageHref(meta.page + 1)}>Seuraava</a>
+		{:else}
+			<span class="disabled">Seuraava</span>
+		{/if}
+
+		{#if meta.totalPages > 0 && meta.page < meta.totalPages && !isFilterLoading}
+			<a href={pageHref(meta.totalPages)}>Viimeinen</a>
+		{:else}
+			<span class="disabled">Viimeinen</span>
+		{/if}
+	</nav>
 
 	{#if stories.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
@@ -415,16 +488,40 @@
 	{/if}
 
 	<nav class="pagination">
+		{#if meta.totalPages > 0 && meta.page > 1 && !isFilterLoading}
+			<a href={pageHref(1)}>Ensimmäinen</a>
+		{:else}
+			<span class="disabled">Ensimmäinen</span>
+		{/if}
+
 		{#if hasPrev && !isFilterLoading}
 			<a href={pageHref(meta.page - 1)}>Edellinen</a>
 		{:else}
 			<span class="disabled">Edellinen</span>
 		{/if}
 
+		{#each pageTokens as token}
+			{#if token === 'ellipsis'}
+				<span class="ellipsis">...</span>
+			{:else if token === meta.page}
+				<span class="current-page">{token}</span>
+			{:else if !isFilterLoading}
+				<a href={pageHref(token)}>{token}</a>
+			{:else}
+				<span class="disabled">{token}</span>
+			{/if}
+		{/each}
+
 		{#if hasNext && !isFilterLoading}
 			<a href={pageHref(meta.page + 1)}>Seuraava</a>
 		{:else}
 			<span class="disabled">Seuraava</span>
+		{/if}
+
+		{#if meta.totalPages > 0 && meta.page < meta.totalPages && !isFilterLoading}
+			<a href={pageHref(meta.totalPages)}>Viimeinen</a>
+		{:else}
+			<span class="disabled">Viimeinen</span>
 		{/if}
 	</nav>
 </section>
@@ -491,6 +588,8 @@
 		display: flex;
 		justify-content: space-between;
 		margin: 1rem 0;
+		gap: 0.75rem;
+		flex-wrap: wrap;
 	}
 
 	.story-list {
@@ -564,11 +663,30 @@
 		display: flex;
 		justify-content: center;
 		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.pagination-top {
+		margin: 0 0 1rem;
+	}
+
+	.pagination a,
+	.pagination span {
+		white-space: nowrap;
 	}
 
 	.disabled {
 		color: #666;
 		text-decoration: none;
+	}
+
+	.current-page {
+		font-weight: 700;
+		text-decoration: underline;
+	}
+
+	.ellipsis {
+		color: #333;
 	}
 
 	.empty {
@@ -580,6 +698,23 @@
 	@media (max-width: 900px) {
 		.filters {
 			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.tarinat-page {
+			margin: 0.75rem 0.75rem 0;
+		}
+
+		.pagination {
+			justify-content: flex-start;
+			gap: 0.55rem;
+		}
+
+		.result-header {
+			flex-direction: column;
+			align-items: flex-start;
+			margin: 0.85rem 0;
 		}
 	}
 </style>
