@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { navigating } from '$app/stores';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -86,12 +87,14 @@
 	let filters: Filters = { publication: 'fi', sort: 'fi_pub_date', q: '' };
 	let hasPrev = false;
 	let hasNext = false;
+	let isFilterLoading = false;
 
 	$: villains = data.villains ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
 	$: filters = data.filters ?? { publication: 'fi', sort: 'fi_pub_date', q: '' };
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
+	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/roistot';
 
 	function joinValues(values?: string[] | null, fallback = '-'): string {
 		if (!values || values.length === 0) return fallback;
@@ -214,7 +217,7 @@
 	<form method="GET" class="filters">
 		<label class="field">
 			<span>Julkaisu</span>
-			<select name="publication">
+			<select name="publication" disabled={isFilterLoading}>
 				{#each publicationOptions as option}
 					<option value={option.value} selected={filters.publication === option.value}
 						>{option.label}</option
@@ -225,7 +228,7 @@
 
 		<label class="field">
 			<span>Järjestys</span>
-			<select name="sort">
+			<select name="sort" disabled={isFilterLoading}>
 				{#each sortOptions as option}
 					<option value={option.value} selected={filters.sort === option.value}
 						>{option.label}</option
@@ -236,15 +239,27 @@
 
 		<label class="field search">
 			<span>Hae hakusanalla</span>
-			<input name="q" type="text" value={filters.q ?? ''} placeholder="Kirjoita hakusana..." />
+			<input
+				name="q"
+				type="text"
+				value={filters.q ?? ''}
+				placeholder="Kirjoita hakusana..."
+				disabled={isFilterLoading}
+			/>
 		</label>
 
 		<input type="hidden" name="page" value="1" />
 		<input type="hidden" name="pageSize" value={meta.pageSize} />
 
 		<div class="actions">
-			<button type="submit">Hae</button>
-			<a href="/roistot">Palauta oletukset</a>
+			<button type="submit" disabled={isFilterLoading}>
+				{isFilterLoading ? 'Ladataan...' : 'Hae'}
+			</button>
+			<a
+				href="/roistot"
+				class:loading-link-disabled={isFilterLoading}
+				aria-disabled={isFilterLoading}>Palauta oletukset</a
+			>
 		</div>
 	</form>
 
@@ -277,13 +292,13 @@
 	{/if}
 
 	<nav class="pagination">
-		{#if hasPrev}
+		{#if hasPrev && !isFilterLoading}
 			<a href={pageHref(meta.page - 1)}>Edellinen</a>
 		{:else}
 			<span class="disabled">Edellinen</span>
 		{/if}
 
-		{#if hasNext}
+		{#if hasNext && !isFilterLoading}
 			<a href={pageHref(meta.page + 1)}>Seuraava</a>
 		{:else}
 			<span class="disabled">Seuraava</span>
@@ -337,6 +352,16 @@
 		background: black;
 		color: white;
 		cursor: pointer;
+	}
+
+	button:disabled {
+		opacity: 0.65;
+		cursor: wait;
+	}
+
+	.loading-link-disabled {
+		pointer-events: none;
+		opacity: 0.65;
 	}
 
 	.result-header {

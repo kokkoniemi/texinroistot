@@ -145,5 +145,14 @@ ALTER TABLE "public"."villains" ADD FOREIGN KEY ("version") REFERENCES "public".
 ALTER TABLE "public"."villains_in_stories" ADD FOREIGN KEY ("story") REFERENCES "public"."stories"("id") ON DELETE CASCADE;
 ALTER TABLE "public"."villains_in_stories" ADD FOREIGN KEY ("villain") REFERENCES "public"."villains"("id") ON DELETE CASCADE;
 
-CREATE UNIQUE INDEX users_hash_key ON public.users USING btree (hash)
+CREATE UNIQUE INDEX users_hash_key ON public.users USING btree (hash);
 
+-- Query performance indexes for listing and filtering endpoints
+CREATE INDEX IF NOT EXISTS idx_villains_version ON public.villains USING btree (version);
+CREATE INDEX IF NOT EXISTS idx_stories_version_hash ON public.stories USING btree (version, hash);
+CREATE INDEX IF NOT EXISTS idx_villains_in_stories_villain ON public.villains_in_stories USING btree (villain);
+CREATE INDEX IF NOT EXISTS idx_villains_in_stories_story ON public.villains_in_stories USING btree (story);
+CREATE INDEX IF NOT EXISTS idx_stories_in_publications_story ON public.stories_in_publications USING btree (story);
+CREATE INDEX IF NOT EXISTS idx_stories_in_publications_publication ON public.stories_in_publications USING btree (publication);
+CREATE INDEX IF NOT EXISTS idx_publications_type ON public.publications USING btree (type);
+CREATE INDEX IF NOT EXISTS idx_authors_in_stories_story ON public.authors_in_stories USING btree (story);
