@@ -3,18 +3,14 @@ import type { RequestHandler } from './$types';
 import { BACKEND_HOST } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ url, fetch }) => {
-	const res = await fetch(`${BACKEND_HOST}/api/stories`);
-	const stories = await res.json();
-	
-	const transform = ({stories}) => ({
-		stories: stories.map(({orderNumber, publications, writtenBy, drawnBy}) => ({
-			orderNumber,
-			title: (publications[0]?.title) ?? "",
-			writtenBy,
-			drawnBy
-		})
-	)});
+	const queryString = url.searchParams.toString();
+	const targetURL = `${BACKEND_HOST}/api/stories${queryString ? `?${queryString}` : ''}`;
+	const res = await fetch(targetURL);
 
-	return json(transform(stories));
+	if (!res.ok) {
+		throw error(res.status, `Backend stories endpoint failed with status ${res.status}`);
+	}
+
+	const payload = await res.json();
+	return json(payload);
 };
-

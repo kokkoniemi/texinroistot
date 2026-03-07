@@ -1,27 +1,130 @@
 package stories
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kokkoniemi/texinroistot/internal/db"
 )
 
+const (
+	defaultPublicationFilter = "perus_fi"
+	defaultSort              = "fi_pub_date"
+	defaultPage              = 1
+	defaultPageSize          = 25
+	maxPageSize              = 100
+)
+
+var allowedPublicationFilters = map[string]bool{
+	"all":      true,
+	"perus_fi": true,
+	"perus_it": true,
+	"suur":     true,
+	"maxi":     true,
+	"kirjasto": true,
+	"kronikka": true,
+	"special":  true,
+}
+
+var allowedSorts = map[string]bool{
+	"alpha":       true,
+	"fi_pub_date": true,
+	"it_pub_date": true,
+}
+
+func parsePositiveInt(raw string, fallback int) (int, error) {
+	raw = strings.TrimSpace(raw)
+	if len(raw) == 0 {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("invalid integer value")
+	}
+	return value, nil
+}
+
+func parseAllowedValue(raw string, fallback string, allowed map[string]bool) (string, error) {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if len(raw) == 0 {
+		return fallback, nil
+	}
+	if !allowed[raw] {
+		return "", fmt.Errorf("invalid value")
+	}
+	return raw, nil
+}
+
+func parseStoryListParams(c *fiber.Ctx) (db.StoryListParams, error) {
+	page, err := parsePositiveInt(c.Query("page"), defaultPage)
+	if err != nil {
+		return db.StoryListParams{}, fmt.Errorf("page must be a positive integer")
+	}
+
+	pageSize, err := parsePositiveInt(c.Query("pageSize"), defaultPageSize)
+	if err != nil {
+		return db.StoryListParams{}, fmt.Errorf("pageSize must be a positive integer")
+	}
+	if pageSize > maxPageSize {
+		pageSize = maxPageSize
+	}
+
+	publication, err := parseAllowedValue(c.Query("publication"), defaultPublicationFilter, allowedPublicationFilters)
+	if err != nil {
+		return db.StoryListParams{}, fmt.Errorf("publication filter is invalid")
+	}
+
+	sort, err := parseAllowedValue(c.Query("sort"), defaultSort, allowedSorts)
+	if err != nil {
+		return db.StoryListParams{}, fmt.Errorf("sort is invalid")
+	}
+
+	return db.StoryListParams{
+		Publication: publication,
+		Sort:        sort,
+		Search:      strings.TrimSpace(c.Query("q", "")),
+		Page:        page,
+		PageSize:    pageSize,
+	}, nil
+}
+
 func ListStoriesHandler(c *fiber.Ctx) error {
 	versionRepo := db.NewVersionRepository() // TODO: move active version to fiber context
 	version, err := versionRepo.GetActive()
 	if err != nil {
-		c.SendStatus(500)
-	}
-	storyRepo := db.NewStoryRepository()
-	limit, err := strconv.ParseInt(c.Params("limit", "25"), 10, 64)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": err}) // TODO: do not let errors through
-	}
-	stories, err := storyRepo.List(version, int(limit), 0)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err}) // TODO: do not let errors through
+		return c.SendStatus(500)
 	}
 
-	return c.JSON(fiber.Map{"stories": stories})
+	params, err := parseStoryListParams(c)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	storyRepo := db.NewStoryRepository()
+	stories, total, err := storyRepo.ListFiltered(version, params)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list stories"})
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = (total + params.PageSize - 1) / params.PageSize
+	}
+
+	return c.JSON(fiber.Map{
+		"stories": stories,
+		"meta": fiber.Map{
+			"total":      total,
+			"page":       params.Page,
+			"pageSize":   params.PageSize,
+			"totalPages": totalPages,
+		},
+		"filters": fiber.Map{
+			"publication": params.Publication,
+			"sort":        params.Sort,
+			"q":           params.Search,
+		},
+	})
 }

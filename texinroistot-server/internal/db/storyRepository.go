@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 type storyRepo struct{}
@@ -150,6 +151,33 @@ func (s *storyRepo) List(version *Version, limit int, offset int) ([]*Story, err
 	return s.list(version, false, limit, offset)
 }
 
+var publicationTypesByFilter = map[string][]string{
+	"all":      {},
+	"perus_fi": {"perus"},
+	"perus_it": {"italia_perus"},
+	"suur":     {"suur"},
+	"maxi":     {"maxi"},
+	"kirjasto": {"kirjasto"},
+	"kronikka": {"kronikka"},
+	"special":  {"muu_erikois", "italia_erikois"},
+}
+
+// ListFiltered implements StoryRepository.
+func (s *storyRepo) ListFiltered(version *Version, params StoryListParams) ([]*Story, int, error) {
+	stories, storyIDs, total, err := s.selectStoryRowsFiltered(version, params)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(stories) == 0 {
+		return stories, total, nil
+	}
+
+	if err = s.hydrateStories(stories, storyIDs); err != nil {
+		return nil, 0, err
+	}
+	return stories, total, nil
+}
+
 const selectStoriesSQL = `
 SELECT
 	s.id,
@@ -160,6 +188,171 @@ WHERE
 	s.version = $1
 %v;
 `
+
+func mapPublicationFilterToTypes(filter string) ([]string, error) {
+	types, found := publicationTypesByFilter[filter]
+	if !found {
+		return nil, fmt.Errorf("invalid publication filter")
+	}
+	return types, nil
+}
+
+func buildSortClause(sort string) string {
+	publicationSortExpr := func(pubType string) string {
+		return fmt.Sprintf(`(
+	SELECT MIN(
+		(COALESCE(p.year, 0) * 1000) + COALESCE(NULLIF(regexp_replace(p.issue, '[^0-9]', '', 'g'), '')::int, 0)
+	)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id AND p.type = '%s'
+)`, pubType)
+	}
+
+	switch sort {
+	case "alpha":
+		return `LOWER(COALESCE((
+	SELECT MIN(sip.title)
+	FROM stories_in_publications AS sip
+	WHERE sip.story = s.id
+), '')) ASC, s.order_num ASC NULLS LAST, s.id ASC`
+	case "it_pub_date":
+		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, publicationSortExpr("italia_perus"))
+	default:
+		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, publicationSortExpr("perus"))
+	}
+}
+
+func buildStoryListWhere(versionID int, params StoryListParams) (string, []interface{}, error) {
+	clauses := []string{"s.version = $1"}
+	args := []interface{}{versionID}
+	argPos := 2
+
+	publicationTypes, err := mapPublicationFilterToTypes(params.Publication)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(publicationTypes) > 0 {
+		clauses = append(clauses, fmt.Sprintf(`
+EXISTS (
+	SELECT 1
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type::text = ANY($%d)
+)`, argPos))
+		args = append(args, ArrayParam(publicationTypes))
+		argPos++
+	}
+
+	search := strings.TrimSpace(params.Search)
+	if len(search) > 0 {
+		clauses = append(clauses, fmt.Sprintf(`
+(
+	EXISTS (
+		SELECT 1
+		FROM stories_in_publications AS sip
+		JOIN publications AS p ON p.id = sip.publication
+		WHERE sip.story = s.id
+		AND (
+			sip.title ILIKE $%d
+			OR p.issue ILIKE $%d
+			OR CAST(p.year AS TEXT) ILIKE $%d
+			OR p.type::text ILIKE $%d
+		)
+	)
+	OR EXISTS (
+		SELECT 1
+		FROM authors_in_stories AS sa
+		JOIN authors AS a ON a.id = sa.author
+		WHERE sa.story = s.id
+		AND (
+			a.first_name ILIKE $%d
+			OR a.last_name ILIKE $%d
+			OR (COALESCE(a.first_name, '') || ' ' || COALESCE(a.last_name, '')) ILIKE $%d
+		)
+	)
+)`, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
+		args = append(args, "%"+search+"%")
+	}
+
+	return strings.Join(clauses, " AND "), args, nil
+}
+
+func (s *storyRepo) selectStoryRowsFiltered(version *Version, params StoryListParams) ([]*Story, []int, int, error) {
+	if version.ID == 0 || params.PageSize <= 0 || params.Page <= 0 {
+		return nil, nil, 0, fmt.Errorf("invalid parameters")
+	}
+
+	whereClause, whereArgs, err := buildStoryListWhere(version.ID, params)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	countSQL := fmt.Sprintf(`
+SELECT COUNT(*)
+FROM stories AS s
+WHERE %s;
+`, whereClause)
+
+	countRows, err := Query(countSQL, whereArgs...)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	defer countRows.Close()
+
+	total := 0
+	if countRows.Next() {
+		if err = countRows.Scan(&total); err != nil {
+			return nil, nil, 0, err
+		}
+	}
+	if total == 0 {
+		return []*Story{}, []int{}, 0, nil
+	}
+
+	orderClause := buildSortClause(params.Sort)
+	limitArgPos := len(whereArgs) + 1
+	offsetArgPos := len(whereArgs) + 2
+	offset := (params.Page - 1) * params.PageSize
+
+	querySQL := fmt.Sprintf(`
+SELECT
+	s.id,
+	s.hash,
+	s.order_num
+FROM stories AS s
+WHERE %s
+ORDER BY %s
+LIMIT $%d OFFSET $%d;
+`, whereClause, orderClause, limitArgPos, offsetArgPos)
+
+	args := append(whereArgs, params.PageSize, offset)
+	rows, err := Query(querySQL, args...)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	defer rows.Close()
+
+	var stories []*Story
+	var storyIDs []int
+
+	for rows.Next() {
+		var story Story
+		if err = rows.Scan(&story.ID, &story.Hash, &story.OrderNumber); err != nil {
+			return nil, nil, 0, err
+		}
+		stories = append(stories, &story)
+		storyIDs = append(storyIDs, story.ID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, nil, 0, err
+	}
+
+	return stories, storyIDs, total, nil
+}
+
 const selectAuthorsInStoriesSQL = `
 SELECT
 	sa.story,
@@ -332,16 +525,27 @@ func (s *storyRepo) list(version *Version, descending bool, limit int, offset in
 	if err != nil {
 		return nil, err
 	}
+	if len(stories) == 0 {
+		return stories, nil
+	}
 
+	if err = s.hydrateStories(stories, storyIDs); err != nil {
+		return nil, err
+	}
+
+	return stories, nil
+}
+
+func (s *storyRepo) hydrateStories(stories []*Story, storyIDs []int) error {
 	// TODO: use channels to not block storyPublication request
 	authorInfos, authors, err := s.selectStoryAuthorRows(storyIDs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	storyPublications, err := s.selectStoryPublicationRows(storyIDs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	getAuthorsByInfo := func(infos []*ainfo) ([]*Author, []*Author, []*Author) {
@@ -374,7 +578,7 @@ func (s *storyRepo) list(version *Version, descending bool, limit int, offset in
 		stories[idx].Publications = storyPublications[stories[idx].ID]
 	}
 
-	return stories, nil
+	return nil
 }
 
 const listPublicationsSQL = `

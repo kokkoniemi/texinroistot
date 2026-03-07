@@ -12,6 +12,14 @@ type ListMeta struct {
 	PageSize  int
 }
 
+type StoryListParams struct {
+	Publication string
+	Sort        string
+	Search      string
+	Page        int
+	PageSize    int
+}
+
 type UserRepository interface {
 	List(pageIndex int) ([]*User, *ListMeta, error)
 	Create(user User) (*User, error)
@@ -36,6 +44,7 @@ type AuthorRepository interface {
 
 type StoryRepository interface {
 	List(version *Version, limit int, offset int) ([]*Story, error)
+	ListFiltered(version *Version, params StoryListParams) ([]*Story, int, error)
 	BulkCreate(stories []*Story, version *Version) ([]*Story, error)
 	BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error)
 }
