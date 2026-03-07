@@ -20,11 +20,37 @@
 	};
 
 	type Story = {
+		hash: string;
 		orderNumber: number;
 		writtenBy?: Author[] | null;
 		drawnBy?: Author[] | null;
 		inventedBy?: Author[] | null;
 		publications?: StoryPublication[] | null;
+	};
+
+	type StoryVillain = {
+		hash: string;
+		nicknames?: string[] | null;
+		aliases?: string[] | null;
+		roles?: string[] | null;
+		destiny?: string[] | null;
+		story?: { hash: string } | null;
+	};
+
+	type Villain = {
+		hash: string;
+		ranks?: string[] | null;
+		firstNames?: string[] | null;
+		lastName?: string | null;
+		as?: StoryVillain[] | null;
+	};
+
+	type StoryVillainsResponse = {
+		storyHash: string;
+		villains: Villain[];
+		meta?: {
+			total: number;
+		};
 	};
 
 	type Meta = {
@@ -73,16 +99,44 @@
 	let filters: Filters = { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
 	let hasPrev = false;
 	let hasNext = false;
+	let expandedStoryHashes: Record<string, boolean> = {};
+	let loadingStoryHashes: Record<string, boolean> = {};
+	let errorByStoryHash: Record<string, string> = {};
+	let villainsByStoryHash: Record<string, Villain[]> = {};
+	let storyListSignature = '';
+
+	function normalizeStoryHash(raw?: string | null): string {
+		return (raw ?? '').trim();
+	}
 
 	$: stories = data.stories ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
 	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
+	$: {
+		const nextSignature = stories.map((story) => normalizeStoryHash(story.hash)).join('|');
+		if (nextSignature !== storyListSignature) {
+			storyListSignature = nextSignature;
+			expandedStoryHashes = {};
+			loadingStoryHashes = {};
+			errorByStoryHash = {};
+			villainsByStoryHash = {};
+		}
+	}
 
 	function authorList(authors?: Author[] | null): string {
 		if (!authors || authors.length === 0) return '-';
 		return authors.map((author) => `${author.firstName} ${author.lastName}`.trim()).join(', ');
+	}
+
+	function joinValues(values?: string[] | null, fallback = '-'): string {
+		if (!values || values.length === 0) return fallback;
+		return values.filter(Boolean).join(', ');
+	}
+
+	function hasValues(values?: string[] | null): boolean {
+		return Boolean(values && values.some((value) => Boolean(value)));
 	}
 
 	function storyTitle(story: Story): string {
@@ -151,6 +205,79 @@
 		return parts.length > 0 ? parts.join('; ') : 'Ei julkaisutietoja';
 	}
 
+	function storyVillainForStory(villain: Villain, storyHash: string): StoryVillain | null {
+		const appearances = villain.as ?? [];
+		const matchingStory = appearances.find(
+			(appearance) => normalizeStoryHash(appearance.story?.hash) === storyHash
+		);
+		if (matchingStory) return matchingStory;
+		return appearances.length > 0 ? appearances[0] : null;
+	}
+
+	function villainRealName(villain: Villain): string {
+		const firstNames = joinValues(villain.firstNames, '').trim();
+		const lastName = (villain.lastName ?? '').trim();
+		return `${firstNames} ${lastName}`.trim();
+	}
+
+	function villainNicknames(villain: Villain, storyHash: string): string[] {
+		return (storyVillainForStory(villain, storyHash)?.nicknames ?? [])
+			.map((nickname) => nickname.trim())
+			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
+	}
+
+	function villainTitle(villain: Villain, storyHash: string): string {
+		const realName = villainRealName(villain);
+		const nicknames = villainNicknames(villain, storyHash);
+
+		if (realName && nicknames.length > 0) return `${realName} (${nicknames.join(', ')})`;
+		if (realName) return realName;
+		if (nicknames.length > 0) return nicknames.map((nickname) => `"${nickname}"`).join(', ');
+		return 'Nimetön roisto';
+	}
+
+	function storyVillains(storyHash: string): Villain[] {
+		return villainsByStoryHash[storyHash] ?? [];
+	}
+
+	function hasFetchedStoryVillains(storyHash: string): boolean {
+		return Object.prototype.hasOwnProperty.call(villainsByStoryHash, storyHash);
+	}
+
+	async function toggleStoryVillains(storyHash: string): Promise<void> {
+		if (!storyHash) return;
+		const isCurrentlyExpanded = Boolean(expandedStoryHashes[storyHash]);
+
+		if (isCurrentlyExpanded) {
+			expandedStoryHashes = { ...expandedStoryHashes, [storyHash]: false };
+			return;
+		}
+
+		expandedStoryHashes = { ...expandedStoryHashes, [storyHash]: true };
+		if (hasFetchedStoryVillains(storyHash) || loadingStoryHashes[storyHash]) {
+			return;
+		}
+
+		loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: true };
+		errorByStoryHash = { ...errorByStoryHash, [storyHash]: '' };
+
+		try {
+			const response = await fetch(`/api/tarinat/${encodeURIComponent(storyHash)}/roistot`);
+			if (!response.ok) {
+				throw new Error(`Roistojen haku epäonnistui (${response.status})`);
+			}
+			const payload = (await response.json()) as StoryVillainsResponse;
+			villainsByStoryHash = { ...villainsByStoryHash, [storyHash]: payload.villains ?? [] };
+		} catch (error) {
+			errorByStoryHash = {
+				...errorByStoryHash,
+				[storyHash]: error instanceof Error ? error.message : 'Roistojen haku epäonnistui'
+			};
+		} finally {
+			loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: false };
+		}
+	}
+
 	function pageHref(page: number): string {
 		const params = new URLSearchParams();
 		params.set('publication', filters.publication);
@@ -214,12 +341,59 @@
 	{:else}
 		<div class="story-list">
 			{#each stories as story}
+				{@const storyHash = normalizeStoryHash(story.hash)}
 				<article class="story-card">
 					<h3>{cardTitle(story)}</h3>
 					<p><strong>Kirjoitti:</strong> {authorList(story.writtenBy)}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
 					<p><strong>Ideoi:</strong> {authorList(story.inventedBy)}</p>
 					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>
+
+					<button
+						type="button"
+						class="toggle-villains"
+						on:click={() => toggleStoryVillains(storyHash)}
+						disabled={!storyHash}
+					>
+						{#if expandedStoryHashes[storyHash]}
+							Piilota tarinan roistot
+						{:else}
+							Näytä tarinan roistot
+						{/if}
+					</button>
+
+					{#if expandedStoryHashes[storyHash]}
+						<section class="story-villains">
+							{#if loadingStoryHashes[storyHash]}
+								<p>Haetaan roistoja...</p>
+							{:else if errorByStoryHash[storyHash]}
+								<p class="villain-error">{errorByStoryHash[storyHash]}</p>
+							{:else if storyVillains(storyHash).length === 0}
+								<p>Tarinalle ei löytynyt roistoja.</p>
+							{:else}
+								<div class="story-villains-list">
+									{#each storyVillains(storyHash) as villain}
+										{@const appearance = storyVillainForStory(villain, storyHash)}
+										<article class="story-villain-card">
+											<h4>{villainTitle(villain, storyHash)}</h4>
+											{#if hasValues(villain.ranks)}
+												<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
+											{/if}
+											{#if hasValues(appearance?.roles)}
+												<p><strong>Rooli:</strong> {joinValues(appearance?.roles)}</p>
+											{/if}
+											{#if hasValues(appearance?.destiny)}
+												<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
+											{/if}
+											{#if hasValues(appearance?.aliases)}
+												<p><strong>Alias:</strong> {joinValues(appearance?.aliases)}</p>
+											{/if}
+										</article>
+									{/each}
+								</div>
+							{/if}
+						</section>
+					{/if}
 				</article>
 			{/each}
 		</div>
@@ -279,7 +453,7 @@
 		gap: 0.75rem;
 	}
 
-	button {
+	.actions button {
 		font-size: 1rem;
 		padding: 0.45rem 1rem;
 		border: 1px solid black;
@@ -313,6 +487,51 @@
 
 	.story-card p {
 		margin: 0.25rem 0;
+	}
+
+	.toggle-villains {
+		margin-top: 0.75rem;
+		padding: 0.35rem 0.7rem;
+		font-size: 0.95rem;
+		border: 1px solid black;
+		background: #fff;
+		color: #111;
+		cursor: pointer;
+	}
+
+	.toggle-villains:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.story-villains {
+		margin-top: 0.8rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid black;
+	}
+
+	.story-villains-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.story-villain-card {
+		border: 1px solid black;
+		background: #fff;
+		padding: 0.6rem 0.75rem;
+	}
+
+	.story-villain-card h4 {
+		margin: 0 0 0.25rem;
+	}
+
+	.story-villain-card p {
+		margin: 0.2rem 0;
+	}
+
+	.villain-error {
+		color: #8a0000;
 	}
 
 	.pagination {

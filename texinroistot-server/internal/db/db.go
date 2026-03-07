@@ -60,5 +60,6 @@ type StoryRepository interface {
 type VillainRepository interface {
 	BulkCreate(villains []*Villain, version *Version) ([]*Villain, error)
 	ListFiltered(version *Version, params VillainListParams) ([]*Villain, int, error)
+	ListByStoryHash(version *Version, storyHash string) ([]*Villain, bool, error)
 	//BulkCreateStoryVillain(storyVillains []*StoryVillain) ([]*StoryVillain, error)
 }

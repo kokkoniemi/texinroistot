@@ -16,6 +16,7 @@ func main() {
 	api.Post("/logout", auth.LogoutHandler)
 	api.Get("/me", auth.UserInfoHandler)
 	api.Get("/stories", stories.ListStoriesHandler)
+	api.Get("/stories/:storyHash/villains", stories.ListStoryVillainsHandler)
 	api.Get("/villains", villains.ListVillainsHandler)
 
 	adminapi := api.Group("/admin", auth.ProtectedRoute)

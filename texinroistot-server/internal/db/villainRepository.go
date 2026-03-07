@@ -444,6 +444,123 @@ func (v *villainRepo) hydrateVillains(villains []*Villain, villainIDs []int) err
 	return nil
 }
 
+const selectVillainsByStoryHashSQL = `
+SELECT
+	COALESCE(v.id, 0),
+	COALESCE(v.hash, ''),
+	COALESCE(v.ranks, ARRAY[]::varchar[]),
+	COALESCE(v.first_names, ARRAY[]::varchar[]),
+	COALESCE(v.last_name, ''),
+	COALESCE(vis.id, 0),
+	COALESCE(vis.hash, ''),
+	COALESCE(vis.nicknames, ARRAY[]::varchar[]),
+	COALESCE(vis.aliases, ARRAY[]::varchar[]),
+	COALESCE(vis.roles, ARRAY[]::varchar[]),
+	COALESCE(vis.destiny, ARRAY[]::varchar[]),
+	COALESCE(s.id, 0),
+	COALESCE(s.hash, '')
+FROM stories AS s
+LEFT JOIN villains_in_stories AS vis ON vis.story = s.id
+LEFT JOIN villains AS v ON v.id = vis.villain AND v.version = s.version
+WHERE s.hash = $1
+AND s.version = $2
+ORDER BY
+	NULLIF(regexp_replace(lower(COALESCE(array_to_string(v.first_names, ' '), '') || COALESCE(v.last_name, '')), '[[:punct:][:space:]]+', '', 'g'), '') ASC NULLS LAST,
+	v.id ASC,
+	vis.id ASC;
+`
+
+// ListByStoryHash returns villains that appear in a single story in the active version.
+func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Villain, bool, error) {
+	if version == nil || version.ID == 0 {
+		return nil, false, fmt.Errorf("invalid version")
+	}
+
+	storyHash = strings.TrimSpace(storyHash)
+	if storyHash == "" {
+		return nil, false, fmt.Errorf("story hash is required")
+	}
+
+	rows, err := Query(selectVillainsByStoryHashSQL, storyHash, version.ID)
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+
+	storyFound := false
+	var villains []*Villain
+
+	for rows.Next() {
+		storyFound = true
+
+		var row struct {
+			VillainID       int
+			VillainHash     string
+			Ranks           []string
+			FirstNames      []string
+			LastName        string
+			StoryVillainID  int
+			StoryVillainHash string
+			Nicknames       []string
+			Aliases         []string
+			Roles           []string
+			Destiny         []string
+			StoryID         int
+			StoryHash       string
+		}
+
+		if err = rows.Scan(
+			&row.VillainID,
+			&row.VillainHash,
+			ArrayParam(&row.Ranks),
+			ArrayParam(&row.FirstNames),
+			&row.LastName,
+			&row.StoryVillainID,
+			&row.StoryVillainHash,
+			ArrayParam(&row.Nicknames),
+			ArrayParam(&row.Aliases),
+			ArrayParam(&row.Roles),
+			ArrayParam(&row.Destiny),
+			&row.StoryID,
+			&row.StoryHash,
+		); err != nil {
+			return nil, false, err
+		}
+
+		if row.VillainID == 0 || row.StoryVillainID == 0 {
+			continue
+		}
+
+		villains = append(villains, &Villain{
+			ID:         row.VillainID,
+			Hash:       row.VillainHash,
+			Ranks:      row.Ranks,
+			FirstNames: row.FirstNames,
+			LastName:   row.LastName,
+			As: []*StoryVillain{
+				{
+					ID:        row.StoryVillainID,
+					Hash:      row.StoryVillainHash,
+					Nicknames: row.Nicknames,
+					Aliases:   row.Aliases,
+					Roles:     row.Roles,
+					Destiny:   row.Destiny,
+					Story: &Story{
+						ID:   row.StoryID,
+						Hash: row.StoryHash,
+					},
+				},
+			},
+		})
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, false, err
+	}
+
+	return villains, storyFound, nil
+}
+
 // ListFiltered implements VillainRepository.
 func (v *villainRepo) ListFiltered(version *Version, params VillainListParams) ([]*Villain, int, error) {
 	villains, villainIDs, total, err := v.selectVillainRowsFiltered(version, params)
