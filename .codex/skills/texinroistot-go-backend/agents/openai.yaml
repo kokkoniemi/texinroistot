@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tex Backend"
+  short_description: "Work on Go backend in texinroistot-server"
+  default_prompt: "Implement and validate Go backend changes in texinroistot-server with safe checks."

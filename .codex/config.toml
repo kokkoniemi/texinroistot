@@ -1,0 +1,4 @@
+# Project-local Codex defaults for texinroistot.
+# Keep this conservative: high-quality model with strong reasoning for code changes.
+model = "gpt-5.3-codex"
+model_reasoning_effort = "high"
