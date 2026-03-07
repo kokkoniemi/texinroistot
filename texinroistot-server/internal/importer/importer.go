@@ -19,20 +19,33 @@ type importer struct {
 	totalEntities     uint64
 }
 
-func NewSpreadsheetImporter(titleRow []string) *importer {
+func NewSpreadsheetImporter(titleRow []string) (*importer, error) {
 	columnNames := defaultColumns
 	columnIndexes := map[string]int{}
 
 	for index, title := range titleRow {
-		key := columnNames[title]
+		key, ok := columnNames[strings.TrimSpace(title)]
+		if !ok {
+			continue
+		}
 		columnIndexes[key] = index
+	}
+
+	var missingColumns []string
+	for _, key := range requiredColumnKeys {
+		if _, ok := columnIndexes[key]; !ok {
+			missingColumns = append(missingColumns, key)
+		}
+	}
+	if len(missingColumns) > 0 {
+		return nil, fmt.Errorf("missing required columns: %s", strings.Join(missingColumns, ", "))
 	}
 
 	return &importer{
 		columnNames:   defaultColumns,
 		columnIndexes: columnIndexes,
 		totalEntities: 0,
-	}
+	}, nil
 }
 
 func (i *importer) LoadData(dataRows [][]string) error {
@@ -45,7 +58,7 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		}
 		i.loadWriters(storyID, row)
 		i.loadDrawers(storyID, row)
-		i.loadInventors(storyID, row)
+		i.loadTranslators(storyID, row)
 		err = i.loadBasePublication(storyID, row)
 		if err != nil {
 			return err
@@ -160,31 +173,63 @@ func (r row) getValue(key string) string {
 }
 
 var defaultColumns = map[string]string{
-	"Arvo":                     "ranks",
-	"Etunimi":                  "first_names",
-	"Sukunimi":                 "last_name",
-	"Lempinimi/Intiaaninimi":   "nicknames",
-	"Salanimi/Alias":           "aliases",
-	"Rooli":                    "roles",
-	"Kohtalo":                  "destiny",
-	"Tarina":                   "story_title",
-	"Kertoi":                   "story_written_by",
-	"Piirsi":                   "story_drawn_by",
-	"Käsikirjoitti/Ideoi":      "story_invented_by",
-	"Vuosi":                    "pub_year",
-	"Alkaen":                   "pub_from",
-	"Päättyen":                 "pub_to",
-	"UVuosi":                   "repub_year",
-	"Ualkaen":                  "repub_from",
-	"Upäättyen":                "repub_to",
-	"Erikoisjulkaisu":          "pub_special",
-	"Kronikka":                 "pub_kronikka",
-	"Kirjasto":                 "pub_kirjasto",
-	"Italian vuosi":            "italy_year",
-	"Italian alkunumero":       "italy_pub_from",
-	"Italian päättymisnumero":  "italy_pub_to",
-	"Italian erikoisjulkaisu":  "italy_pub_special",
-	"Italian tarina":           "italy_story_title",
-	"Järjestysluku":            "story_order_num",
-	"Sama numero, sama roisto": "villain_id",
+	"Arvo":                                                     "ranks",
+	"Etunimi (sisältää nimet, joita käytetään kuin etunimeä)": "first_names",
+	"Sukunimi (sisältää nimet, joita käytetään kuin sukunimeä)": "last_name",
+	"Nimi (muut kuin etunimi-sukunimi-tyyppiset nimet)":         "other_names",
+	"Lempinimi":                                                  "nicknames",
+	"Salanimi":                                                   "code_names",
+	"Rooli":                                                      "roles",
+	"Kohtalo":                                                    "destiny",
+	"Tarina":                                                     "story_title",
+	"Kertoi":                                                     "story_written_by",
+	"Piirsi":                                                     "story_drawn_by",
+	"Suomensi":                                                   "story_translated_by",
+	"Vuosi":                                                      "pub_year",
+	"Alkaen":                                                     "pub_from",
+	"Päättyen":                                                   "pub_to",
+	"UVuosi":                                                     "repub_year",
+	"Ualkaen":                                                    "repub_from",
+	"Upäättyen":                                                  "repub_to",
+	"Erikoisjulkaisu":                                            "pub_special",
+	"Kronikka":                                                   "pub_kronikka",
+	"Kirjasto":                                                   "pub_kirjasto",
+	"Italian vuosi":                                              "italy_year",
+	"Italian alkunumero":                                         "italy_pub_from",
+	"Italian päättymisnumero":                                    "italy_pub_to",
+	"Italian erikoisjulkaisu":                                    "italy_pub_special",
+	"Italian tarina":                                             "italy_story_title",
+	"Järjestysluku":                                              "story_order_num",
+	"Sama numero, sama roisto":                                   "villain_id",
+}
+
+var requiredColumnKeys = []string{
+	"ranks",
+	"first_names",
+	"last_name",
+	"other_names",
+	"nicknames",
+	"code_names",
+	"roles",
+	"destiny",
+	"story_title",
+	"story_written_by",
+	"story_drawn_by",
+	"story_translated_by",
+	"pub_year",
+	"pub_from",
+	"pub_to",
+	"repub_year",
+	"repub_from",
+	"repub_to",
+	"pub_special",
+	"pub_kronikka",
+	"pub_kirjasto",
+	"italy_year",
+	"italy_pub_from",
+	"italy_pub_to",
+	"italy_pub_special",
+	"italy_story_title",
+	"story_order_num",
+	"villain_id",
 }

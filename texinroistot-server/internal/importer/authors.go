@@ -2,6 +2,7 @@ package importer
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -13,6 +14,13 @@ type importerAuthor struct {
 	ID   id
 	item *db.Author
 }
+
+type parsedTranslator struct {
+	author  *importerAuthor
+	details string
+}
+
+var translatorDetailAtEndRegex = regexp.MustCompile(`\s+([0-9][0-9\.\-\s]*p\.?)$`)
 
 func (i *importer) loadWriters(storyID id, r row) {
 	writers := i.loadAuthorColumn(r, "story_written_by")
@@ -30,12 +38,86 @@ func (i *importer) loadDrawers(storyID id, r row) {
 	}
 }
 
-func (i *importer) loadInventors(storyID id, r row) {
-	inventors := i.loadAuthorColumn(r, "story_invented_by")
-	for _, inventor := range inventors {
-		inventor.item.IsInventor = true
-		i.setInventorForStory(storyID, inventor.ID)
+func (i *importer) loadTranslators(storyID id, r row) {
+	translators := i.loadTranslatorColumn(r)
+	for _, translator := range translators {
+		translator.author.item.IsTranslator = true
+		i.setTranslatorForStory(storyID, translator.author.ID, translator.details)
 	}
+}
+
+func splitTranslatorFirstNameAndDetails(firstName string) (string, string) {
+	firstName = strings.TrimSpace(firstName)
+	if firstName == "" {
+		return "", ""
+	}
+
+	// Format: "Renne (2. - 3. p)"
+	if openIdx := strings.Index(firstName, "("); openIdx != -1 && strings.HasSuffix(firstName, ")") {
+		namePart := strings.TrimSpace(firstName[:openIdx])
+		detailPart := strings.TrimSpace(strings.TrimSuffix(firstName[openIdx+1:], ")"))
+		return namePart, detailPart
+	}
+
+	// Format: "Renne 2. - 3. p"
+	matches := translatorDetailAtEndRegex.FindStringSubmatchIndex(firstName)
+	if matches != nil && len(matches) >= 4 {
+		namePart := strings.TrimSpace(firstName[:matches[0]])
+		detailPart := strings.TrimSpace(firstName[matches[2]:matches[3]])
+		return namePart, detailPart
+	}
+
+	return firstName, ""
+}
+
+func (i *importer) loadTranslatorColumn(r row) []parsedTranslator {
+	names := strings.Split(r.getValue("story_translated_by"), ";")
+	var translators []parsedTranslator
+
+	for _, rawName := range names {
+		trimmedName := strings.TrimSpace(rawName)
+		if trimmedName == "" {
+			continue
+		}
+
+		isParenthesized := strings.HasPrefix(trimmedName, "(") && strings.HasSuffix(trimmedName, ")")
+		if isParenthesized {
+			trimmedName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(trimmedName, ")"), "("))
+		}
+
+		nameParts := strings.Split(trimmedName, ",")
+		var firstName string
+		var lastName string
+		if len(nameParts) == 1 {
+			firstName = strings.TrimSpace(nameParts[0])
+		} else {
+			lastName = strings.TrimSpace(nameParts[0])
+			firstName = strings.TrimSpace(strings.Join(nameParts[1:], " "))
+		}
+
+		firstName, details := splitTranslatorFirstNameAndDetails(firstName)
+		if firstName == "" && details == "" {
+			continue
+		}
+
+		var author *importerAuthor
+		if !i.hasAuthorWithName(firstName, lastName) {
+			author = i.addAuthor(&db.Author{
+				Hash:      crypt.Hash(firstName + lastName),
+				FirstName: firstName,
+				LastName:  lastName,
+			})
+		} else {
+			author = i.getAuthorWithName(firstName, lastName)
+		}
+
+		translators = append(translators, parsedTranslator{
+			author:  author,
+			details: strings.TrimSpace(details),
+		})
+	}
+
+	return translators
 }
 
 func (i *importer) getAuthorIndexWithName(firstName string, lastName string) int {

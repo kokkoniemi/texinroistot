@@ -7,6 +7,7 @@
 	type Author = {
 		firstName: string;
 		lastName: string;
+		details?: string | null;
 	};
 
 	type Publication = {
@@ -24,13 +25,14 @@
 		orderNumber: number;
 		writtenBy?: Author[] | null;
 		drawnBy?: Author[] | null;
-		inventedBy?: Author[] | null;
+		translatedBy?: Author[] | null;
 		publications?: StoryPublication[] | null;
 	};
 
 	type StoryVillain = {
 		nicknames?: string[] | null;
-		aliases?: string[] | null;
+		otherNames?: string[] | null;
+		codeNames?: string[] | null;
 		roles?: string[] | null;
 		destiny?: string[] | null;
 		story?: Story | null;
@@ -111,7 +113,15 @@
 
 	function authorList(authors?: Author[] | null): string {
 		if (!authors || authors.length === 0) return '-';
-		return authors.map((author) => `${author.firstName} ${author.lastName}`.trim()).join(', ');
+		return authors
+			.map((author) => {
+				const base = `${author.firstName} ${author.lastName}`.trim();
+				const details = (author.details ?? '').trim();
+				if (details) return `${base} (${details})`.trim();
+				return base;
+			})
+			.filter(Boolean)
+			.join(', ');
 	}
 
 	function villainRealName(villain: Villain): string {
@@ -126,6 +136,13 @@
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
 	}
 
+	function villainAlternativeNames(villain: Villain): string[] {
+		return (villain.as ?? [])
+			.flatMap((appearance) => [...(appearance.otherNames ?? []), ...(appearance.codeNames ?? [])])
+			.map((name) => name.trim())
+			.filter((name, index, values) => Boolean(name) && values.indexOf(name) === index);
+	}
+
 	function villainTitle(villain: Villain): string {
 		const realName = villainRealName(villain);
 		const nicknames = villainNicknames(villain);
@@ -133,10 +150,12 @@
 		const nicknamesInParentheses =
 			cleanNicknames.length > 0 ? `(${cleanNicknames.join(', ')})` : '';
 		const quotedNicknames = cleanNicknames.map((nickname) => `"${nickname}"`).join(', ');
+		const alternativeNames = villainAlternativeNames(villain);
 
 		if (realName && nicknamesInParentheses) return `${realName} ${nicknamesInParentheses}`;
 		if (realName) return realName;
 		if (quotedNicknames) return quotedNicknames;
+		if (alternativeNames.length > 0) return alternativeNames.join(', ');
 		return 'Nimetön roisto';
 	}
 
@@ -201,7 +220,7 @@
 
 	function authorsSummary(story?: Story | null): string {
 		if (!story) return '-';
-		return `kertoi: ${authorList(story.writtenBy)} | piirsi: ${authorList(story.drawnBy)} | ideoi: ${authorList(story.inventedBy)}`;
+		return `kertoi: ${authorList(story.writtenBy)} | piirsi: ${authorList(story.drawnBy)} | suomensi: ${authorList(story.translatedBy)}`;
 	}
 
 	function pageHref(page: number): string {
@@ -356,6 +375,12 @@
 					{/if}
 					<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
 					<p><strong>Rooli:</strong> {joinValues(appearance?.roles)}</p>
+					{#if hasValues(appearance?.otherNames)}
+						<p><strong>Nimi:</strong> {joinValues(appearance?.otherNames)}</p>
+					{/if}
+					{#if hasValues(appearance?.codeNames)}
+						<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
+					{/if}
 					<p><strong>Tarina:</strong> {storyTitle(appearance?.story)}</p>
 					<p><strong>Julkaisut:</strong> {publicationSummary(appearance?.story)}</p>
 					<p><strong>Tekijät:</strong> {authorsSummary(appearance?.story)}</p>

@@ -33,7 +33,10 @@ func parseExcel() error {
 		return fmt.Errorf("no content")
 	}
 
-	importer := importer.NewSpreadsheetImporter(rows[0])
+	importer, err := importer.NewSpreadsheetImporter(rows[0])
+	if err != nil {
+		return err
+	}
 	err = importer.LoadData(rows[1:])
 	if err != nil {
 		return err

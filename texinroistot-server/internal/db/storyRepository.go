@@ -47,10 +47,15 @@ func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, er
 
 	appendAuthorValue := func(story *Story, authors []*Author, atype string) {
 		for _, a := range authors {
+			var details interface{}
+			if strings.TrimSpace(a.Details) != "" {
+				details = strings.TrimSpace(a.Details)
+			}
 			storyAuthorValues = append(storyAuthorValues, []interface{}{
 				story.ID,
 				a.ID,
 				atype,
+				details,
 			})
 		}
 
@@ -59,12 +64,12 @@ func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, er
 	for _, s := range stories {
 		appendAuthorValue(s, s.WrittenBy, "writer")
 		appendAuthorValue(s, s.DrawnBy, "drawer")
-		appendAuthorValue(s, s.InventedBy, "inventor")
+		appendAuthorValue(s, s.TranslatedBy, "translator")
 	}
 
 	_, err = BulkInsertTxn(bulkInsertParams{
 		Table:   "authors_in_stories",
-		Columns: []string{"story", "author", "type"},
+		Columns: []string{"story", "author", "type", "details"},
 		Values:  storyAuthorValues,
 	})
 	if err != nil {
@@ -376,7 +381,8 @@ const selectAuthorsInStoriesSQL = `
 SELECT
 	sa.story,
 	sa.author,
-	sa.type
+	sa.type,
+	sa.details
 FROM authors_in_stories AS sa
 WHERE sa.story = ANY($1);
 `
@@ -388,7 +394,7 @@ SELECT
 	a.last_name,
 	a.is_writer,
 	a.is_drawer,
-	a.is_inventor
+	a.is_translator
 FROM authors AS a
 WHERE a.id = ANY($1);
 `
@@ -452,6 +458,7 @@ type ainfo struct {
 	Story  int
 	Author int
 	Type   string
+	Details sql.NullString
 }
 
 func (*storyRepo) selectStoryAuthorRows(storyIDs []int) (map[int][]*ainfo, []*Author, error) {
@@ -469,6 +476,7 @@ func (*storyRepo) selectStoryAuthorRows(storyIDs []int) (map[int][]*ainfo, []*Au
 			&info.Story,
 			&info.Author,
 			&info.Type,
+			&info.Details,
 		); err != nil {
 			return nil, nil, err
 		}
@@ -492,7 +500,7 @@ func (*storyRepo) selectStoryAuthorRows(storyIDs []int) (map[int][]*ainfo, []*Au
 			&a.LastName,
 			&a.IsWriter,
 			&a.IsDrawer,
-			&a.IsInventor,
+			&a.IsTranslator,
 		); err != nil {
 			return nil, nil, err
 		}
@@ -570,29 +578,41 @@ func (s *storyRepo) hydrateStories(stories []*Story, storyIDs []int) error {
 	getAuthorsByInfo := func(infos []*ainfo) ([]*Author, []*Author, []*Author) {
 		var writers []*Author
 		var drawers []*Author
-		var inventors []*Author
+		var translators []*Author
 
 		for _, info := range infos {
 			for _, a := range authors {
 				if info.Author == a.ID {
 					if info.Type == "writer" {
-						writers = append(writers, a)
+						withDetails := *a
+						if info.Details.Valid {
+							withDetails.Details = strings.TrimSpace(info.Details.String)
+						}
+						writers = append(writers, &withDetails)
 					} else if info.Type == "drawer" {
-						drawers = append(drawers, a)
-					} else if info.Type == "inventor" {
-						inventors = append(inventors, a)
+						withDetails := *a
+						if info.Details.Valid {
+							withDetails.Details = strings.TrimSpace(info.Details.String)
+						}
+						drawers = append(drawers, &withDetails)
+					} else if info.Type == "translator" {
+						withDetails := *a
+						if info.Details.Valid {
+							withDetails.Details = strings.TrimSpace(info.Details.String)
+						}
+						translators = append(translators, &withDetails)
 					}
 					break
 				}
 			}
 		}
 
-		return writers, drawers, inventors
+		return writers, drawers, translators
 	}
 
 	for idx := range stories {
 		infos := authorInfos[stories[idx].ID]
-		stories[idx].WrittenBy, stories[idx].DrawnBy, stories[idx].InventedBy = getAuthorsByInfo(infos)
+		stories[idx].WrittenBy, stories[idx].DrawnBy, stories[idx].TranslatedBy = getAuthorsByInfo(infos)
 
 		stories[idx].Publications = storyPublications[stories[idx].ID]
 	}

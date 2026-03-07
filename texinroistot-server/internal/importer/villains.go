@@ -95,7 +95,8 @@ func (i *importer) loadVillain(storyID id, r row) {
 	firstNames := i.TrimmedSplit(r.getValue("first_names"), ";")
 	lastName := r.getValue("last_name")
 	nicknames := i.TrimmedSplit(r.getValue("nicknames"), ";")
-	aliases := i.TrimmedSplit(r.getValue("aliases"), ";")
+	otherNames := i.TrimmedSplit(r.getValue("other_names"), ";")
+	codeNames := i.TrimmedSplit(r.getValue("code_names"), ";")
 	roles := i.TrimmedSplit(r.getValue("roles"), ";")
 	destiny := i.TrimmedSplit(r.getValue("destiny"), ";")
 
@@ -109,7 +110,8 @@ func (i *importer) loadVillain(storyID id, r row) {
 			strings.Join(firstNames, "") +
 			lastName +
 			strings.Join(nicknames, "") +
-			strings.Join(aliases, "") +
+			strings.Join(otherNames, "") +
+			strings.Join(codeNames, "") +
 			strings.Join(roles, "") +
 			strings.Join(destiny, ""))
 	}
@@ -149,11 +151,12 @@ func (i *importer) loadVillain(storyID id, r row) {
 	// create storyVillain if not exist
 	if !i.hasStoryVillain(villain.ID, storyID) {
 		storyVillain = i.addStoryVillain(&db.StoryVillain{
-			Hash:      crypt.Hash(fmt.Sprintf("%d%d", villain.ID, storyID)),
-			Nicknames: nicknames,
-			Aliases:   aliases,
-			Roles:     roles,
-			Destiny:   destiny,
+			Hash:       crypt.Hash(fmt.Sprintf("%d%d", villain.ID, storyID)),
+			Nicknames:  nicknames,
+			OtherNames: otherNames,
+			CodeNames:  codeNames,
+			Roles:      roles,
+			Destiny:    destiny,
 		}, villain.ID, storyID)
 	} else {
 		// update existing storyVillain with row info
@@ -165,9 +168,15 @@ func (i *importer) loadVillain(storyID id, r row) {
 			}
 		}
 
-		for _, alias := range aliases {
-			if !slices.Contains(storyVillain.item.Aliases, alias) {
-				storyVillain.item.Aliases = append(storyVillain.item.Aliases, alias)
+		for _, name := range otherNames {
+			if !slices.Contains(storyVillain.item.OtherNames, name) {
+				storyVillain.item.OtherNames = append(storyVillain.item.OtherNames, name)
+			}
+		}
+
+		for _, codeName := range codeNames {
+			if !slices.Contains(storyVillain.item.CodeNames, codeName) {
+				storyVillain.item.CodeNames = append(storyVillain.item.CodeNames, codeName)
 			}
 		}
 

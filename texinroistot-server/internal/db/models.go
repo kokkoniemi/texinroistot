@@ -13,23 +13,25 @@ type User struct {
 }
 
 type Author struct {
-	ID         int    `json:"-"`
-	Hash       string `json:"hash"`
-	FirstName  string `json:"firstName"`
-	LastName   string `json:"lastName"`
-	IsWriter   bool   `json:"isWriter"`
-	IsDrawer   bool   `json:"isDrawer"`
-	IsInventor bool   `json:"isInventor"`
+	ID           int    `json:"-"`
+	Hash         string `json:"hash"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	Details      string `json:"details,omitempty"`
+	IsWriter     bool   `json:"isWriter"`
+	IsDrawer     bool   `json:"isDrawer"`
+	IsTranslator bool   `json:"isTranslator"`
 }
 
 type AuthorBlueprint struct {
-	ID         interface{}
-	Hash       interface{}
-	FirstName  interface{}
-	LastName   interface{}
-	IsWriter   interface{}
-	IsDrawer   interface{}
-	IsInventor interface{}
+	ID           interface{}
+	Hash         interface{}
+	FirstName    interface{}
+	LastName     interface{}
+	Details      interface{}
+	IsWriter     interface{}
+	IsDrawer     interface{}
+	IsTranslator interface{}
 }
 
 func (a *AuthorBlueprint) AuthorExists() bool {
@@ -103,13 +105,14 @@ type Villain struct {
 }
 
 type StoryVillain struct {
-	ID        int      `json:"-"`
-	Hash      string   `json:"hash"`
-	Nicknames []string `json:"nicknames"`
-	Aliases   []string `json:"aliases"`
-	Roles     []string `json:"roles"`
-	Destiny   []string `json:"destiny"`
-	Story     *Story   `json:"story"`
+	ID         int      `json:"-"`
+	Hash       string   `json:"hash"`
+	Nicknames  []string `json:"nicknames"`
+	OtherNames []string `json:"otherNames"`
+	CodeNames  []string `json:"codeNames"`
+	Roles      []string `json:"roles"`
+	Destiny    []string `json:"destiny"`
+	Story      *Story   `json:"story"`
 }
 
 type Story struct {
@@ -118,7 +121,7 @@ type Story struct {
 	OrderNumber  int                 `json:"orderNumber"`
 	WrittenBy    []*Author           `json:"writtenBy"`
 	DrawnBy      []*Author           `json:"drawnBy"`
-	InventedBy   []*Author           `json:"inventedBy"`
+	TranslatedBy []*Author           `json:"translatedBy"`
 	Publications []*StoryPublication `json:"publications"`
 }
 
@@ -143,9 +146,9 @@ func (s *Story) GetOrderNumberForDB() interface{} {
 // 	return nil
 // }
 
-// func (s *Story) GetInventorIDForDB() interface{} {
-// 	if s.InventedBy != nil {
-// 		return s.InventedBy.ID
+// func (s *Story) GetTranslatorIDForDB() interface{} {
+// 	if s.TranslatedBy != nil {
+// 		return s.TranslatedBy.ID
 // 	}
 // 	return nil
 // }

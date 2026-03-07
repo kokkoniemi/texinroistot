@@ -7,6 +7,7 @@
 	type Author = {
 		firstName: string;
 		lastName: string;
+		details?: string | null;
 	};
 
 	type Publication = {
@@ -25,14 +26,15 @@
 		orderNumber: number;
 		writtenBy?: Author[] | null;
 		drawnBy?: Author[] | null;
-		inventedBy?: Author[] | null;
+		translatedBy?: Author[] | null;
 		publications?: StoryPublication[] | null;
 	};
 
 	type StoryVillain = {
 		hash: string;
 		nicknames?: string[] | null;
-		aliases?: string[] | null;
+		otherNames?: string[] | null;
+		codeNames?: string[] | null;
 		roles?: string[] | null;
 		destiny?: string[] | null;
 		story?: { hash: string } | null;
@@ -134,7 +136,15 @@
 
 	function authorList(authors?: Author[] | null): string {
 		if (!authors || authors.length === 0) return '-';
-		return authors.map((author) => `${author.firstName} ${author.lastName}`.trim()).join(', ');
+		return authors
+			.map((author) => {
+				const base = `${author.firstName} ${author.lastName}`.trim();
+				const details = (author.details ?? '').trim();
+				if (details) return `${base} (${details})`.trim();
+				return base;
+			})
+			.filter(Boolean)
+			.join(', ');
 	}
 
 	function joinValues(values?: string[] | null, fallback = '-'): string {
@@ -233,13 +243,22 @@
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
 	}
 
+	function villainAlternativeNames(villain: Villain, storyHash: string): string[] {
+		const appearance = storyVillainForStory(villain, storyHash);
+		return [...(appearance?.otherNames ?? []), ...(appearance?.codeNames ?? [])]
+			.map((name) => name.trim())
+			.filter((name, index, values) => Boolean(name) && values.indexOf(name) === index);
+	}
+
 	function villainTitle(villain: Villain, storyHash: string): string {
 		const realName = villainRealName(villain);
 		const nicknames = villainNicknames(villain, storyHash);
+		const alternativeNames = villainAlternativeNames(villain, storyHash);
 
 		if (realName && nicknames.length > 0) return `${realName} (${nicknames.join(', ')})`;
 		if (realName) return realName;
 		if (nicknames.length > 0) return nicknames.map((nickname) => `"${nickname}"`).join(', ');
+		if (alternativeNames.length > 0) return alternativeNames.join(', ');
 		return 'Nimetön roisto';
 	}
 
@@ -434,7 +453,7 @@
 					<h3>{cardTitle(story)}</h3>
 					<p><strong>Kirjoitti:</strong> {authorList(story.writtenBy)}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
-					<p><strong>Ideoi:</strong> {authorList(story.inventedBy)}</p>
+					<p><strong>Suomensi:</strong> {authorList(story.translatedBy)}</p>
 					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>
 
 					<button
@@ -473,8 +492,11 @@
 											{#if hasValues(appearance?.destiny)}
 												<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
 											{/if}
-											{#if hasValues(appearance?.aliases)}
-												<p><strong>Alias:</strong> {joinValues(appearance?.aliases)}</p>
+											{#if hasValues(appearance?.otherNames)}
+												<p><strong>Nimi:</strong> {joinValues(appearance?.otherNames)}</p>
+											{/if}
+											{#if hasValues(appearance?.codeNames)}
+												<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
 											{/if}
 										</article>
 									{/each}

@@ -51,7 +51,7 @@ SELECT
 	(SELECT COUNT(*) FROM stories WHERE version = $1) AS stories,
 	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_drawer = true) AS drawers,
 	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_writer = true) AS writers,
-	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_inventor = true) AS translators;
+	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_translator = true) AS translators;
 `
 
 // GetStats implements VersionRepository.

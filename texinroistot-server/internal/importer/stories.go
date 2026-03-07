@@ -11,11 +11,16 @@ import (
 )
 
 type importerStory struct {
-	ID        id
-	item      *db.Story
-	writers   []id
-	drawers   []id
-	inventors []id
+	ID          id
+	item        *db.Story
+	writers     []id
+	drawers     []id
+	translators []translatorRef
+}
+
+type translatorRef struct {
+	AuthorID id
+	Details  string
 }
 
 func (i *importer) loadStory(r row) (id, error) {
@@ -84,11 +89,11 @@ func (i *importer) addStory(story *db.Story) *importerStory {
 	i.totalEntities++
 
 	importerStory := &importerStory{
-		ID:        id(i.totalEntities),
-		item:      story,
-		writers:   []id{},
-		drawers:   []id{},
-		inventors: []id{},
+		ID:          id(i.totalEntities),
+		item:        story,
+		writers:     []id{},
+		drawers:     []id{},
+		translators: []translatorRef{},
 	}
 
 	i.stories = append(i.stories, importerStory)
@@ -110,11 +115,20 @@ func (i *importer) setDrawerForStory(storyID id, drawerID id) {
 	}
 }
 
-func (i *importer) setInventorForStory(storyID id, inventorID id) {
+func (i *importer) setTranslatorForStory(storyID id, translatorID id, details string) {
 	story := i.getStory(storyID)
-	if story != nil && !slices.Contains(story.inventors, inventorID) {
-		story.inventors = append(story.inventors, inventorID)
+	if story == nil {
+		return
 	}
+	for _, ref := range story.translators {
+		if ref.AuthorID == translatorID && strings.TrimSpace(ref.Details) == strings.TrimSpace(details) {
+			return
+		}
+	}
+	story.translators = append(story.translators, translatorRef{
+		AuthorID: translatorID,
+		Details:  strings.TrimSpace(details),
+	})
 }
 
 func (i *importer) setStoryItems(items []*db.Story) error {
@@ -145,7 +159,13 @@ func (i *importer) persistStories(version *db.Version) error {
 	for _, importerStory := range i.stories {
 		importerStory.item.WrittenBy = i.getAuthorItemsWithIDs(importerStory.writers)
 		importerStory.item.DrawnBy = i.getAuthorItemsWithIDs(importerStory.drawers)
-		importerStory.item.InventedBy = i.getAuthorItemsWithIDs(importerStory.inventors)
+		for _, ref := range importerStory.translators {
+			for _, author := range i.getAuthorItemsWithIDs([]id{ref.AuthorID}) {
+				withDetails := *author
+				withDetails.Details = strings.TrimSpace(ref.Details)
+				importerStory.item.TranslatedBy = append(importerStory.item.TranslatedBy, &withDetails)
+			}
+		}
 
 		storyID := importerStory.ID
 		importerStoryPublications := i.getStoryPublications(storyID)

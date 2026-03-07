@@ -16,14 +16,14 @@ func (a *authorRepo) BulkCreate(authors []*Author, version *Version) ([]*Author,
 	var values [][]interface{}
 	for _, a := range authors {
 		values = append(values, []interface{}{
-			a.Hash, a.FirstName, a.LastName, a.IsWriter, a.IsDrawer, a.IsInventor, version.ID,
+			a.Hash, a.FirstName, a.LastName, a.IsWriter, a.IsDrawer, a.IsTranslator, version.ID,
 		})
 	}
 
 	rows, err := BulkInsertTxn(bulkInsertParams{
 		Table: "authors",
 		Columns: []string{
-			"hash", "first_name", "last_name", "is_writer", "is_drawer", "is_inventor", "version",
+			"hash", "first_name", "last_name", "is_writer", "is_drawer", "is_translator", "version",
 		},
 		Values: values,
 	})
@@ -54,7 +54,7 @@ SELECT
 	last_name,
 	is_writer,
 	is_drawer,
-	is_inventor
+	is_translator
 FROM authors
 WHERE
 	version = $1
@@ -85,7 +85,7 @@ func (*authorRepo) list(version *Version, descending bool, limit int) ([]*Author
 			&aBp.LastName,
 			&aBp.IsWriter,
 			&aBp.IsDrawer,
-			&aBp.IsInventor,
+			&aBp.IsTranslator,
 		); err != nil {
 			return nil, err
 		}
@@ -105,7 +105,7 @@ SELECT
 	last_name,
 	is_writer,
 	is_drawer,
-	is_inventor
+	is_translator
 FROM authors
 WHERE id = $1;
 `
@@ -125,7 +125,7 @@ func (*authorRepo) Read(authorID int) (*Author, error) {
 			&aBp.LastName,
 			&aBp.IsWriter,
 			&aBp.IsDrawer,
-			&aBp.IsInventor,
+			&aBp.IsTranslator,
 		); err != nil {
 			return nil, err
 		}

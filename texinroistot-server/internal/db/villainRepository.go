@@ -59,7 +59,8 @@ func (v *villainRepo) BulkCreate(villains []*Villain, version *Version) ([]*Vill
 				sv.Story.ID, // TODO: make sure that this is found
 				sv.Hash,
 				ArrayParam(sv.Nicknames),
-				ArrayParam(sv.Aliases),
+				ArrayParam(sv.OtherNames),
+				ArrayParam(sv.CodeNames),
 				ArrayParam(sv.Destiny),
 				ArrayParam(sv.Roles),
 			})
@@ -68,7 +69,7 @@ func (v *villainRepo) BulkCreate(villains []*Villain, version *Version) ([]*Vill
 
 	_, err = BulkInsertTxn(bulkInsertParams{
 		Table:   "villains_in_stories",
-		Columns: []string{"villain", "story", "hash", "nicknames", "aliases", "destiny", "roles"},
+		Columns: []string{"villain", "story", "hash", "nicknames", "other_names", "code_names", "destiny", "roles"},
 		Values:  storyVillainValues,
 	})
 	if err != nil {
@@ -209,7 +210,8 @@ EXISTS (
 		WHERE vis.villain = v.id
 		AND (
 			array_to_string(vis.nicknames, ' ') ILIKE $%d
-			OR array_to_string(vis.aliases, ' ') ILIKE $%d
+			OR array_to_string(vis.other_names, ' ') ILIKE $%d
+			OR array_to_string(vis.code_names, ' ') ILIKE $%d
 			OR array_to_string(vis.roles, ' ') ILIKE $%d
 			OR array_to_string(vis.destiny, ' ') ILIKE $%d
 			OR sip.title ILIKE $%d
@@ -217,7 +219,7 @@ EXISTS (
 			OR p.type::text ILIKE $%d
 		)
 	)
-)`, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
+)`, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
 		args = append(args, "%"+search+"%")
 	}
 
@@ -325,7 +327,8 @@ SELECT
 	vis.id,
 	vis.hash,
 	COALESCE(vis.nicknames, ARRAY[]::varchar[]),
-	COALESCE(vis.aliases, ARRAY[]::varchar[]),
+	COALESCE(vis.other_names, ARRAY[]::varchar[]),
+	COALESCE(vis.code_names, ARRAY[]::varchar[]),
 	COALESCE(vis.roles, ARRAY[]::varchar[]),
 	COALESCE(vis.destiny, ARRAY[]::varchar[]),
 	s.id,
@@ -356,7 +359,8 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 			ID        int
 			Hash      string
 			Nicknames []string
-			Aliases   []string
+			OtherNames []string
+			CodeNames  []string
 			Roles     []string
 			Destiny   []string
 			StoryID   int
@@ -369,7 +373,8 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 			&row.ID,
 			&row.Hash,
 			ArrayParam(&row.Nicknames),
-			ArrayParam(&row.Aliases),
+			ArrayParam(&row.OtherNames),
+			ArrayParam(&row.CodeNames),
 			ArrayParam(&row.Roles),
 			ArrayParam(&row.Destiny),
 			&row.StoryID,
@@ -395,13 +400,14 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 		}
 
 		storyVillain := &StoryVillain{
-			ID:        row.ID,
-			Hash:      row.Hash,
-			Nicknames: row.Nicknames,
-			Aliases:   row.Aliases,
-			Roles:     row.Roles,
-			Destiny:   row.Destiny,
-			Story:     story,
+			ID:         row.ID,
+			Hash:       row.Hash,
+			Nicknames:  row.Nicknames,
+			OtherNames: row.OtherNames,
+			CodeNames:  row.CodeNames,
+			Roles:      row.Roles,
+			Destiny:    row.Destiny,
+			Story:      story,
 		}
 		asByVillain[row.VillainID] = append(asByVillain[row.VillainID], storyVillain)
 	}
@@ -454,7 +460,8 @@ SELECT
 	COALESCE(vis.id, 0),
 	COALESCE(vis.hash, ''),
 	COALESCE(vis.nicknames, ARRAY[]::varchar[]),
-	COALESCE(vis.aliases, ARRAY[]::varchar[]),
+	COALESCE(vis.other_names, ARRAY[]::varchar[]),
+	COALESCE(vis.code_names, ARRAY[]::varchar[]),
 	COALESCE(vis.roles, ARRAY[]::varchar[]),
 	COALESCE(vis.destiny, ARRAY[]::varchar[]),
 	COALESCE(s.id, 0),
@@ -494,19 +501,20 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 		storyFound = true
 
 		var row struct {
-			VillainID       int
-			VillainHash     string
-			Ranks           []string
-			FirstNames      []string
-			LastName        string
-			StoryVillainID  int
+			VillainID        int
+			VillainHash      string
+			Ranks            []string
+			FirstNames       []string
+			LastName         string
+			StoryVillainID   int
 			StoryVillainHash string
-			Nicknames       []string
-			Aliases         []string
-			Roles           []string
-			Destiny         []string
-			StoryID         int
-			StoryHash       string
+			Nicknames        []string
+			OtherNames       []string
+			CodeNames        []string
+			Roles            []string
+			Destiny          []string
+			StoryID          int
+			StoryHash        string
 		}
 
 		if err = rows.Scan(
@@ -518,7 +526,8 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			&row.StoryVillainID,
 			&row.StoryVillainHash,
 			ArrayParam(&row.Nicknames),
-			ArrayParam(&row.Aliases),
+			ArrayParam(&row.OtherNames),
+			ArrayParam(&row.CodeNames),
 			ArrayParam(&row.Roles),
 			ArrayParam(&row.Destiny),
 			&row.StoryID,
@@ -539,12 +548,13 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			LastName:   row.LastName,
 			As: []*StoryVillain{
 				{
-					ID:        row.StoryVillainID,
-					Hash:      row.StoryVillainHash,
-					Nicknames: row.Nicknames,
-					Aliases:   row.Aliases,
-					Roles:     row.Roles,
-					Destiny:   row.Destiny,
+					ID:         row.StoryVillainID,
+					Hash:       row.StoryVillainHash,
+					Nicknames:  row.Nicknames,
+					OtherNames: row.OtherNames,
+					CodeNames:  row.CodeNames,
+					Roles:      row.Roles,
+					Destiny:    row.Destiny,
 					Story: &Story{
 						ID:   row.StoryID,
 						Hash: row.StoryHash,

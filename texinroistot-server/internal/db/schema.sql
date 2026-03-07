@@ -9,7 +9,7 @@ CREATE TABLE "public"."authors" (
 	    "last_name" varchar,
 	    "is_writer" bool,
 	    "is_drawer" bool,
-	    "is_inventor" bool,
+	    "is_translator" bool,
 	    "version" int8 NOT NULL,
 	    "hash" varchar NOT NULL,
 	    PRIMARY KEY ("id")
@@ -20,7 +20,7 @@ COMMENT ON COLUMN "public"."authors"."hash" IS 'consistent identifier between di
 
 
 DROP TYPE IF EXISTS "public"."author_type";
-CREATE TYPE "public"."author_type" AS ENUM ('writer', 'drawer', 'inventor');
+CREATE TYPE "public"."author_type" AS ENUM ('writer', 'drawer', 'translator');
 
 -- Table Definition
 CREATE TABLE "public"."authors_in_stories" (
@@ -28,11 +28,12 @@ CREATE TABLE "public"."authors_in_stories" (
 	    "story" int8,
 	    "author" int8,
 	    "type" "public"."author_type",
+	    "details" varchar,
 	    PRIMARY KEY ("id")
 );
 
 -- Comments
-COMMENT ON TABLE "public"."authors" IS 'An author of a story. Can be writer, drawer, or story inventor';
+COMMENT ON TABLE "public"."authors" IS 'An author of a story. Can be writer, drawer, or story translator';
 
 
 -- STORIES:
@@ -126,7 +127,8 @@ CREATE TABLE "public"."villains_in_stories" (
 	    "story" int8 NOT NULL,
 	    "hash" varchar NOT NULL,
 	    "nicknames" _varchar,
-	    "aliases" _varchar,
+	    "other_names" _varchar,
+	    "code_names" _varchar,
 	    "destiny" _varchar,
 	    "roles" _varchar,
 	    PRIMARY KEY ("id")
