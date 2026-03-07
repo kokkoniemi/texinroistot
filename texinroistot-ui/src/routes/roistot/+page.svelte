@@ -65,7 +65,9 @@
 		{ value: 'first_name', label: 'Etunimen mukaan' },
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
 		{ value: 'nickname', label: 'Lempinimen mukaan' },
-		{ value: 'rank', label: 'Arvon mukaan' }
+		{ value: 'rank', label: 'Arvon mukaan' },
+		{ value: 'fi_pub_date', label: 'Suomen julkaisupäivän mukaan' },
+		{ value: 'it_pub_date', label: 'Italian julkaisupäivän mukaan' }
 	];
 
 	const publicationTypeLabels: Record<string, string> = {
@@ -81,13 +83,13 @@
 
 	let villains: Villain[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	let filters: Filters = { publication: 'fi', sort: 'first_name', q: '' };
+	let filters: Filters = { publication: 'fi', sort: 'fi_pub_date', q: '' };
 	let hasPrev = false;
 	let hasNext = false;
 
 	$: villains = data.villains ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	$: filters = data.filters ?? { publication: 'fi', sort: 'first_name', q: '' };
+	$: filters = data.filters ?? { publication: 'fi', sort: 'fi_pub_date', q: '' };
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 
@@ -96,23 +98,39 @@
 		return values.filter(Boolean).join(', ');
 	}
 
+	function hasValues(values?: string[] | null): boolean {
+		return Boolean(values && values.some((value) => Boolean(value)));
+	}
+
 	function authorList(authors?: Author[] | null): string {
 		if (!authors || authors.length === 0) return '-';
 		return authors.map((author) => `${author.firstName} ${author.lastName}`.trim()).join(', ');
 	}
 
-	function villainName(villain: Villain): string {
+	function villainRealName(villain: Villain): string {
 		const firstNames = joinValues(villain.firstNames, '').trim();
 		const lastName = (villain.lastName ?? '').trim();
-		const fullName = `${firstNames} ${lastName}`.trim();
-		return fullName || 'Nimetön roisto';
+		return `${firstNames} ${lastName}`.trim();
 	}
 
-	function villainNicknames(villain: Villain): string {
-		const nicknames = (villain.as ?? [])
+	function villainNicknames(villain: Villain): string[] {
+		return (villain.as ?? [])
 			.flatMap((appearance) => appearance.nicknames ?? [])
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
-		return nicknames.join(', ');
+	}
+
+	function villainTitle(villain: Villain): string {
+		const realName = villainRealName(villain);
+		const nicknames = villainNicknames(villain);
+		const cleanNicknames = nicknames.map((nickname) => nickname.trim()).filter(Boolean);
+		const nicknamesInParentheses =
+			cleanNicknames.length > 0 ? `(${cleanNicknames.join(', ')})` : '';
+		const quotedNicknames = cleanNicknames.map((nickname) => `"${nickname}"`).join(', ');
+
+		if (realName && nicknamesInParentheses) return `${realName} ${nicknamesInParentheses}`;
+		if (realName) return realName;
+		if (quotedNicknames) return quotedNicknames;
+		return 'Nimetön roisto';
 	}
 
 	function primaryAppearance(villain: Villain): StoryVillain | null {
@@ -244,11 +262,10 @@
 			{#each villains as villain}
 				{@const appearance = primaryAppearance(villain)}
 				<article class="villain-card">
-					<h3>{villainName(villain)}</h3>
-					{#if villainNicknames(villain)}
-						<p class="subtitle">{villainNicknames(villain)}</p>
+					<h3>{villainTitle(villain)}</h3>
+					{#if hasValues(villain.ranks)}
+						<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
 					{/if}
-					<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
 					<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
 					<p><strong>Rooli:</strong> {joinValues(appearance?.roles)}</p>
 					<p><strong>Tarina:</strong> {storyTitle(appearance?.story)}</p>
@@ -343,11 +360,6 @@
 
 	.villain-card h3 {
 		margin: 0 0 0.25rem;
-	}
-
-	.subtitle {
-		margin: 0 0 0.5rem;
-		font-size: 1.15rem;
 	}
 
 	.villain-card p {

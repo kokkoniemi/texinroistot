@@ -131,6 +131,18 @@ func buildVillainSortClause(sort string) string {
 	normalizeSQL := func(expr string) string {
 		return fmt.Sprintf(`NULLIF(regexp_replace(lower(COALESCE(%s, '')), '[[:punct:][:space:]]+', '', 'g'), '')`, expr)
 	}
+	publicationSortExpr := func(pubType string) string {
+		return fmt.Sprintf(`(
+	SELECT MIN(
+		(COALESCE(p.year, 0) * 1000) + COALESCE(NULLIF(regexp_replace(p.issue, '[^0-9]', '', 'g'), '')::int, 0)
+	)
+	FROM villains_in_stories AS vis
+	JOIN stories_in_publications AS sip ON sip.story = vis.story
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE vis.villain = v.id
+	AND p.type = '%s'
+)`, pubType)
+	}
 
 	firstNameExpr := normalizeSQL("array_to_string(v.first_names, ' ')")
 	lastNameExpr := normalizeSQL("v.last_name")
@@ -142,6 +154,10 @@ func buildVillainSortClause(sort string) string {
 	rankExpr := normalizeSQL("array_to_string(v.ranks, ' ')")
 
 	switch sort {
+	case "fi_pub_date":
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, publicationSortExpr("perus"), lastNameExpr, firstNameExpr)
+	case "it_pub_date":
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, publicationSortExpr("italia_perus"), lastNameExpr, firstNameExpr)
 	case "last_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, lastNameExpr, firstNameExpr)
 	case "nickname":

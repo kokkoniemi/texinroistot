@@ -76,6 +76,14 @@ func TestParseVillainListParamsDefaults(t *testing.T) {
 func TestParseVillainListParamsRejectsInvalidEnum(t *testing.T) {
 	app := testParseParamsRoute()
 
+	params, status, body := decodeParamsFromResponse(t, app, "/?sort=fi_pub_date")
+	if status != 200 {
+		t.Fatalf("expected 200 for fi_pub_date sort, got %d (%s)", status, body)
+	}
+	if params.Sort != "fi_pub_date" {
+		t.Fatalf("expected parsed sort to be fi_pub_date, got %q", params.Sort)
+	}
+
 	_, status, body := decodeParamsFromResponse(t, app, "/?sort=unknown")
 	if status != 400 {
 		t.Fatalf("expected 400 for invalid sort, got %d (%s)", status, body)

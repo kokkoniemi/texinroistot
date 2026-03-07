@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultPublicationFilter = "fi"
-	defaultSort              = "first_name"
+	defaultSort              = "fi_pub_date"
 	defaultPage              = 1
 	defaultPageSize          = 25
 	maxPageSize              = 100
@@ -28,6 +28,8 @@ var allowedSorts = map[string]bool{
 	"last_name":  true,
 	"nickname":   true,
 	"rank":       true,
+	"fi_pub_date": true,
+	"it_pub_date": true,
 }
 
 func parsePositiveInt(raw string, fallback int) (int, error) {
