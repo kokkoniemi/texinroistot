@@ -10,13 +10,16 @@
 	<p>Selaa roistoja</p>
 
 	<p>
-		<a href="/roistot">Etunimen mukaan</a> | <a href="/roistot">Sukunimen mukaan</a> |
-		<a href="/roistot">Lempinimen mukaan</a>
+		<a href="/roistot?publication=all&sort=first_name">Etunimen mukaan</a> |
+		<a href="/roistot?publication=all&sort=last_name">Sukunimen mukaan</a> |
+		<a href="/roistot?publication=all&sort=nickname">Lempinimen mukaan</a>
 		|
-		<a href="/roistot">Arvon mukaan</a> | <a href="/roistot">Näytä kaikki</a> |
-		<a href="/roistot">Näytä Suomessa julkaistut</a>
+		<a href="/roistot?publication=all&sort=rank">Arvon mukaan</a> |
+		<a href="/roistot?publication=all&sort=first_name">Näytä kaikki</a> |
+		<a href="/roistot?publication=fi&sort=first_name">Näytä Suomessa julkaistut</a>
 		|
-		<a href="/roistot">Näytä Italiassa julkaistut</a> | <a href="/roistot">Hae hakusanalla</a>
+		<a href="/roistot?publication=it&sort=first_name">Näytä Italiassa julkaistut</a> |
+		<a href="/roistot?publication=all&sort=first_name">Hae hakusanalla</a>
 	</p>
 
 	<p>Selaa tarinoita</p>

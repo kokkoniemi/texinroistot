@@ -5,6 +5,7 @@ import (
 	"github.com/kokkoniemi/texinroistot/internal/admin"
 	"github.com/kokkoniemi/texinroistot/internal/auth"
 	"github.com/kokkoniemi/texinroistot/internal/stories"
+	"github.com/kokkoniemi/texinroistot/internal/villains"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
 	api.Post("/logout", auth.LogoutHandler)
 	api.Get("/me", auth.UserInfoHandler)
 	api.Get("/stories", stories.ListStoriesHandler)
+	api.Get("/villains", villains.ListVillainsHandler)
 
 	adminapi := api.Group("/admin", auth.ProtectedRoute)
 	adminapi.Get("/users", admin.ListUsersHandler)

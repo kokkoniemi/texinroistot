@@ -20,6 +20,14 @@ type StoryListParams struct {
 	PageSize    int
 }
 
+type VillainListParams struct {
+	Publication string
+	Sort        string
+	Search      string
+	Page        int
+	PageSize    int
+}
+
 type UserRepository interface {
 	List(pageIndex int) ([]*User, *ListMeta, error)
 	Create(user User) (*User, error)
@@ -51,5 +59,6 @@ type StoryRepository interface {
 
 type VillainRepository interface {
 	BulkCreate(villains []*Villain, version *Version) ([]*Villain, error)
+	ListFiltered(version *Version, params VillainListParams) ([]*Villain, int, error)
 	//BulkCreateStoryVillain(storyVillains []*StoryVillain) ([]*StoryVillain, error)
 }

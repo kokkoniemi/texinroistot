@@ -1,1 +1,380 @@
-<h1>Roistot</h1>
+<script lang="ts">
+	import type { PageData } from './$types';
+
+	export let data: PageData;
+
+	type Author = {
+		firstName: string;
+		lastName: string;
+	};
+
+	type Publication = {
+		type: string;
+		year: number;
+		issue: string;
+	};
+
+	type StoryPublication = {
+		title: string;
+		in?: Publication;
+	};
+
+	type Story = {
+		orderNumber: number;
+		writtenBy?: Author[] | null;
+		drawnBy?: Author[] | null;
+		inventedBy?: Author[] | null;
+		publications?: StoryPublication[] | null;
+	};
+
+	type StoryVillain = {
+		nicknames?: string[] | null;
+		aliases?: string[] | null;
+		roles?: string[] | null;
+		destiny?: string[] | null;
+		story?: Story | null;
+	};
+
+	type Villain = {
+		firstNames?: string[] | null;
+		lastName?: string | null;
+		ranks?: string[] | null;
+		as?: StoryVillain[] | null;
+	};
+
+	type Meta = {
+		total: number;
+		page: number;
+		pageSize: number;
+		totalPages: number;
+	};
+
+	type Filters = {
+		publication: string;
+		sort: string;
+		q: string;
+	};
+
+	const publicationOptions = [
+		{ value: 'all', label: 'Näytä kaikki' },
+		{ value: 'fi', label: 'Suomen julkaisut' },
+		{ value: 'it', label: 'Italian julkaisut' }
+	];
+
+	const sortOptions = [
+		{ value: 'first_name', label: 'Etunimen mukaan' },
+		{ value: 'last_name', label: 'Sukunimen mukaan' },
+		{ value: 'nickname', label: 'Lempinimen mukaan' },
+		{ value: 'rank', label: 'Arvon mukaan' }
+	];
+
+	const publicationTypeLabels: Record<string, string> = {
+		perus: 'Suomen perussarja',
+		italia_perus: 'Italian perussarja',
+		suur: 'Suuralbumit',
+		maxi: 'Maxi-Tex',
+		kirjasto: 'Kirjasto',
+		kronikka: 'Kronikka',
+		muu_erikois: 'Muut erikoiset',
+		italia_erikois: 'Italian erikoiset'
+	};
+
+	let villains: Villain[] = [];
+	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
+	let filters: Filters = { publication: 'fi', sort: 'first_name', q: '' };
+	let hasPrev = false;
+	let hasNext = false;
+
+	$: villains = data.villains ?? [];
+	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
+	$: filters = data.filters ?? { publication: 'fi', sort: 'first_name', q: '' };
+	$: hasPrev = meta.page > 1;
+	$: hasNext = meta.page < meta.totalPages;
+
+	function joinValues(values?: string[] | null, fallback = '-'): string {
+		if (!values || values.length === 0) return fallback;
+		return values.filter(Boolean).join(', ');
+	}
+
+	function authorList(authors?: Author[] | null): string {
+		if (!authors || authors.length === 0) return '-';
+		return authors.map((author) => `${author.firstName} ${author.lastName}`.trim()).join(', ');
+	}
+
+	function villainName(villain: Villain): string {
+		const firstNames = joinValues(villain.firstNames, '').trim();
+		const lastName = (villain.lastName ?? '').trim();
+		const fullName = `${firstNames} ${lastName}`.trim();
+		return fullName || 'Nimetön roisto';
+	}
+
+	function villainNicknames(villain: Villain): string {
+		const nicknames = (villain.as ?? [])
+			.flatMap((appearance) => appearance.nicknames ?? [])
+			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
+		return nicknames.join(', ');
+	}
+
+	function primaryAppearance(villain: Villain): StoryVillain | null {
+		const appearances = villain.as ?? [];
+		return appearances.length > 0 ? appearances[0] : null;
+	}
+
+	function storyTitle(story?: Story | null): string {
+		if (!story) return '-';
+		const publications = story.publications ?? [];
+		const finBase = publications.find(
+			(publication) => publication.in?.type === 'perus' && publication.title
+		);
+		if (finBase?.title) return finBase.title;
+
+		const nonItalian = publications.find(
+			(publication) => !publication.in?.type?.startsWith('italia_') && publication.title
+		);
+		if (nonItalian?.title) return nonItalian.title;
+
+		return publications[0]?.title ?? 'Nimetön tarina';
+	}
+
+	function publicationItem(publication: StoryPublication): string {
+		const pub = publication.in;
+		if (!pub) return publication.title;
+
+		if (pub.year && pub.issue) return `${pub.year}/${pub.issue}`;
+		if (pub.issue) return pub.issue;
+		if (pub.year) return `${pub.year}`;
+		return publication.title;
+	}
+
+	function publicationSummary(story?: Story | null): string {
+		if (!story) return '-';
+
+		const groups: Record<string, string[]> = {};
+		for (const publication of story.publications ?? []) {
+			const pType = publication.in?.type ?? 'muu_erikois';
+			const item = publicationItem(publication);
+			if (!groups[pType]) groups[pType] = [];
+			if (!groups[pType].includes(item)) groups[pType].push(item);
+		}
+
+		const order = [
+			'perus',
+			'italia_perus',
+			'suur',
+			'maxi',
+			'kirjasto',
+			'kronikka',
+			'muu_erikois',
+			'italia_erikois'
+		];
+		const parts = order
+			.filter((type) => groups[type]?.length)
+			.map((type) => `${publicationTypeLabels[type] ?? type} ${groups[type].join(', ')}`);
+
+		return parts.length > 0 ? parts.join('; ') : '-';
+	}
+
+	function authorsSummary(story?: Story | null): string {
+		if (!story) return '-';
+		return `kertoi: ${authorList(story.writtenBy)} | piirsi: ${authorList(story.drawnBy)} | ideoi: ${authorList(story.inventedBy)}`;
+	}
+
+	function pageHref(page: number): string {
+		const params = new URLSearchParams();
+		params.set('publication', filters.publication);
+		params.set('sort', filters.sort);
+		params.set('page', String(page));
+		params.set('pageSize', String(meta.pageSize));
+		if (filters.q) params.set('q', filters.q);
+		return `/roistot?${params.toString()}`;
+	}
+</script>
+
+<section class="roistot-page">
+	<h1>Roistot</h1>
+
+	<form method="GET" class="filters">
+		<label class="field">
+			<span>Julkaisu</span>
+			<select name="publication">
+				{#each publicationOptions as option}
+					<option value={option.value} selected={filters.publication === option.value}
+						>{option.label}</option
+					>
+				{/each}
+			</select>
+		</label>
+
+		<label class="field">
+			<span>Järjestys</span>
+			<select name="sort">
+				{#each sortOptions as option}
+					<option value={option.value} selected={filters.sort === option.value}
+						>{option.label}</option
+					>
+				{/each}
+			</select>
+		</label>
+
+		<label class="field search">
+			<span>Hae hakusanalla</span>
+			<input name="q" type="text" value={filters.q ?? ''} placeholder="Kirjoita hakusana..." />
+		</label>
+
+		<input type="hidden" name="page" value="1" />
+		<input type="hidden" name="pageSize" value={meta.pageSize} />
+
+		<div class="actions">
+			<button type="submit">Hae</button>
+			<a href="/roistot">Palauta oletukset</a>
+		</div>
+	</form>
+
+	<section class="result-header">
+		<p>Roistoja yhteensä {meta.total}</p>
+		<p>
+			Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
+		</p>
+	</section>
+
+	{#if villains.length === 0}
+		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
+	{:else}
+		<div class="villain-list">
+			{#each villains as villain}
+				{@const appearance = primaryAppearance(villain)}
+				<article class="villain-card">
+					<h3>{villainName(villain)}</h3>
+					{#if villainNicknames(villain)}
+						<p class="subtitle">{villainNicknames(villain)}</p>
+					{/if}
+					<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
+					<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
+					<p><strong>Rooli:</strong> {joinValues(appearance?.roles)}</p>
+					<p><strong>Tarina:</strong> {storyTitle(appearance?.story)}</p>
+					<p><strong>Julkaisut:</strong> {publicationSummary(appearance?.story)}</p>
+					<p><strong>Tekijät:</strong> {authorsSummary(appearance?.story)}</p>
+				</article>
+			{/each}
+		</div>
+	{/if}
+
+	<nav class="pagination">
+		{#if hasPrev}
+			<a href={pageHref(meta.page - 1)}>Edellinen</a>
+		{:else}
+			<span class="disabled">Edellinen</span>
+		{/if}
+
+		{#if hasNext}
+			<a href={pageHref(meta.page + 1)}>Seuraava</a>
+		{:else}
+			<span class="disabled">Seuraava</span>
+		{/if}
+	</nav>
+</section>
+
+<style>
+	.roistot-page {
+		margin: 1rem 1.5rem 0;
+	}
+
+	.filters {
+		display: grid;
+		grid-template-columns: 220px 280px minmax(260px, 1fr);
+		gap: 0.75rem;
+		align-items: end;
+		padding: 0.75rem;
+		border: 1px solid black;
+		background-color: #f7f7f7;
+	}
+
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.field span {
+		font-size: 0.95rem;
+	}
+
+	select,
+	input {
+		font-size: 1rem;
+		padding: 0.45rem 0.5rem;
+		border: 1px solid black;
+		background: #fff;
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	button {
+		font-size: 1rem;
+		padding: 0.45rem 1rem;
+		border: 1px solid black;
+		background: black;
+		color: white;
+		cursor: pointer;
+	}
+
+	.result-header {
+		display: flex;
+		justify-content: space-between;
+		margin: 1rem 0;
+	}
+
+	.villain-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.villain-card {
+		border: 1px solid black;
+		background-color: #f7f7f7;
+		padding: 1rem;
+		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+	}
+
+	.villain-card h3 {
+		margin: 0 0 0.25rem;
+	}
+
+	.subtitle {
+		margin: 0 0 0.5rem;
+		font-size: 1.15rem;
+	}
+
+	.villain-card p {
+		margin: 0.25rem 0;
+	}
+
+	.pagination {
+		margin: 1.25rem 0 0.5rem;
+		display: flex;
+		justify-content: center;
+		gap: 1rem;
+	}
+
+	.disabled {
+		color: #666;
+		text-decoration: none;
+	}
+
+	.empty {
+		border: 1px solid black;
+		padding: 1rem;
+		background-color: #f7f7f7;
+	}
+
+	@media (max-width: 900px) {
+		.filters {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
