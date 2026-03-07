@@ -197,7 +197,7 @@ func mapPublicationFilterToTypes(filter string) ([]string, error) {
 	return types, nil
 }
 
-func buildSortClause(sort string) string {
+func buildSortClause(sort string, publication string) string {
 	publicationSortExpr := func(pubType string) string {
 		return fmt.Sprintf(`(
 	SELECT MIN(
@@ -208,14 +208,33 @@ func buildSortClause(sort string) string {
 	WHERE sip.story = s.id AND p.type = '%s'
 )`, pubType)
 	}
+	alphaTitleExpr := func(pubType string) string {
+		return fmt.Sprintf(`(
+	SELECT MIN(
+		NULLIF(
+			regexp_replace(
+				lower(BTRIM(sip.title)),
+				'[[:punct:][:space:]]+',
+				'',
+				'g'
+			),
+			''
+		)
+	)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type = '%s'
+)`, pubType)
+	}
 
 	switch sort {
 	case "alpha":
-		return `LOWER(COALESCE((
-	SELECT MIN(sip.title)
-	FROM stories_in_publications AS sip
-	WHERE sip.story = s.id
-), '')) ASC, s.order_num ASC NULLS LAST, s.id ASC`
+		alphaTitleType := "perus"
+		if publication == "perus_it" {
+			alphaTitleType = "italia_perus"
+		}
+		return fmt.Sprintf(`LOWER(%s) ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, alphaTitleExpr(alphaTitleType))
 	case "it_pub_date":
 		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, publicationSortExpr("italia_perus"))
 	default:
@@ -311,7 +330,7 @@ WHERE %s;
 		return []*Story{}, []int{}, 0, nil
 	}
 
-	orderClause := buildSortClause(params.Sort)
+	orderClause := buildSortClause(params.Sort, params.Publication)
 	limitArgPos := len(whereArgs) + 1
 	offsetArgPos := len(whereArgs) + 2
 	offset := (params.Page - 1) * params.PageSize
