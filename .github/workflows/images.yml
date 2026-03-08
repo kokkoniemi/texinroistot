@@ -1,0 +1,122 @@
+name: Build And Publish Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Publish GHCR Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive image names
+        id: vars
+        run: |
+          OWNER_LC="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          REPO_LC="$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')"
+          echo "backend=ghcr.io/${OWNER_LC}/${REPO_LC}-backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=ghcr.io/${OWNER_LC}/${REPO_LC}-frontend" >> "$GITHUB_OUTPUT"
+          echo "importer=ghcr.io/${OWNER_LC}/${REPO_LC}-importer" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login To GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Backend image metadata
+        id: backend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.backend }}
+          flavor: |
+            latest=false
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build And Push Backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./texinroistot-server
+          file: ./texinroistot-server/Dockerfile.prod
+          push: true
+          tags: ${{ steps.backend-meta.outputs.tags }}
+          labels: ${{ steps.backend-meta.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Frontend image metadata
+        id: frontend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.frontend }}
+          flavor: |
+            latest=false
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build And Push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./texinroistot-ui
+          file: ./texinroistot-ui/Dockerfile.prod
+          build-args: |
+            BACKEND_HOST=http://backend:6969
+          push: true
+          tags: ${{ steps.frontend-meta.outputs.tags }}
+          labels: ${{ steps.frontend-meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Importer image metadata
+        id: importer-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.importer }}
+          flavor: |
+            latest=false
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build And Push Importer
+        uses: docker/build-push-action@v6
+        with:
+          context: ./texinroistot-server
+          file: ./texinroistot-server/Dockerfile.importer
+          push: true
+          tags: ${{ steps.importer-meta.outputs.tags }}
+          labels: ${{ steps.importer-meta.outputs.labels }}
+          cache-from: type=gha,scope=importer
+          cache-to: type=gha,mode=max,scope=importer

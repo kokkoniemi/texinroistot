@@ -11,6 +11,9 @@ import (
 
 func main() {
 	app := fiber.New()
+	app.Get("/healthz", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 
 	api := app.Group("/api")
 	api.Post("/login", auth.LoginHandler)
