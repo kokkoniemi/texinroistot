@@ -317,50 +317,39 @@
 		</div>
 	</form>
 
-	<section class="result-header">
-		<p>Roistoja yhteensä {meta.total}</p>
-		<p>
+	<div class="result-row">
+		<p class="result-total">Roistoja yhteensä {meta.total}</p>
+
+		<nav class="pagination pagination-top">
+			{#if hasPrev && !isFilterLoading}
+				<a href={pageHref(meta.page - 1)}>Edellinen</a>
+			{:else}
+				<span class="disabled">Edellinen</span>
+			{/if}
+
+			{#each pageTokens as token}
+				{#if token === 'ellipsis'}
+					<span class="ellipsis">...</span>
+				{:else if token === meta.page}
+					<span class="current-page">{token}</span>
+				{:else if !isFilterLoading}
+					<a href={pageHref(token)}>{token}</a>
+				{:else}
+					<span class="disabled">{token}</span>
+				{/if}
+			{/each}
+
+			{#if hasNext && !isFilterLoading}
+				<a href={pageHref(meta.page + 1)}>Seuraava</a>
+			{:else}
+				<span class="disabled">Seuraava</span>
+			{/if}
+		</nav>
+
+		<p class="result-page">
 			Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
 		</p>
-	</section>
-
-	<nav class="pagination pagination-top">
-		{#if meta.totalPages > 0 && meta.page > 1 && !isFilterLoading}
-			<a href={pageHref(1)}>Ensimmäinen</a>
-		{:else}
-			<span class="disabled">Ensimmäinen</span>
-		{/if}
-
-		{#if hasPrev && !isFilterLoading}
-			<a href={pageHref(meta.page - 1)}>Edellinen</a>
-		{:else}
-			<span class="disabled">Edellinen</span>
-		{/if}
-
-		{#each pageTokens as token}
-			{#if token === 'ellipsis'}
-				<span class="ellipsis">...</span>
-			{:else if token === meta.page}
-				<span class="current-page">{token}</span>
-			{:else if !isFilterLoading}
-				<a href={pageHref(token)}>{token}</a>
-			{:else}
-				<span class="disabled">{token}</span>
-			{/if}
-		{/each}
-
-		{#if hasNext && !isFilterLoading}
-			<a href={pageHref(meta.page + 1)}>Seuraava</a>
-		{:else}
-			<span class="disabled">Seuraava</span>
-		{/if}
-
-		{#if meta.totalPages > 0 && meta.page < meta.totalPages && !isFilterLoading}
-			<a href={pageHref(meta.totalPages)}>Viimeinen</a>
-		{:else}
-			<span class="disabled">Viimeinen</span>
-		{/if}
-	</nav>
+	</div>
 
 	{#if villains.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
@@ -390,12 +379,6 @@
 	{/if}
 
 	<nav class="pagination">
-		{#if meta.totalPages > 0 && meta.page > 1 && !isFilterLoading}
-			<a href={pageHref(1)}>Ensimmäinen</a>
-		{:else}
-			<span class="disabled">Ensimmäinen</span>
-		{/if}
-
 		{#if hasPrev && !isFilterLoading}
 			<a href={pageHref(meta.page - 1)}>Edellinen</a>
 		{:else}
@@ -418,12 +401,6 @@
 			<a href={pageHref(meta.page + 1)}>Seuraava</a>
 		{:else}
 			<span class="disabled">Seuraava</span>
-		{/if}
-
-		{#if meta.totalPages > 0 && meta.page < meta.totalPages && !isFilterLoading}
-			<a href={pageHref(meta.totalPages)}>Viimeinen</a>
-		{:else}
-			<span class="disabled">Viimeinen</span>
 		{/if}
 	</nav>
 </section>
@@ -486,12 +463,22 @@
 		opacity: 0.65;
 	}
 
-	.result-header {
-		display: flex;
-		justify-content: space-between;
+	.result-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		align-items: center;
+		gap: 0.75rem 1rem;
 		margin: 1rem 0;
-		gap: 0.75rem;
-		flex-wrap: wrap;
+	}
+
+	.result-total,
+	.result-page {
+		margin: 0;
+	}
+
+	.result-page {
+		text-align: right;
+		justify-self: end;
 	}
 
 	.villain-list {
@@ -524,7 +511,9 @@
 	}
 
 	.pagination-top {
-		margin: 0 0 1rem;
+		grid-column: 2;
+		margin: 0;
+		justify-content: center;
 	}
 
 	.pagination a,
@@ -564,14 +553,32 @@
 		}
 
 		.pagination {
-			justify-content: flex-start;
+			justify-content: center;
 			gap: 0.55rem;
 		}
 
-		.result-header {
-			flex-direction: column;
-			align-items: flex-start;
+		.result-row {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
 			margin: 0.85rem 0;
+		}
+
+		.result-page {
+			order: 2;
+			margin-left: auto;
+			text-align: right;
+			justify-self: auto;
+		}
+
+		.result-total {
+			order: 1;
+		}
+
+		.pagination-top {
+			order: 3;
+			width: 100%;
+			justify-content: center;
 		}
 	}
 </style>
