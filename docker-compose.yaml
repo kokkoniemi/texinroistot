@@ -51,10 +51,22 @@ services:
     ports:
       - "5173:5173"
 
+  import:
+    build:
+      context: ./texinroistot-server
+      dockerfile: Dockerfile.importer
+    profiles:
+      - tools
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - "./texinroistot-server/.env"
+    volumes:
+      - ./texinroistot-server/Texinroistot.xlsx:/app/Texinroistot.xlsx:ro
 
 volumes:
   pg_data:
   go_pkg:
   go_cache:
   node_modules_ui:
-

@@ -15,7 +15,7 @@ Services:
 ## Schema bootstrap
 
 ```bash
-psql -h localhost -p 5432 -d tex -U tex < texinroistot-server/internal/db/schema.sql
+./scripts/init_schema.sh
 ```
 
 ## Import latest spreadsheet
@@ -23,6 +23,11 @@ psql -h localhost -p 5432 -d tex -U tex < texinroistot-server/internal/db/schema
 ```bash
 ./scripts/import_excel_and_activate_latest.sh
 ```
+
+Both scripts use Docker Compose services:
+
+- schema init runs `psql` in `db`
+- import runs `docker compose --profile tools run --rm import`
 
 ## Backend commands
 

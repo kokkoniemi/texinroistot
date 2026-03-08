@@ -4,8 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-echo "Running Excel importer in backend container..."
-docker compose exec -T backend go run cmd/importer/importer.go
+echo "Ensuring database container is running..."
+docker compose up -d db
+
+echo "Running importer image..."
+docker compose --profile tools run --rm -T import
 
 echo "Setting newest version as the only active version..."
 docker compose exec -T db psql -U tex -d tex -v ON_ERROR_STOP=1 -c "

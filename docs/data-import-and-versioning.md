@@ -29,7 +29,7 @@ Only one row in `versions` should be active (`is_active = true`) at a time.
 
 The helper script `scripts/import_excel_and_activate_latest.sh`:
 
-1. runs importer in backend container
+1. runs importer in the dedicated import image/container
 2. sets newest version as active
 3. prints current active version
 
@@ -107,11 +107,23 @@ Story-publication titles are stored in `stories_in_publications.title`.
 
 ## Import execution options
 
-### Via docker-compose helper (recommended locally)
+### Via docker-compose helpers (recommended locally)
+
+Initialize schema (first time):
+
+```bash
+./scripts/init_schema.sh
+```
 
 ```bash
 ./scripts/import_excel_and_activate_latest.sh
 ```
+
+These scripts use:
+
+- `docker compose exec -T db psql -U tex -d tex ... < schema.sql`
+- `docker compose --profile tools run --rm -T import`
+- `docker compose exec -T db psql -U tex -d tex -c "UPDATE versions ..."`
 
 ### Direct importer run (inside backend context)
 
