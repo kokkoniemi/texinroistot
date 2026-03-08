@@ -12,7 +12,7 @@ WORKDIR /ui
 COPY --from=deps /ui/node_modules ./node_modules
 COPY . .
 
-RUN npm run build
+RUN npm run build && test -d build && test -f build/index.js
 
 FROM node:24-alpine AS runtime
 
@@ -25,9 +25,7 @@ ENV PORT=3000
 COPY --from=builder /ui/package.json /ui/package-lock.json ./
 COPY --from=builder /ui/node_modules ./node_modules
 COPY --from=builder /ui/build ./build
-COPY --from=builder /ui/static ./static
 
 EXPOSE 3000
 
-# If adapter-node output exists, run it. Otherwise fall back to Vite preview.
-CMD ["sh", "-c", "if [ -f build/index.js ]; then node build; else npm run preview -- --host 0.0.0.0 --port 3000; fi"]
+CMD ["node", "build"]
