@@ -1,10 +1,11 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { BACKEND_HOST } from '$env/static/private';
+import { getBackendHost } from '$lib/server/backend-host';
 
 export const GET: RequestHandler = async ({ url, fetch }) => {
+	const backendHost = getBackendHost();
 	const queryString = url.searchParams.toString();
-	const targetURL = `${BACKEND_HOST}/api/villains${queryString ? `?${queryString}` : ''}`;
+	const targetURL = `${backendHost}/api/villains${queryString ? `?${queryString}` : ''}`;
 	const res = await fetch(targetURL);
 
 	if (!res.ok) {

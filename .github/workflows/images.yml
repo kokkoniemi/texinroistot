@@ -86,8 +86,6 @@ jobs:
         with:
           context: ./texinroistot-ui
           file: ./texinroistot-ui/Dockerfile.prod
-          build-args: |
-            BACKEND_HOST=http://backend:6969
           push: true
           tags: ${{ steps.frontend-meta.outputs.tags }}
           labels: ${{ steps.frontend-meta.outputs.labels }}
