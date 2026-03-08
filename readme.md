@@ -96,9 +96,14 @@ Images:
 Tags include:
 
 - `latest` (default branch)
-- git branch/tag refs
-- semver aliases for release tags (`1`, `1.2`, `1.2.3`)
-- commit SHA
+- branch refs (for branch builds)
+- commit SHA (`sha-<full-commit-sha>`)
+- release tags (`vX.Y.Z`) and semver aliases (`X`, `X.Y`, `X.Y.Z`)
+
+Release tag behavior:
+
+- `main`/branch workflows build images once and push `sha-<commit>` tags
+- `v*` tag workflows retag those existing sha images (no rebuild), so release tags and sha tags share digest
 
 Required repository setting:
 
