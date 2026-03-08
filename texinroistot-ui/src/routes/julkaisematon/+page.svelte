@@ -7,9 +7,7 @@
 
 <section class="gate-page">
 	<h1>Sivustoa ei ole vielä julkaistu</h1>
-	<p>
-		Palvelu on tällä hetkellä suljetussa testikäytössä. Syötä salasana jatkaaksesi.
-	</p>
+	<p>Palvelu on tällä hetkellä suljetussa testikäytössä. Syötä salasana jatkaaksesi.</p>
 
 	{#if !data.passwordConfigured}
 		<p class="error">Testikäytön salasanaa ei ole konfiguroitu oikein.</p>
@@ -17,7 +15,13 @@
 		<form method="POST" class="gate-form">
 			<input type="hidden" name="next" value={form?.next ?? data.next} />
 			<label for="password">Salasana</label>
-			<input id="password" name="password" type="password" autocomplete="current-password" required />
+			<input
+				id="password"
+				name="password"
+				type="password"
+				autocomplete="current-password"
+				required
+			/>
 			<button type="submit">Avaa sivusto</button>
 		</form>
 	{/if}
