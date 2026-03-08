@@ -21,24 +21,27 @@
 	}
 </script>
 
-<ul class="top-menu">
-	<li class:active={$page.url.pathname === '/'}>
-		<a href="/">Etusivu</a>
-	</li>
-	<li class:active={$page.url.pathname === '/roistot'}>
-		<a href="/roistot">Roistot</a>
-	</li>
-	<li class:active={$page.url.pathname === '/tarinat'}>
-		<a href="/tarinat">Tarinat</a>
-	</li>
-</ul>
+{#if $page.url.pathname !== '/julkaisematon'}
+	<ul class="top-menu">
+		<li class:active={$page.url.pathname === '/'}>
+			<a href="/">Etusivu</a>
+		</li>
+		<li class:active={$page.url.pathname === '/roistot'}>
+			<a href="/roistot">Roistot</a>
+		</li>
+		<li class:active={$page.url.pathname === '/tarinat'}>
+			<a href="/tarinat">Tarinat</a>
+		</li>
+	</ul>
+{/if}
 
 <slot />
 
-<hr />
-
-<p>Viimeisin päivitys: {formatLastUpdated(data.activeVersionCreatedAt)}</p>
-<p>Kaikki oikeudet pidätetään | <a href="/hallinta">Hallinta</a></p>
+{#if $page.url.pathname !== '/julkaisematon'}
+	<hr />
+	<p>Viimeisin päivitys: {formatLastUpdated(data.activeVersionCreatedAt)}</p>
+	<p>Kaikki oikeudet pidätetään | <a href="/hallinta">Hallinta</a></p>
+{/if}
 
 <style>
 	.top-menu {

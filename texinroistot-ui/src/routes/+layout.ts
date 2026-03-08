@@ -13,7 +13,14 @@ type ActiveVersionPayload = {
 	};
 };
 
-export const load: LayoutLoad = async ({ fetch }) => {
+export const load: LayoutLoad = async ({ fetch, url }) => {
+	if (url.pathname === '/julkaisematon') {
+		return {
+			activeVersionCreatedAt: null,
+			activeVersionStats: null
+		};
+	}
+
 	try {
 		const res = await fetch('/api/version/active');
 		if (!res.ok) {

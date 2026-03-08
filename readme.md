@@ -46,3 +46,17 @@ docker pull ghcr.io/<owner>/<repo>-backend:latest
 docker pull ghcr.io/<owner>/<repo>-frontend:latest
 docker pull ghcr.io/<owner>/<repo>-importer:latest
 ```
+
+## Unpublished Mode Password Gate
+
+Frontend supports a global password gate for alpha/private usage.
+
+Set these environment variables for the frontend runtime:
+
+- `UNPUBLISHED_MODE=true`
+- `UNPUBLISHED_PASSWORD=<your-shared-password>`
+
+Behavior:
+- when `UNPUBLISHED_MODE` is enabled, all site routes are blocked until password is submitted at `/julkaisematon`
+- API routes are also blocked without access cookie
+- after successful login, access is granted by secure HTTP-only cookie
