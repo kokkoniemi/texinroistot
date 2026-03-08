@@ -84,7 +84,7 @@ func TestParseVillainListParamsRejectsInvalidEnum(t *testing.T) {
 		t.Fatalf("expected parsed sort to be fi_pub_date, got %q", params.Sort)
 	}
 
-	_, status, body := decodeParamsFromResponse(t, app, "/?sort=unknown")
+	_, status, body = decodeParamsFromResponse(t, app, "/?sort=unknown")
 	if status != 400 {
 		t.Fatalf("expected 400 for invalid sort, got %d (%s)", status, body)
 	}
