@@ -67,6 +67,7 @@
 		publication: string;
 		sort: string;
 		q: string;
+		year: number;
 	};
 
 	type PaginationToken = number | 'ellipsis';
@@ -101,7 +102,7 @@
 
 	let stories: Story[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	let filters: Filters = { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
+	let filters: Filters = { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
 	let hasPrev = false;
 	let hasNext = false;
 	let expandedStoryHashes: Record<string, boolean> = {};
@@ -118,7 +119,7 @@
 
 	$: stories = data.stories ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '' };
+	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tarinat';
@@ -165,11 +166,16 @@
 		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
 	}
 
-	function italianOriginalPublication(story: Story): string {
+	type ItalianOriginalPublication = {
+		title: string;
+		details: string;
+	};
+
+	function italianOriginalPublication(story: Story): ItalianOriginalPublication | null {
 		const italianPublications = (story.publications ?? []).filter((publication) =>
 			publication.in?.type?.startsWith('italia_')
 		);
-		if (italianPublications.length === 0) return '';
+		if (italianPublications.length === 0) return null;
 
 		const titles = italianPublications
 			.map((publication) => publication.title.trim())
@@ -208,11 +214,14 @@
 			issuePart = `${first.issue}/${first.year}-${last.issue}/${last.year}`;
 		}
 
-		const detailParts = [titlePart, issuePart].filter(Boolean);
-		if (detailParts.length === 0) return '';
+		let details = issuePart;
+		if (story.orderNumber > 0) {
+			const storyNumberPart = `(tarina nro ${story.orderNumber})`;
+			details = details ? `${details} ${storyNumberPart}` : storyNumberPart;
+		}
 
-		const storyNumberPart = story.orderNumber > 0 ? ` (tarina nro ${story.orderNumber})` : '';
-		return `${detailParts.join(', ')}${storyNumberPart}`;
+		if (!titlePart && !details) return null;
+		return { title: titlePart, details };
 	}
 
 	function cardTitle(story: Story): string {
@@ -229,13 +238,89 @@
 		return publication.title;
 	}
 
+	type BaseSeriesIssue = {
+		year: number;
+		issue: string;
+		issueNumber: number;
+	};
+
+	function parseBaseSeriesIssue(publication: StoryPublication): BaseSeriesIssue | null {
+		const issue = (publication.in?.issue ?? '').trim();
+		const year = publication.in?.year ?? 0;
+		if (!issue || year <= 0) return null;
+
+		const issueNumber = Number.parseInt(issue.replace(/[^0-9]/g, ''), 10);
+		if (Number.isNaN(issueNumber)) return null;
+
+		return { year, issue, issueNumber };
+	}
+
+	function formatBaseSeriesRange(start: BaseSeriesIssue, end: BaseSeriesIssue): string {
+		if (start.year === end.year && start.issueNumber === end.issueNumber) {
+			return `${start.issue}/${start.year}`;
+		}
+		return `${start.issue}/${start.year}–${end.issue}/${end.year}`;
+	}
+
+	function baseSeriesSummary(publications: StoryPublication[]): string {
+		const parsedIssues: BaseSeriesIssue[] = [];
+		const fallbackItems: string[] = [];
+
+		for (const publication of publications) {
+			const parsed = parseBaseSeriesIssue(publication);
+			if (parsed) {
+				parsedIssues.push(parsed);
+				continue;
+			}
+			const item = publicationItem(publication).trim();
+			if (item) fallbackItems.push(item);
+		}
+
+		const dedupedParsed = new Map<string, BaseSeriesIssue>();
+		for (const issue of parsedIssues) {
+			const key = `${issue.year}:${issue.issueNumber}`;
+			if (!dedupedParsed.has(key)) dedupedParsed.set(key, issue);
+		}
+		const orderedIssues = [...dedupedParsed.values()].sort((a, b) => {
+			if (a.year !== b.year) return a.year - b.year;
+			if (a.issueNumber !== b.issueNumber) return a.issueNumber - b.issueNumber;
+			return a.issue.localeCompare(b.issue);
+		});
+
+		const ranges: string[] = [];
+		if (orderedIssues.length > 0) {
+			let start = orderedIssues[0];
+			let previous = orderedIssues[0];
+
+			for (let i = 1; i < orderedIssues.length; i++) {
+				const current = orderedIssues[i];
+				const isContinuous =
+					current.year === previous.year && current.issueNumber === previous.issueNumber + 1;
+				if (isContinuous) {
+					previous = current;
+					continue;
+				}
+				ranges.push(formatBaseSeriesRange(start, previous));
+				start = current;
+				previous = current;
+			}
+
+			ranges.push(formatBaseSeriesRange(start, previous));
+		}
+
+		const uniqueFallbackItems = fallbackItems.filter(
+			(item, index, values) => values.indexOf(item) === index
+		);
+		const items = [...ranges, ...uniqueFallbackItems];
+		return items.join(', ');
+	}
+
 	function publicationSummary(story: Story): string {
-		const groups: Record<string, string[]> = {};
+		const groups: Record<string, StoryPublication[]> = {};
 		for (const publication of story.publications ?? []) {
 			const pType = publication.in?.type ?? 'muu_erikois';
-			const item = publicationItem(publication);
 			if (!groups[pType]) groups[pType] = [];
-			if (!groups[pType].includes(item)) groups[pType].push(item);
+			groups[pType].push(publication);
 		}
 
 		const order = [
@@ -248,9 +333,21 @@
 			'muu_erikois',
 			'italia_erikois'
 		];
-		const parts = order
-			.filter((type) => groups[type]?.length)
-			.map((type) => `${publicationTypeLabels[type] ?? type} ${groups[type].join(', ')}`);
+		const parts = order.flatMap((type) => {
+			const publications = groups[type] ?? [];
+			if (publications.length === 0) return [];
+
+			const items =
+				type === 'perus' || type === 'italia_perus'
+					? baseSeriesSummary(publications)
+					: publications
+							.map((publication) => publicationItem(publication).trim())
+							.filter((item, index, values) => Boolean(item) && values.indexOf(item) === index)
+							.join(', ');
+
+			if (!items) return [];
+			return [`${publicationTypeLabels[type] ?? type} ${items}`];
+		});
 
 		return parts.length > 0 ? parts.join('; ') : 'Ei julkaisutietoja';
 	}
@@ -344,6 +441,7 @@
 		params.set('page', String(page));
 		params.set('pageSize', String(meta.pageSize));
 		if (filters.q) params.set('q', filters.q);
+		if (filters.year > 0) params.set('year', String(filters.year));
 		return `/tarinat?${params.toString()}`;
 	}
 
@@ -403,6 +501,19 @@
 					>
 				{/each}
 			</select>
+		</label>
+
+		<label class="field year">
+			<span>Vuosi</span>
+			<input
+				name="year"
+				type="number"
+				min="1"
+				step="1"
+				value={filters.year > 0 ? String(filters.year) : ''}
+				placeholder="esim. 1980"
+				disabled={isFilterLoading}
+			/>
 		</label>
 
 		<label class="field search">
@@ -478,7 +589,15 @@
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
 					<p><strong>Suomensi:</strong> {authorList(story.translatedBy)}</p>
 					{#if italianOriginal}
-						<p><strong>Alkuperäisjulkaisu (Italia):</strong> {italianOriginal}</p>
+						<p>
+							<strong>Alkuperäisjulkaisu (Italia):</strong>
+							{#if italianOriginal.title}
+								<em>{italianOriginal.title}</em>
+							{/if}
+							{#if italianOriginal.details}
+								{italianOriginal.title ? ', ' : ''}{italianOriginal.details}
+							{/if}
+						</p>
 					{/if}
 					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>
 
@@ -569,7 +688,9 @@
 
 	.filters {
 		display: grid;
-		grid-template-columns: 220px 280px minmax(260px, 1fr);
+		grid-template-columns:
+			minmax(150px, 220px) minmax(200px, 320px) minmax(120px, 150px) minmax(260px, 1fr)
+			auto;
 		gap: 0.75rem;
 		align-items: end;
 		padding: 0.75rem;
@@ -581,6 +702,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+		min-width: 0;
 	}
 
 	.field span {
@@ -593,12 +715,22 @@
 		padding: 0.45rem 0.5rem;
 		border: 1px solid black;
 		background: #fff;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.actions {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+		grid-column: 1 / -1;
+		justify-self: start;
+	}
+
+	.actions a {
+		white-space: nowrap;
 	}
 
 	.actions button {
@@ -743,9 +875,37 @@
 		background-color: #f7f7f7;
 	}
 
+	@media (max-width: 1500px) {
+		.filters {
+			grid-template-columns: minmax(150px, 1fr) minmax(200px, 1.35fr) minmax(120px, 0.7fr) minmax(
+					230px,
+					1.4fr
+				);
+		}
+	}
+
+	@media (max-width: 1200px) {
+		.filters {
+			grid-template-columns: minmax(150px, 1fr) minmax(200px, 1fr);
+		}
+
+		.field.search {
+			grid-column: 1 / -1;
+		}
+
+		.actions {
+			grid-column: 1 / -1;
+			justify-self: start;
+		}
+	}
+
 	@media (max-width: 900px) {
 		.filters {
 			grid-template-columns: 1fr;
+		}
+
+		.actions {
+			justify-self: start;
 		}
 	}
 

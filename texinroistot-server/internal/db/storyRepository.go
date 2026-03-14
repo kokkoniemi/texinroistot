@@ -257,7 +257,20 @@ func buildStoryListWhere(versionID int, params StoryListParams) (string, []inter
 		return "", nil, err
 	}
 	if len(publicationTypes) > 0 {
-		clauses = append(clauses, fmt.Sprintf(`
+		if params.Year > 0 {
+			clauses = append(clauses, fmt.Sprintf(`
+EXISTS (
+	SELECT 1
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type::text = ANY($%d)
+	AND p.year = $%d
+)`, argPos, argPos+1))
+			args = append(args, ArrayParam(publicationTypes), params.Year)
+			argPos += 2
+		} else {
+			clauses = append(clauses, fmt.Sprintf(`
 EXISTS (
 	SELECT 1
 	FROM stories_in_publications AS sip
@@ -265,7 +278,19 @@ EXISTS (
 	WHERE sip.story = s.id
 	AND p.type::text = ANY($%d)
 )`, argPos))
-		args = append(args, ArrayParam(publicationTypes))
+			args = append(args, ArrayParam(publicationTypes))
+			argPos++
+		}
+	} else if params.Year > 0 {
+		clauses = append(clauses, fmt.Sprintf(`
+EXISTS (
+	SELECT 1
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.year = $%d
+)`, argPos))
+		args = append(args, params.Year)
 		argPos++
 	}
 

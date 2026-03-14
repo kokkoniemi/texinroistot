@@ -391,6 +391,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+		grid-column: 1 / -1;
+		justify-self: start;
 	}
 
 	button {

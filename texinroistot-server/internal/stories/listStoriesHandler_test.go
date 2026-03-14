@@ -71,6 +71,9 @@ func TestParseStoryListParamsDefaults(t *testing.T) {
 	if params.Search != "" {
 		t.Fatalf("expected empty default search, got %q", params.Search)
 	}
+	if params.Year != defaultYear {
+		t.Fatalf("expected default year %d, got %d", defaultYear, params.Year)
+	}
 }
 
 func TestParseStoryListParamsRejectsInvalidEnum(t *testing.T) {
@@ -106,5 +109,32 @@ func TestParseStoryListParamsClampsPageSize(t *testing.T) {
 
 	if params.PageSize != maxPageSize {
 		t.Fatalf("expected pageSize to be clamped to %d, got %d", maxPageSize, params.PageSize)
+	}
+}
+
+func TestParseStoryListParamsParsesYear(t *testing.T) {
+	app := testParseParamsRoute()
+
+	params, status, body := decodeParamsFromResponse(t, app, "/?year=1980")
+	if status != 200 {
+		t.Fatalf("expected 200, got %d (%s)", status, body)
+	}
+
+	if params.Year != 1980 {
+		t.Fatalf("expected parsed year to be 1980, got %d", params.Year)
+	}
+}
+
+func TestParseStoryListParamsRejectsInvalidYear(t *testing.T) {
+	app := testParseParamsRoute()
+
+	_, status, body := decodeParamsFromResponse(t, app, "/?year=0")
+	if status != 400 {
+		t.Fatalf("expected 400 for invalid year, got %d (%s)", status, body)
+	}
+
+	_, status, body = decodeParamsFromResponse(t, app, "/?year=year1980")
+	if status != 400 {
+		t.Fatalf("expected 400 for invalid year format, got %d (%s)", status, body)
 	}
 }

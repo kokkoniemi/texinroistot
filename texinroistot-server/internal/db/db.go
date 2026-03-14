@@ -16,6 +16,7 @@ type StoryListParams struct {
 	Publication string
 	Sort        string
 	Search      string
+	Year        int
 	Page        int
 	PageSize    int
 }

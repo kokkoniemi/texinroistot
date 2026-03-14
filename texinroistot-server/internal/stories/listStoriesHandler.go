@@ -12,6 +12,7 @@ import (
 const (
 	defaultPublicationFilter = "perus_fi"
 	defaultSort              = "fi_pub_date"
+	defaultYear              = 0
 	defaultPage              = 1
 	defaultPageSize          = 25
 	maxPageSize              = 100
@@ -81,10 +82,16 @@ func parseStoryListParams(c *fiber.Ctx) (db.StoryListParams, error) {
 		return db.StoryListParams{}, fmt.Errorf("sort is invalid")
 	}
 
+	year, err := parsePositiveInt(c.Query("year"), defaultYear)
+	if err != nil {
+		return db.StoryListParams{}, fmt.Errorf("year must be a positive integer")
+	}
+
 	return db.StoryListParams{
 		Publication: publication,
 		Sort:        sort,
 		Search:      strings.TrimSpace(c.Query("q", "")),
+		Year:        year,
 		Page:        page,
 		PageSize:    pageSize,
 	}, nil
@@ -125,6 +132,7 @@ func ListStoriesHandler(c *fiber.Ctx) error {
 			"publication": params.Publication,
 			"sort":        params.Sort,
 			"q":           params.Search,
+			"year":        params.Year,
 		},
 	})
 }
