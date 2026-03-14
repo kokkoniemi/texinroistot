@@ -60,12 +60,6 @@
 
 	type PaginationToken = number | 'ellipsis';
 
-	const publicationOptions = [
-		{ value: 'all', label: 'Näytä kaikki' },
-		{ value: 'fi', label: 'Suomen julkaisut' },
-		{ value: 'it', label: 'Italian julkaisut' }
-	];
-
 	const sortOptions = [
 		{ value: 'first_name', label: 'Etunimen mukaan' },
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
@@ -270,17 +264,6 @@
 
 	<form method="GET" class="filters">
 		<label class="field">
-			<span>Julkaisu</span>
-			<select name="publication" disabled={isFilterLoading}>
-				{#each publicationOptions as option}
-					<option value={option.value} selected={filters.publication === option.value}
-						>{option.label}</option
-					>
-				{/each}
-			</select>
-		</label>
-
-		<label class="field">
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
 				{#each sortOptions as option}
@@ -302,6 +285,7 @@
 			/>
 		</label>
 
+		<input type="hidden" name="publication" value={filters.publication} />
 		<input type="hidden" name="page" value="1" />
 		<input type="hidden" name="pageSize" value={meta.pageSize} />
 
@@ -412,7 +396,7 @@
 
 	.filters {
 		display: grid;
-		grid-template-columns: 220px 280px minmax(260px, 1fr);
+		grid-template-columns: minmax(300px, 360px) minmax(320px, 1fr) auto;
 		gap: 0.75rem;
 		align-items: end;
 		padding: 0.75rem;
@@ -426,16 +410,22 @@
 		gap: 0.25rem;
 	}
 
+	.field.search {
+		min-width: 0;
+	}
+
 	.field span {
 		font-size: 0.95rem;
 	}
 
 	select,
-	input {
+	input[type='text'] {
 		font-size: 1rem;
 		padding: 0.45rem 0.5rem;
 		border: 1px solid black;
 		background: #fff;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.actions {

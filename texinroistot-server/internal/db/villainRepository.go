@@ -204,22 +204,14 @@ EXISTS (
 	OR EXISTS (
 		SELECT 1
 		FROM villains_in_stories AS vis
-		LEFT JOIN stories AS s ON s.id = vis.story
-		LEFT JOIN stories_in_publications AS sip ON sip.story = s.id
-		LEFT JOIN publications AS p ON p.id = sip.publication
 		WHERE vis.villain = v.id
 		AND (
 			array_to_string(vis.nicknames, ' ') ILIKE $%d
 			OR array_to_string(vis.other_names, ' ') ILIKE $%d
 			OR array_to_string(vis.code_names, ' ') ILIKE $%d
-			OR array_to_string(vis.roles, ' ') ILIKE $%d
-			OR array_to_string(vis.destiny, ' ') ILIKE $%d
-			OR sip.title ILIKE $%d
-			OR p.issue ILIKE $%d
-			OR p.type::text ILIKE $%d
 		)
 	)
-)`, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
+)`, argPos, argPos, argPos, argPos, argPos, argPos))
 		args = append(args, "%"+search+"%")
 	}
 
