@@ -440,7 +440,7 @@
 				{@const storyHash = normalizeStoryHash(story.hash)}
 				<article class="story-card">
 					<h3>{cardTitle(story)}</h3>
-					<p><strong>Kirjoitti:</strong> {authorList(story.writtenBy)}</p>
+					<p><strong>Kertoi:</strong> {authorList(story.writtenBy)}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
 					<p><strong>Suomensi:</strong> {authorList(story.translatedBy)}</p>
 					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>

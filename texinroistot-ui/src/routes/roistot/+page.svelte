@@ -69,17 +69,6 @@
 		{ value: 'it_pub_date', label: 'Italian julkaisupäivän mukaan' }
 	];
 
-	const publicationTypeLabels: Record<string, string> = {
-		perus: 'Suomen perussarja',
-		italia_perus: 'Italian perussarja',
-		suur: 'Suuralbumit',
-		maxi: 'Maxi-Tex',
-		kirjasto: 'Kirjasto',
-		kronikka: 'Kronikka',
-		muu_erikois: 'Muut erikoiset',
-		italia_erikois: 'Italian erikoiset'
-	};
-
 	let villains: Villain[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
 	let filters: Filters = { publication: 'fi', sort: 'fi_pub_date', q: '' };
@@ -96,9 +85,9 @@
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/roistot';
 	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
 
-	function joinValues(values?: string[] | null, fallback = '-'): string {
+	function joinValues(values?: string[] | null, fallback = '-', separator = ', '): string {
 		if (!values || values.length === 0) return fallback;
-		return values.filter(Boolean).join(', ');
+		return values.filter(Boolean).join(separator);
 	}
 
 	function hasValues(values?: string[] | null): boolean {
@@ -127,6 +116,7 @@
 	function villainNicknames(villain: Villain): string[] {
 		return (villain.as ?? [])
 			.flatMap((appearance) => appearance.nicknames ?? [])
+			.map((nickname) => nickname.trim())
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
 	}
 
@@ -138,18 +128,18 @@
 	}
 
 	function villainTitle(villain: Villain): string {
+		const rank = joinValues(villain.ranks, '').trim();
 		const realName = villainRealName(villain);
 		const nicknames = villainNicknames(villain);
-		const cleanNicknames = nicknames.map((nickname) => nickname.trim()).filter(Boolean);
-		const nicknamesInParentheses =
-			cleanNicknames.length > 0 ? `(${cleanNicknames.join(', ')})` : '';
-		const quotedNicknames = cleanNicknames.map((nickname) => `"${nickname}"`).join(', ');
 		const alternativeNames = villainAlternativeNames(villain);
+		const aliases = [...nicknames, ...alternativeNames].filter(
+			(name, index, values) => Boolean(name) && values.indexOf(name) === index
+		);
+		const baseName = `${rank} ${realName}`.trim();
+		const quotedAliases = aliases.map((name) => `"${name}"`);
+		const fullName = [baseName, ...quotedAliases].filter(Boolean).join(', ');
 
-		if (realName && nicknamesInParentheses) return `${realName} ${nicknamesInParentheses}`;
-		if (realName) return realName;
-		if (quotedNicknames) return quotedNicknames;
-		if (alternativeNames.length > 0) return alternativeNames.join(', ');
+		if (fullName) return fullName;
 		return 'Nimetön roisto';
 	}
 
@@ -174,42 +164,14 @@
 		return publications[0]?.title ?? 'Nimetön tarina';
 	}
 
-	function publicationItem(publication: StoryPublication): string {
-		const pub = publication.in;
-		if (!pub) return publication.title;
-
-		if (pub.year && pub.issue) return `${pub.year}/${pub.issue}`;
-		if (pub.issue) return pub.issue;
-		if (pub.year) return `${pub.year}`;
-		return publication.title;
-	}
-
 	function publicationSummary(story?: Story | null): string {
 		if (!story) return '-';
 
-		const groups: Record<string, string[]> = {};
-		for (const publication of story.publications ?? []) {
-			const pType = publication.in?.type ?? 'muu_erikois';
-			const item = publicationItem(publication);
-			if (!groups[pType]) groups[pType] = [];
-			if (!groups[pType].includes(item)) groups[pType].push(item);
-		}
+		const uniqueTitles = (story.publications ?? [])
+			.map((publication) => publication.title.trim())
+			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
 
-		const order = [
-			'perus',
-			'italia_perus',
-			'suur',
-			'maxi',
-			'kirjasto',
-			'kronikka',
-			'muu_erikois',
-			'italia_erikois'
-		];
-		const parts = order
-			.filter((type) => groups[type]?.length)
-			.map((type) => `${publicationTypeLabels[type] ?? type} ${groups[type].join(', ')}`);
-
-		return parts.length > 0 ? parts.join('; ') : '-';
+		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : '-';
 	}
 
 	function authorsSummary(story?: Story | null): string {
@@ -343,11 +305,8 @@
 				{@const appearance = primaryAppearance(villain)}
 				<article class="villain-card">
 					<h3>{villainTitle(villain)}</h3>
-					{#if hasValues(villain.ranks)}
-						<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
-					{/if}
+					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
 					<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
-					<p><strong>Rooli:</strong> {joinValues(appearance?.roles)}</p>
 					{#if hasValues(appearance?.otherNames)}
 						<p><strong>Nimi:</strong> {joinValues(appearance?.otherNames)}</p>
 					{/if}
