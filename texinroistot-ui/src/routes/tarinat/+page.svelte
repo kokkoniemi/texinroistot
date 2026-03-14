@@ -144,7 +144,7 @@
 				return base;
 			})
 			.filter(Boolean)
-			.join(', ');
+			.join('; ');
 	}
 
 	function joinValues(values?: string[] | null, fallback = '-'): string {
@@ -157,33 +157,66 @@
 	}
 
 	function storyTitle(story: Story): string {
-		const publications = story.publications ?? [];
-		const finBase = publications.find(
-			(publication) => publication.in?.type === 'perus' && publication.title
-		);
-		if (finBase?.title) return finBase.title;
+		const uniqueTitles = (story.publications ?? [])
+			.filter((publication) => !publication.in?.type?.startsWith('italia_'))
+			.map((publication) => publication.title.trim())
+			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
 
-		const nonItalian = publications.find(
-			(publication) => !publication.in?.type?.startsWith('italia_') && publication.title
-		);
-		if (nonItalian?.title) return nonItalian.title;
-
-		return publications[0]?.title ?? 'Nimetön tarina';
+		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
 	}
 
-	function italianTitles(story: Story): string {
-		const titles = (story.publications ?? [])
-			.filter((publication) => publication.in?.type?.startsWith('italia_') && publication.title)
-			.map((publication) => publication.title)
-			.filter((title, index, list) => list.indexOf(title) === index);
+	function italianOriginalPublication(story: Story): string {
+		const italianPublications = (story.publications ?? []).filter((publication) =>
+			publication.in?.type?.startsWith('italia_')
+		);
+		if (italianPublications.length === 0) return '';
 
-		return titles.join(', ');
+		const titles = italianPublications
+			.map((publication) => publication.title.trim())
+			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
+		const titlePart = titles.join('; ');
+
+		const issues = italianPublications
+			.map((publication) => {
+				const issue = (publication.in?.issue ?? '').trim();
+				const year = publication.in?.year ?? 0;
+				const sortIssue = Number.parseInt(issue.replace(/\D/g, ''), 10);
+				return {
+					issue,
+					year,
+					sortIssue: Number.isNaN(sortIssue) ? Number.MAX_SAFE_INTEGER : sortIssue
+				};
+			})
+			.filter((entry) => entry.issue && entry.year > 0)
+			.filter(
+				(entry, index, values) =>
+					values.findIndex((other) => other.issue === entry.issue && other.year === entry.year) ===
+					index
+			)
+			.sort((a, b) => {
+				if (a.year !== b.year) return a.year - b.year;
+				if (a.sortIssue !== b.sortIssue) return a.sortIssue - b.sortIssue;
+				return a.issue.localeCompare(b.issue);
+			});
+
+		let issuePart = '';
+		if (issues.length === 1) {
+			issuePart = `${issues[0].issue}/${issues[0].year}`;
+		} else if (issues.length > 1) {
+			const first = issues[0];
+			const last = issues[issues.length - 1];
+			issuePart = `${first.issue}/${first.year}-${last.issue}/${last.year}`;
+		}
+
+		const detailParts = [titlePart, issuePart].filter(Boolean);
+		if (detailParts.length === 0) return '';
+
+		const storyNumberPart = story.orderNumber > 0 ? ` (tarina nro ${story.orderNumber})` : '';
+		return `${detailParts.join(', ')}${storyNumberPart}`;
 	}
 
 	function cardTitle(story: Story): string {
-		const title = storyTitle(story);
-		const italian = italianTitles(story);
-		return italian ? `${title} (${italian})` : title;
+		return storyTitle(story);
 	}
 
 	function publicationItem(publication: StoryPublication): string {
@@ -438,11 +471,15 @@
 		<div class="story-list">
 			{#each stories as story}
 				{@const storyHash = normalizeStoryHash(story.hash)}
+				{@const italianOriginal = italianOriginalPublication(story)}
 				<article class="story-card">
 					<h3>{cardTitle(story)}</h3>
 					<p><strong>Kertoi:</strong> {authorList(story.writtenBy)}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
 					<p><strong>Suomensi:</strong> {authorList(story.translatedBy)}</p>
+					{#if italianOriginal}
+						<p><strong>Alkuperäisjulkaisu (Italia):</strong> {italianOriginal}</p>
+					{/if}
 					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>
 
 					<button
