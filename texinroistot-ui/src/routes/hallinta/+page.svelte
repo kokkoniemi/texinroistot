@@ -9,7 +9,16 @@
 		createdAt?: string;
 	};
 
+	type AdminVersion = {
+		id: number;
+		createdAt?: string;
+		isActive: boolean;
+	};
+
 	let users: AdminUser[] = [...(data.users ?? [])];
+	let usersError = data.usersError ?? '';
+	let versions: AdminVersion[] = [...(data.versions ?? [])];
+	let versionsError = data.versionsError ?? '';
 	let isLoggingOut = false;
 	let logoutError = '';
 	let isDeletingAccount = false;
@@ -18,6 +27,22 @@
 	let isGrantingAdmin = false;
 	let grantAdminError = '';
 	let grantAdminSuccess = '';
+	let isActivatingVersionID: number | null = null;
+	let isDeletingVersionID: number | null = null;
+	let versionActionError = '';
+	let versionActionSuccess = '';
+
+	function formatCreatedAt(createdAt?: string): string {
+		if (!createdAt) return '-';
+		const date = new Date(createdAt);
+		if (Number.isNaN(date.getTime())) {
+			return createdAt;
+		}
+		return new Intl.DateTimeFormat('fi-FI', {
+			dateStyle: 'short',
+			timeStyle: 'short'
+		}).format(date);
+	}
 
 	async function logout(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
@@ -112,6 +137,70 @@
 			isGrantingAdmin = false;
 		}
 	}
+
+	async function activateVersion(versionID: number): Promise<void> {
+		if (isActivatingVersionID !== null || isDeletingVersionID !== null) return;
+
+		isActivatingVersionID = versionID;
+		versionActionError = '';
+		versionActionSuccess = '';
+
+		try {
+			const response = await fetch(`/api/admin/versions/${versionID}/activate`, {
+				method: 'POST'
+			});
+			const payload = (await response.json().catch(() => null)) as {
+				error?: string;
+				version?: AdminVersion;
+			} | null;
+
+			if (!response.ok) {
+				versionActionError = payload?.error ?? 'Aktiivisen version asettaminen epäonnistui.';
+				return;
+			}
+
+			const activeVersionID = payload?.version?.id ?? versionID;
+			versions = versions.map((version) => ({
+				...version,
+				isActive: version.id === activeVersionID
+			}));
+			versionActionSuccess = `Versio ${activeVersionID} asetettu aktiiviseksi.`;
+		} catch {
+			versionActionError = 'Aktiivisen version asettaminen epäonnistui.';
+		} finally {
+			isActivatingVersionID = null;
+		}
+	}
+
+	async function deleteVersion(version: AdminVersion): Promise<void> {
+		if (version.isActive || isActivatingVersionID !== null || isDeletingVersionID !== null) return;
+		if (!window.confirm(`Poistetaanko versio ${version.id}? Tätä ei voi perua.`)) return;
+
+		isDeletingVersionID = version.id;
+		versionActionError = '';
+		versionActionSuccess = '';
+
+		try {
+			const response = await fetch(`/api/admin/versions/${version.id}`, {
+				method: 'DELETE'
+			});
+			const payload = (await response.json().catch(() => null)) as {
+				error?: string;
+			} | null;
+
+			if (!response.ok) {
+				versionActionError = payload?.error ?? 'Version poistaminen epäonnistui.';
+				return;
+			}
+
+			versions = versions.filter((item) => item.id !== version.id);
+			versionActionSuccess = `Versio ${version.id} poistettu.`;
+		} catch {
+			versionActionError = 'Version poistaminen epäonnistui.';
+		} finally {
+			isDeletingVersionID = null;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -127,7 +216,62 @@
 		<p><strong>Kirjautunut käyttäjä:</strong> {data.user.email}</p>
 
 		{#if data.user.isAdmin}
-			<p>Hallinnan toiminnot tulossa.</p>
+			<section class="admin-section">
+				<h2>Versiot</h2>
+				{#if versionsError}
+					<p class="config-error">{versionsError}</p>
+				{/if}
+				{#if versionActionError}
+					<p class="config-error">{versionActionError}</p>
+				{/if}
+				{#if versionActionSuccess}
+					<p class="success-message">{versionActionSuccess}</p>
+				{/if}
+
+				<div class="versions-list">
+					{#if versions.length === 0}
+						<p>Versioita ei löytynyt.</p>
+					{:else}
+						<ul>
+							{#each versions as version}
+								<li class="version-item">
+									<div class="version-meta">
+										<span><strong>ID:</strong> {version.id}</span>
+										<span><strong>Luotu:</strong> {formatCreatedAt(version.createdAt)}</span>
+										<span class:active-status={version.isActive} class="version-status">
+											{version.isActive ? 'Aktiivinen' : 'Ei aktiivinen'}
+										</span>
+									</div>
+
+									<div class="version-actions">
+										{#if version.isActive}
+											<span class="active-note">Aktiivinen versio (ei poistettavissa)</span>
+										{:else}
+											<button
+												type="button"
+												on:click={() => activateVersion(version.id)}
+												disabled={isActivatingVersionID !== null || isDeletingVersionID !== null}
+											>
+												{isActivatingVersionID === version.id
+													? 'Asetetaan...'
+													: 'Aseta aktiiviseksi'}
+											</button>
+											<button
+												type="button"
+												class="danger"
+												on:click={() => deleteVersion(version)}
+												disabled={isActivatingVersionID !== null || isDeletingVersionID !== null}
+											>
+												{isDeletingVersionID === version.id ? 'Poistetaan...' : 'Poista versio'}
+											</button>
+										{/if}
+									</div>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</section>
 
 			<section class="admin-section">
 				<h2>Admin-oikeudet</h2>
@@ -152,23 +296,33 @@
 				{#if grantAdminSuccess}
 					<p class="success-message">{grantAdminSuccess}</p>
 				{/if}
-				{#if data.usersError}
-					<p class="config-error">{data.usersError}</p>
+				{#if usersError}
+					<p class="config-error">{usersError}</p>
 				{/if}
 
 				<div class="users-list">
-					<h3>Kirjautuneet käyttäjät</h3>
+					<h3>Käyttäjät</h3>
 					{#if users.length === 0}
 						<p>Käyttäjiä ei löytynyt.</p>
 					{:else}
-						<ul>
-							{#each users as user}
-								<li>
-									<span class="user-hash">{user.hash}</span>
-									<span>{user.isAdmin ? 'admin' : 'ei admin'}</span>
-								</li>
-							{/each}
-						</ul>
+						<table class="users-table">
+							<thead>
+								<tr>
+									<th>Sähköpostiosoitteen tiiviste (kuten tietokannassa)</th>
+									<th>Pääsyoikeus</th>
+									<th>Luotu</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each users as user}
+									<tr>
+										<td class="user-hash">{user.hash}</td>
+										<td>{user.isAdmin ? 'admin' : 'ei admin'}</td>
+										<td>{formatCreatedAt(user.createdAt)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
 					{/if}
 				</div>
 			</section>
@@ -255,14 +409,66 @@
 		border: 1px solid black;
 	}
 
-	.users-list ul {
-		padding-left: 1.2rem;
+	.users-table {
+		width: 100%;
+		border-collapse: collapse;
+		background: white;
 	}
 
-	.users-list li {
+	.users-table th,
+	.users-table td {
+		padding: 0.45rem 0.55rem;
+		border: 1px solid black;
+		text-align: left;
+		vertical-align: top;
+	}
+
+	.users-table th {
+		font-weight: 700;
+	}
+
+	.versions-list ul {
+		padding-left: 0;
+		list-style: none;
+	}
+
+	.version-item {
 		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
 		gap: 0.75rem;
+		padding: 0.6rem;
+		border: 1px solid black;
+		background: white;
+	}
+
+	.version-item + .version-item {
+		margin-top: 0.6rem;
+	}
+
+	.version-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
 		align-items: baseline;
+	}
+
+	.version-status {
+		font-weight: 700;
+	}
+
+	.version-status.active-status {
+		color: #0d5e2b;
+	}
+
+	.version-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.active-note {
+		font-weight: 700;
 	}
 
 	.user-hash {

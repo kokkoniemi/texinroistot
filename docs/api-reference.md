@@ -177,6 +177,24 @@ Response shape:
 
 - Grants admin rights for an existing logged-in user matching the email hash.
 
+### `GET /api/admin/versions`
+
+- Protected by backend middleware (`auth.ProtectedRoute`).
+- Returns all versions sorted by creation time.
+
+### `POST /api/admin/versions/:versionID/activate`
+
+- Protected by backend middleware (`auth.ProtectedRoute`).
+- Sets the given version as active.
+- Returns `404` if version does not exist.
+
+### `DELETE /api/admin/versions/:versionID`
+
+- Protected by backend middleware (`auth.ProtectedRoute`).
+- Deletes a non-active version.
+- Returns `409` when trying to delete active version.
+- Returns `404` if version does not exist.
+
 ## Error behavior
 
 Common patterns:
@@ -202,6 +220,9 @@ SvelteKit exposes same-shape proxy routes under frontend origin:
 - `DELETE /api/me`
 - `GET /api/admin/users`
 - `POST /api/admin/users/grant-admin`
+- `GET /api/admin/versions`
+- `POST /api/admin/versions/:versionID/activate`
+- `DELETE /api/admin/versions/:versionID`
 - `GET /api/version/active`
 - `GET /api/tarinat`
 - `GET /api/tarinat/:storyHash/roistot`

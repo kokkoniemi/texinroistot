@@ -7,6 +7,18 @@ type MePayload = {
 	isAdmin?: boolean;
 };
 
+type AdminUser = {
+	hash: string;
+	isAdmin: boolean;
+	createdAt?: string;
+};
+
+type AdminVersion = {
+	id: number;
+	createdAt?: string;
+	isActive: boolean;
+};
+
 export const load: PageServerLoad = async ({ fetch }) => {
 	const googleClientId = env.PUBLIC_GOOGLE_OAUTH2_CLIENT_ID?.trim() ?? '';
 	const fallbackData = {
@@ -16,8 +28,10 @@ export const load: PageServerLoad = async ({ fetch }) => {
 			isAdmin: false
 		},
 		googleClientId,
-		users: [] as { hash: string; isAdmin: boolean; createdAt?: string }[],
-		usersError: ''
+		users: [] as AdminUser[],
+		usersError: '',
+		versions: [] as AdminVersion[],
+		versionsError: ''
 	};
 
 	try {
@@ -38,28 +52,39 @@ export const load: PageServerLoad = async ({ fetch }) => {
 				user,
 				googleClientId,
 				users: [],
-				usersError: ''
+				usersError: '',
+				versions: [],
+				versionsError: ''
 			};
 		}
 
+		let users: AdminUser[] = [];
+		let usersError = '';
 		const usersResponse = await fetch('/api/admin/users');
-		if (!usersResponse.ok) {
-			return {
-				user,
-				googleClientId,
-				users: [],
-				usersError: 'Käyttäjien haku epäonnistui.'
-			};
+		if (usersResponse.ok) {
+			const usersPayload = (await usersResponse.json()) as { users?: AdminUser[] };
+			users = usersPayload.users ?? [];
+		} else {
+			usersError = 'Käyttäjien haku epäonnistui.';
 		}
 
-		const usersPayload = (await usersResponse.json()) as {
-			users?: { hash: string; isAdmin: boolean; createdAt?: string }[];
-		};
+		let versions: AdminVersion[] = [];
+		let versionsError = '';
+		const versionsResponse = await fetch('/api/admin/versions');
+		if (versionsResponse.ok) {
+			const versionsPayload = (await versionsResponse.json()) as { versions?: AdminVersion[] };
+			versions = versionsPayload.versions ?? [];
+		} else {
+			versionsError = 'Versioiden haku epäonnistui.';
+		}
+
 		return {
 			user,
 			googleClientId,
-			users: usersPayload.users ?? [],
-			usersError: ''
+			users,
+			usersError,
+			versions,
+			versionsError
 		};
 	} catch {
 		return fallbackData;

@@ -46,6 +46,9 @@ Main backend packages:
   - `/api/me` -> backend `/api/me`
   - `/api/admin/users` -> backend `/api/admin/users`
   - `/api/admin/users/grant-admin` -> backend `/api/admin/users/grant-admin`
+  - `/api/admin/versions` -> backend `/api/admin/versions`
+  - `/api/admin/versions/[versionID]/activate` -> backend `/api/admin/versions/:versionID/activate`
+  - `/api/admin/versions/[versionID]` -> backend `/api/admin/versions/:versionID`
   - `/api/roistot` -> backend `/api/villains`
   - `/api/tarinat` -> backend `/api/stories`
   - `/api/tarinat/[storyHash]/roistot` -> backend `/api/stories/:storyHash/villains`
@@ -100,5 +103,5 @@ Infrastructure composition and rollout is expected in a separate operations repo
 ## Current constraints and notes
 
 - Active version assumes exactly one `versions.is_active = true`.
-- Authentication subsystem is wired for Google login; `/hallinta` currently shows placeholder content for logged-in users.
+- Authentication subsystem is wired for Google login; admin tools on `/hallinta` support user-admin grant and version activation/deletion.
 - Unpublished password gate is intentionally lightweight; it is not a substitute for robust authz.

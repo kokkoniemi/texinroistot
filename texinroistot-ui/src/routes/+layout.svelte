@@ -39,7 +39,7 @@
 
 {#if $page.url.pathname !== '/julkaisematon'}
 	<hr />
-	<p>Viimeisin päivitys: {formatLastUpdated(data.activeVersionCreatedAt)}</p>
+	<p>Sisältö päivitetty: {formatLastUpdated(data.activeVersionCreatedAt)}</p>
 	<p>Kaikki oikeudet pidätetään | <a href="/hallinta">Hallinta</a></p>
 {/if}
 

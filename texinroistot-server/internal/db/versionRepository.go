@@ -1,23 +1,61 @@
 package db
 
-import "fmt"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrVersionNotFound           = errors.New("version not found")
+	ErrCannotDeleteActiveVersion = errors.New("cannot delete active version")
+)
 
 type versionRepo struct{}
 
-const setVersionActiveSQL = `
+const readVersionIDSQL = `
+SELECT id
+FROM versions
+WHERE id = $1;
+`
+
+const clearOtherActiveVersionsSQL = `
 UPDATE versions
 SET is_active = false
-WHERE NOT id = $1;
+WHERE is_active = true
+AND id <> $1;
+`
 
+const setVersionActiveSQL = `
 UPDATE versions
 SET is_active = true
-WHERE id = $1
+WHERE id = $1;
 `
 
 // SetActive implements VersionRepository.
 func (*versionRepo) SetActive(versionID int) error {
-	_, err := Execute(setVersionActiveSQL, versionID)
-	return err
+	txn, err := StartTransaction()
+	if err != nil {
+		return err
+	}
+	defer txn.Rollback()
+
+	var existingID int
+	if err := txn.QueryRow(readVersionIDSQL, versionID).Scan(&existingID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrVersionNotFound
+		}
+		return err
+	}
+
+	if _, err := txn.Exec(clearOtherActiveVersionsSQL, versionID); err != nil {
+		return err
+	}
+	if _, err := txn.Exec(setVersionActiveSQL, versionID); err != nil {
+		return err
+	}
+
+	return txn.Commit()
 }
 
 const getActiveVersionSQL = `
@@ -31,6 +69,8 @@ func (*versionRepo) GetActive() (*Version, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	var v Version
 	count := 0
 	for rows.Next() {
@@ -112,16 +152,17 @@ func (*versionRepo) Read(versionID int) (*Version, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	var v Version
 	for rows.Next() {
 		if err = rows.Scan(&v.ID, &v.CreatedAt, &v.IsActive); err != nil {
 			return nil, err
 		}
+		return &v, nil
 	}
-	if &v == nil {
-		return nil, fmt.Errorf("version not found")
-	}
-	return &v, nil
+
+	return nil, ErrVersionNotFound
 }
 
 const listVersionsSQL = `
@@ -139,6 +180,8 @@ func (*versionRepo) List() ([]*Version, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	var versions []*Version
 
 	for rows.Next() {
@@ -154,13 +197,49 @@ func (*versionRepo) List() ([]*Version, error) {
 
 const removeVersionSQL = `
 DELETE FROM versions
-WHERE id = $1;
+WHERE id = $1
+AND is_active = false;
+`
+
+const readVersionActiveStateSQL = `
+SELECT is_active
+FROM versions
+WHERE id = $1
+FOR UPDATE;
 `
 
 // Remove implements VersionRepository.
 func (*versionRepo) Remove(versionID int) error {
-	_, err := Execute(removeVersionSQL, versionID)
-	return err
+	txn, err := StartTransaction()
+	if err != nil {
+		return err
+	}
+	defer txn.Rollback()
+
+	var isActive bool
+	if err := txn.QueryRow(readVersionActiveStateSQL, versionID).Scan(&isActive); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrVersionNotFound
+		}
+		return err
+	}
+	if isActive {
+		return ErrCannotDeleteActiveVersion
+	}
+
+	result, err := txn.Exec(removeVersionSQL, versionID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrVersionNotFound
+	}
+
+	return txn.Commit()
 }
 
 func NewVersionRepository() VersionRepository {

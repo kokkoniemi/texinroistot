@@ -28,6 +28,9 @@ func main() {
 	adminapi := api.Group("/admin", auth.ProtectedRoute)
 	adminapi.Get("/users", admin.ListUsersHandler)
 	adminapi.Post("/users/grant-admin", admin.GrantAdminHandler)
+	adminapi.Get("/versions", admin.ListVersionsHandler)
+	adminapi.Post("/versions/:versionID/activate", admin.ActivateVersionHandler)
+	adminapi.Delete("/versions/:versionID", admin.DeleteVersionHandler)
 
 	app.Listen(":6969") // TODO: add to .env file
 }

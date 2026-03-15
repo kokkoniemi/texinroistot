@@ -65,7 +65,7 @@ The core product goal is to answer questions such as:
 - Uses Google Sign-In for authentication.
 - Logged-out users see Google login.
 - Logged-in non-admin users see message: `Sinulla ei ole oikeuksia hallintaan` and can delete their account.
-- Logged-in admin users see placeholder admin message, user list, and admin-right granting action.
+- Logged-in admin users can grant admin rights, view versions, set active version, and delete non-active versions.
 
 ## Unpublished access gate
 
