@@ -62,7 +62,9 @@ The core product goal is to answer questions such as:
 
 ### Hallinta (`/hallinta`)
 
-- Placeholder admin page at the moment.
+- Uses Google Sign-In for authentication.
+- Logged-out users see Google login.
+- Logged-in users see their email, logout action, and placeholder admin message.
 
 ## Unpublished access gate
 

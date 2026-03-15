@@ -6,6 +6,7 @@ import {
 } from '$lib/server/unpublished-gate';
 
 const UNPUBLISHED_ROUTE = '/julkaisematon';
+const UNPUBLISHED_ALLOWED_API_PATHS = new Set(['/api/login', '/api/logout', '/api/me']);
 
 function isPublicPath(pathname: string): boolean {
 	return (
@@ -33,6 +34,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const hasAccess = hasUnpublishedAccess(event.cookies.get(UNPUBLISHED_ACCESS_COOKIE));
 	if (hasAccess) {
+		return resolve(event);
+	}
+
+	if (UNPUBLISHED_ALLOWED_API_PATHS.has(event.url.pathname)) {
 		return resolve(event);
 	}
 

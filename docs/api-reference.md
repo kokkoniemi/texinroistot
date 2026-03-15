@@ -140,6 +140,7 @@ Response shape:
 
 - Expects form-urlencoded payload with Google credential token and CSRF token.
 - Sets auth cookies on success.
+- Redirects to `/hallinta` on success.
 
 ### `POST /api/logout`
 
@@ -153,6 +154,7 @@ Response shape:
 ### `GET /api/me`
 
 - Returns logged-in status and user email (if authenticated).
+- Returns `{ "loggedIn": false, "email": "" }` when access token is missing, invalid, or expired.
 
 ### `GET /api/admin/users`
 
@@ -178,6 +180,9 @@ Error body is usually:
 
 SvelteKit exposes same-shape proxy routes under frontend origin:
 
+- `POST /api/login`
+- `POST /api/logout`
+- `GET /api/me`
 - `GET /api/version/active`
 - `GET /api/tarinat`
 - `GET /api/tarinat/:storyHash/roistot`

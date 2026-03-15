@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"fmt"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/kokkoniemi/texinroistot/internal/crypt"
 )
@@ -23,18 +21,15 @@ func UserInfoHandler(c *fiber.Ctx) error {
 }
 
 func getUserInfo(c *fiber.Ctx) (*UserInfo, error) {
-	accessToken := c.Cookies("a")
+	accessToken := authCookieValue(c, "a")
 	if len(accessToken) == 0 {
-		return &UserInfo{
-			LoggedIn: false,
-			Email:    "",
-		}, nil
+		return loggedOutUserInfo(), nil
 	}
 
 	authService := NewAuthService()
 	accessClaims, err := authService.VerifyAccessToken(accessToken)
 	if err != nil {
-		return nil, fmt.Errorf("access token verification failed")
+		return loggedOutUserInfo(), nil
 	}
 
 	email, err := crypt.Decrypt(crypt.NewEncrypted(
@@ -42,16 +37,23 @@ func getUserInfo(c *fiber.Ctx) (*UserInfo, error) {
 		accessClaims.JWTUserClaims.EmailHash,
 	))
 	if err != nil {
-		return nil, fmt.Errorf("malformed access token")
+		return loggedOutUserInfo(), nil
 	}
 	emailHash := crypt.Hash(email)
 
 	if emailHash != accessClaims.JWTUserClaims.UserID {
-		return nil, fmt.Errorf("malformed access token")
+		return loggedOutUserInfo(), nil
 	}
 
 	return &UserInfo{
 		LoggedIn: true,
 		Email:    email,
 	}, nil
+}
+
+func loggedOutUserInfo() *UserInfo {
+	return &UserInfo{
+		LoggedIn: false,
+		Email:    "",
+	}
 }

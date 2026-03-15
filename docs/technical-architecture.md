@@ -41,6 +41,9 @@ Main backend packages:
   - `/hallinta`
   - `/julkaisematon`
 - Proxy endpoints:
+  - `/api/login` -> backend `/api/login`
+  - `/api/logout` -> backend `/api/logout`
+  - `/api/me` -> backend `/api/me`
   - `/api/roistot` -> backend `/api/villains`
   - `/api/tarinat` -> backend `/api/stories`
   - `/api/tarinat/[storyHash]/roistot` -> backend `/api/stories/:storyHash/villains`
@@ -95,5 +98,5 @@ Infrastructure composition and rollout is expected in a separate operations repo
 ## Current constraints and notes
 
 - Active version assumes exactly one `versions.is_active = true`.
-- Authentication subsystem exists but admin UI is minimal (`/hallinta` is a placeholder page).
+- Authentication subsystem is wired for Google login; `/hallinta` currently shows placeholder content for logged-in users.
 - Unpublished password gate is intentionally lightweight; it is not a substitute for robust authz.

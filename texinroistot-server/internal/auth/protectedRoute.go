@@ -1,10 +1,6 @@
 package auth
 
-import (
-	"fmt"
-
-	"github.com/gofiber/fiber/v2"
-)
+import "github.com/gofiber/fiber/v2"
 
 func ProtectedRoute(c *fiber.Ctx) error {
 	user, err := getUserInfo(c)
@@ -14,7 +10,7 @@ func ProtectedRoute(c *fiber.Ctx) error {
 	}
 
 	if !user.LoggedIn {
-		return fmt.Errorf("unauthorized")
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 
 	// TODO: check that user has admin role

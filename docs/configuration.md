@@ -40,6 +40,12 @@ Read in `internal/config/config.go` via `godotenv` autoload.
   - backend base URL for SvelteKit server-side proxy endpoints
   - fallback default: `http://backend:6969`
 
+### Google login (frontend)
+
+- `PUBLIC_GOOGLE_OAUTH2_CLIENT_ID`
+  - Google OAuth2 client id used by `/hallinta` page Google Sign-In widget
+  - should match backend `GOOGLE_OAUTH2_CLIENT_ID` audience
+
 ### Unpublished gate
 
 - `UNPUBLISHED_MODE`

@@ -38,7 +38,7 @@ func LoginHandler(c *fiber.Ctx) error {
 		return err
 	}
 
-	return c.Redirect("/manage")
+	return c.Redirect("/hallinta")
 }
 
 func LogoutHandler(c *fiber.Ctx) error {
@@ -48,9 +48,7 @@ func LogoutHandler(c *fiber.Ctx) error {
 }
 
 func trashCookie(c *fiber.Ctx, cookieName string) {
-	if config.CookieSecure {
-		cookieName = "__Host-" + cookieName
-	}
+	cookieName = authCookieName(cookieName)
 
 	c.Cookie(&fiber.Cookie{
 		Name:     cookieName,
@@ -92,10 +90,7 @@ func setAuthenticationCookies(token *idtoken.Payload, c *fiber.Ctx) error {
 	sharedKey := hex.EncodeToString(keyBytes)
 
 	// Authentication cookie
-	cookieName := "a"
-	if config.CookieSecure {
-		cookieName = "__Host-" + cookieName
-	}
+	cookieName := authCookieName("a")
 
 	email, ok := token.Claims["email"].(string)
 	if !ok {
@@ -123,10 +118,7 @@ func setAuthenticationCookies(token *idtoken.Payload, c *fiber.Ctx) error {
 	})
 
 	// Refresh cookie
-	cookieName = "r"
-	if config.CookieSecure {
-		cookieName = "__Host-" + cookieName
-	}
+	cookieName = authCookieName("r")
 
 	refreshToken, err := authService.CreateRefreshToken(sharedKey)
 	if err != nil {
