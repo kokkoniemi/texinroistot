@@ -31,6 +31,7 @@ type VillainListParams struct {
 
 type UserRepository interface {
 	List(pageIndex int) ([]*User, *ListMeta, error)
+	ReadByHash(userHash string) (*User, error)
 	Create(user User) (*User, error)
 	Remove(userHash string) error
 	SetAdmin(userHash string) (*User, error)

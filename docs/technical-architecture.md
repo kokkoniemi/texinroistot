@@ -44,6 +44,8 @@ Main backend packages:
   - `/api/login` -> backend `/api/login`
   - `/api/logout` -> backend `/api/logout`
   - `/api/me` -> backend `/api/me`
+  - `/api/admin/users` -> backend `/api/admin/users`
+  - `/api/admin/users/grant-admin` -> backend `/api/admin/users/grant-admin`
   - `/api/roistot` -> backend `/api/villains`
   - `/api/tarinat` -> backend `/api/stories`
   - `/api/tarinat/[storyHash]/roistot` -> backend `/api/stories/:storyHash/villains`

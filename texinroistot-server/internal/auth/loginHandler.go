@@ -96,6 +96,9 @@ func setAuthenticationCookies(token *idtoken.Payload, c *fiber.Ctx) error {
 	if !ok {
 		return fmt.Errorf("email not found")
 	}
+	if err := ensureUserProfile(email); err != nil {
+		return err
+	}
 
 	authService := NewAuthService()
 

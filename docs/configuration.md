@@ -20,6 +20,9 @@ Read in `internal/config/config.go` via `godotenv` autoload.
   - enables secure cookie behavior in backend auth cookie creation
 - `GOOGLE_OAUTH2_CLIENT_ID`
   - audience for Google ID token validation in login flow
+- `ROISTOT_ADMIN_EMAILS`
+  - comma-separated admin email list (for example `admin@example.com,second@example.com`)
+  - applied when users log in; matching users are marked as admin
 
 ### Database
 

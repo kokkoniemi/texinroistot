@@ -153,13 +153,29 @@ Response shape:
 
 ### `GET /api/me`
 
-- Returns logged-in status and user email (if authenticated).
+- Returns logged-in status, user email, and admin flag (if authenticated).
 - Returns `{ "loggedIn": false, "email": "" }` when access token is missing, invalid, or expired.
+
+### `DELETE /api/me`
+
+- Deletes currently logged-in user account.
+- Clears auth cookies.
 
 ### `GET /api/admin/users`
 
 - Protected by backend middleware (`auth.ProtectedRoute`).
 - Returns users list.
+
+### `POST /api/admin/users/grant-admin`
+
+- Protected by backend middleware (`auth.ProtectedRoute`).
+- Expects JSON body:
+
+```json
+{ "email": "user@example.com" }
+```
+
+- Grants admin rights for an existing logged-in user matching the email hash.
 
 ## Error behavior
 
@@ -183,6 +199,9 @@ SvelteKit exposes same-shape proxy routes under frontend origin:
 - `POST /api/login`
 - `POST /api/logout`
 - `GET /api/me`
+- `DELETE /api/me`
+- `GET /api/admin/users`
+- `POST /api/admin/users/grant-admin`
 - `GET /api/version/active`
 - `GET /api/tarinat`
 - `GET /api/tarinat/:storyHash/roistot`

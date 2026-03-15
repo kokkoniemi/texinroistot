@@ -19,6 +19,7 @@ func main() {
 	api.Post("/login", auth.LoginHandler)
 	api.Post("/logout", auth.LogoutHandler)
 	api.Get("/me", auth.UserInfoHandler)
+	api.Delete("/me", auth.DeleteMeHandler)
 	api.Get("/version/active", versions.GetActiveVersionHandler)
 	api.Get("/stories", stories.ListStoriesHandler)
 	api.Get("/stories/:storyHash/villains", stories.ListStoryVillainsHandler)
@@ -26,6 +27,7 @@ func main() {
 
 	adminapi := api.Group("/admin", auth.ProtectedRoute)
 	adminapi.Get("/users", admin.ListUsersHandler)
+	adminapi.Post("/users/grant-admin", admin.GrantAdminHandler)
 
 	app.Listen(":6969") // TODO: add to .env file
 }

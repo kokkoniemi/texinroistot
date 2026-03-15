@@ -12,8 +12,9 @@ func ProtectedRoute(c *fiber.Ctx) error {
 	if !user.LoggedIn {
 		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
-
-	// TODO: check that user has admin role
+	if !user.IsAdmin {
+		return fiber.NewError(fiber.StatusForbidden, "forbidden")
+	}
 
 	c.Locals("user", user)
 	return c.Next()

@@ -5,19 +5,8 @@ import { authProxyHeaders, proxiedResponse } from '$lib/server/proxy-auth';
 export const GET: RequestHandler = async ({ request, fetch }) => {
 	const headers = authProxyHeaders(request);
 
-	const response = await fetch(`${getBackendHost()}/api/me`, {
+	const response = await fetch(`${getBackendHost()}/api/admin/users`, {
 		method: 'GET',
-		headers
-	});
-
-	return proxiedResponse(response);
-};
-
-export const DELETE: RequestHandler = async ({ request, fetch }) => {
-	const headers = authProxyHeaders(request);
-
-	const response = await fetch(`${getBackendHost()}/api/me`, {
-		method: 'DELETE',
 		headers
 	});
 

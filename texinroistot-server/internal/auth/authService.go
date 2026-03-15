@@ -35,7 +35,7 @@ func (a *AuthService) CreateAccessToken(sharedToken string, email string) (strin
 	}
 
 	signingKey := []byte(config.CookieAccessSecret)
-	userHash := crypt.Hash(email)
+	userHash := userHashForEmail(email)
 	encryptedEmail, err := crypt.Encrypt(email)
 	if err != nil {
 		return "", err

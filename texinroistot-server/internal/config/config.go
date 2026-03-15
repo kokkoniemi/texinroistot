@@ -18,6 +18,7 @@ var (
 
 var (
 	GoogleOauth2ClientID string = getEnvConfig("GOOGLE_OAUTH2_CLIENT_ID", "")
+	AdminEmails          string = getEnvConfig("ROISTOT_ADMIN_EMAILS", "")
 )
 
 var (

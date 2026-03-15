@@ -3,11 +3,14 @@ package auth
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kokkoniemi/texinroistot/internal/crypt"
+	"github.com/kokkoniemi/texinroistot/internal/db"
 )
 
 type UserInfo struct {
 	LoggedIn bool   `json:"loggedIn"`
 	Email    string `json:"email"`
+	IsAdmin  bool   `json:"isAdmin"`
+	Hash     string `json:"-"`
 }
 
 func UserInfoHandler(c *fiber.Ctx) error {
@@ -39,15 +42,23 @@ func getUserInfo(c *fiber.Ctx) (*UserInfo, error) {
 	if err != nil {
 		return loggedOutUserInfo(), nil
 	}
-	emailHash := crypt.Hash(email)
+	emailHash := userHashForEmail(email)
 
 	if emailHash != accessClaims.JWTUserClaims.UserID {
 		return loggedOutUserInfo(), nil
 	}
 
+	userRepo := db.NewUserRepository()
+	user, err := userRepo.ReadByHash(emailHash)
+	if err != nil {
+		return nil, err
+	}
+
 	return &UserInfo{
 		LoggedIn: true,
 		Email:    email,
+		IsAdmin:  user != nil && user.IsAdmin,
+		Hash:     emailHash,
 	}, nil
 }
 
@@ -55,5 +66,7 @@ func loggedOutUserInfo() *UserInfo {
 	return &UserInfo{
 		LoggedIn: false,
 		Email:    "",
+		IsAdmin:  false,
+		Hash:     "",
 	}
 }
