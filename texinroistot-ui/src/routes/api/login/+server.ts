@@ -3,12 +3,35 @@ import { getBackendHost } from '$lib/server/backend-host';
 import { authProxyHeaders, proxiedResponse } from '$lib/server/proxy-auth';
 
 export const POST: RequestHandler = async ({ request, fetch }) => {
-	const formData = await request.formData();
 	const body = new URLSearchParams();
-	for (const [key, value] of formData.entries()) {
-		if (typeof value === 'string') {
-			body.append(key, value);
+	const contentType = request.headers.get('content-type') ?? '';
+
+	if (contentType.includes('application/json')) {
+		const payload = (await request.json().catch(() => null)) as {
+			credential?: string;
+			g_csrf_token?: string;
+		} | null;
+
+		if (payload?.credential) {
+			body.append('credential', payload.credential);
 		}
+		if (payload?.g_csrf_token) {
+			body.append('g_csrf_token', payload.g_csrf_token);
+		}
+	} else {
+		const formData = await request.formData();
+		for (const [key, value] of formData.entries()) {
+			if (typeof value === 'string') {
+				body.append(key, value);
+			}
+		}
+	}
+
+	if (!body.get('credential')) {
+		return new Response(JSON.stringify({ error: 'Google credential missing' }), {
+			status: 400,
+			headers: { 'content-type': 'application/json' }
+		});
 	}
 
 	const headers = authProxyHeaders(request, {

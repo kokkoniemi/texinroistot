@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -33,6 +35,42 @@
 	let isImportingVersion = false;
 	let versionActionError = '';
 	let versionActionSuccess = '';
+	let isLoggingInWithGoogle = false;
+	let loginError = '';
+	let loginCsrfToken = '';
+	let googleSignInContainer: HTMLDivElement | null = null;
+	let googleButtonInitialized = false;
+
+	type GoogleCredentialResponse = {
+		credential?: string;
+	};
+
+	type GoogleIdApi = {
+		initialize: (options: {
+			client_id: string;
+			callback: (response: GoogleCredentialResponse) => void | Promise<void>;
+			auto_select?: boolean;
+		}) => void;
+		renderButton: (
+			element: HTMLElement,
+			options: {
+				type: 'standard';
+				size: 'large';
+				theme: 'outline';
+				text: 'signin_with';
+				shape: 'rectangular';
+				logo_alignment: 'left';
+			}
+		) => void;
+	};
+
+	type WindowWithGoogle = Window & {
+		google?: {
+			accounts?: {
+				id?: GoogleIdApi;
+			};
+		};
+	};
 
 	function formatCreatedAt(createdAt?: string): string {
 		if (!createdAt) return '-';
@@ -45,6 +83,132 @@
 			timeStyle: 'short'
 		}).format(date);
 	}
+
+	function readCookie(name: string): string {
+		if (!browser) return '';
+		const encodedName = `${encodeURIComponent(name)}=`;
+		for (const cookiePart of document.cookie.split(';')) {
+			const cookie = cookiePart.trim();
+			if (cookie.startsWith(encodedName)) {
+				return decodeURIComponent(cookie.slice(encodedName.length));
+			}
+		}
+		return '';
+	}
+
+	function ensureLoginCsrfToken(): string {
+		if (!browser) return '';
+		if (loginCsrfToken) return loginCsrfToken;
+
+		const existing = readCookie('g_csrf_token');
+		if (existing) {
+			loginCsrfToken = existing;
+			return loginCsrfToken;
+		}
+
+		const randomBytes = new Uint8Array(24);
+		crypto.getRandomValues(randomBytes);
+		loginCsrfToken = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+		const secureAttribute = window.location.protocol === 'https:' ? '; Secure' : '';
+		document.cookie = `g_csrf_token=${encodeURIComponent(loginCsrfToken)}; Path=/; SameSite=Lax${secureAttribute}`;
+		return loginCsrfToken;
+	}
+
+	async function loginWithGoogleCredential(credential: string): Promise<void> {
+		if (isLoggingInWithGoogle) return;
+
+		isLoggingInWithGoogle = true;
+		loginError = '';
+
+		try {
+			const csrfToken = ensureLoginCsrfToken();
+			const response = await fetch('/api/login', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					credential,
+					g_csrf_token: csrfToken
+				})
+			});
+
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+				loginError = payload?.error ?? 'Kirjautuminen epäonnistui.';
+				return;
+			}
+
+			window.location.assign('/hallinta');
+		} catch {
+			loginError = 'Kirjautuminen epäonnistui.';
+		} finally {
+			isLoggingInWithGoogle = false;
+		}
+	}
+
+	function initializeGoogleButton(): boolean {
+		if (!browser || data.user.loggedIn || !data.googleClientId || !googleSignInContainer) {
+			return false;
+		}
+
+		const googleIdApi = (window as WindowWithGoogle).google?.accounts?.id;
+		if (!googleIdApi) {
+			return false;
+		}
+		if (googleButtonInitialized) {
+			return true;
+		}
+
+		googleIdApi.initialize({
+			client_id: data.googleClientId,
+			callback: async (response: GoogleCredentialResponse) => {
+				if (!response?.credential) {
+					loginError = 'Kirjautuminen epäonnistui.';
+					return;
+				}
+				await loginWithGoogleCredential(response.credential);
+			}
+		});
+
+		googleIdApi.renderButton(googleSignInContainer, {
+			type: 'standard',
+			size: 'large',
+			theme: 'outline',
+			text: 'signin_with',
+			shape: 'rectangular',
+			logo_alignment: 'left'
+		});
+
+		googleButtonInitialized = true;
+		return true;
+	}
+
+	onMount(() => {
+		if (data.user.loggedIn || !data.googleClientId) {
+			return;
+		}
+
+		ensureLoginCsrfToken();
+		if (initializeGoogleButton()) {
+			return;
+		}
+
+		let attempts = 0;
+		const intervalId = window.setInterval(() => {
+			attempts += 1;
+			if (initializeGoogleButton()) {
+				window.clearInterval(intervalId);
+				return;
+			}
+			if (attempts >= 50) {
+				window.clearInterval(intervalId);
+				loginError = 'Google-kirjautumisen alustus epäonnistui.';
+			}
+		}, 200);
+
+		return () => {
+			window.clearInterval(intervalId);
+		};
+	});
 
 	async function logout(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
@@ -444,22 +608,13 @@
 		<p>Kirjaudu sisään Google-tilillä jatkaaksesi.</p>
 
 		{#if data.googleClientId}
-			<div
-				id="g_id_onload"
-				data-client_id={data.googleClientId}
-				data-login_uri="/api/login"
-				data-ux_mode="redirect"
-				data-auto_prompt="false"
-			></div>
-			<div
-				class="g_id_signin"
-				data-type="standard"
-				data-size="large"
-				data-theme="outline"
-				data-text="signin_with"
-				data-shape="rectangular"
-				data-logo_alignment="left"
-			></div>
+			<div class="g_id_signin" bind:this={googleSignInContainer}></div>
+			{#if isLoggingInWithGoogle}
+				<p>Kirjaudutaan sisään...</p>
+			{/if}
+			{#if loginError}
+				<p class="config-error">{loginError}</p>
+			{/if}
 		{:else}
 			<p class="config-error">
 				Google-kirjautuminen ei ole käytössä: aseta `PUBLIC_GOOGLE_OAUTH2_CLIENT_ID` frontendille.
