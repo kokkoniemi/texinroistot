@@ -1,33 +1,19 @@
 <script lang="ts">
 	import { navigating } from '$app/stores';
+	import {
+		authorList,
+		buildPageHref,
+		hasValues,
+		joinValues,
+		paginationTokens,
+		publicationSummaryFromPublications
+	} from '$lib/listing/shared';
+	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
-	type Author = {
-		firstName: string;
-		lastName: string;
-		details?: string | null;
-	};
-
-	type Publication = {
-		type: string;
-		year: number;
-		issue: string;
-	};
-
-	type StoryPublication = {
-		title: string;
-		in?: Publication;
-	};
-
-	type Story = {
-		orderNumber: number;
-		writtenBy?: Author[] | null;
-		drawnBy?: Author[] | null;
-		translatedBy?: Author[] | null;
-		publications?: StoryPublication[] | null;
-	};
+	type Story = StoryBase;
 
 	type StoryVillain = {
 		nicknames?: string[] | null;
@@ -45,20 +31,11 @@
 		as?: StoryVillain[] | null;
 	};
 
-	type Meta = {
-		total: number;
-		page: number;
-		pageSize: number;
-		totalPages: number;
-	};
-
 	type Filters = {
 		publication: string;
 		sort: string;
 		q: string;
 	};
-
-	type PaginationToken = number | 'ellipsis';
 
 	const sortOptions = [
 		{ value: 'first_name', label: 'Etunimen mukaan' },
@@ -84,28 +61,6 @@
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/roistot';
 	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
-
-	function joinValues(values?: string[] | null, fallback = '-', separator = ', '): string {
-		if (!values || values.length === 0) return fallback;
-		return values.filter(Boolean).join(separator);
-	}
-
-	function hasValues(values?: string[] | null): boolean {
-		return Boolean(values && values.some((value) => Boolean(value)));
-	}
-
-	function authorList(authors?: Author[] | null): string {
-		if (!authors || authors.length === 0) return '-';
-		return authors
-			.map((author) => {
-				const base = `${author.firstName} ${author.lastName}`.trim();
-				const details = (author.details ?? '').trim();
-				if (details) return `${base} (${details})`.trim();
-				return base;
-			})
-			.filter(Boolean)
-			.join(', ');
-	}
 
 	function villainRealName(villain: Villain): string {
 		const firstNames = joinValues(villain.firstNames, '').trim();
@@ -165,13 +120,7 @@
 	}
 
 	function publicationSummary(story?: Story | null): string {
-		if (!story) return '-';
-
-		const uniqueTitles = (story.publications ?? [])
-			.map((publication) => publication.title.trim())
-			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
-
-		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : '-';
+		return publicationSummaryFromPublications(story?.publications, '-');
 	}
 
 	function authorsSummary(story?: Story | null): string {
@@ -180,44 +129,13 @@
 	}
 
 	function pageHref(page: number): string {
-		const params = new URLSearchParams();
-		params.set('publication', filters.publication);
-		params.set('sort', filters.sort);
-		params.set('page', String(page));
-		params.set('pageSize', String(meta.pageSize));
-		if (filters.q) params.set('q', filters.q);
-		return `/roistot?${params.toString()}`;
-	}
-
-	function paginationTokens(currentPage: number, totalPages: number): PaginationToken[] {
-		if (totalPages <= 0) return [];
-
-		const visiblePages = new Set<number>([1, totalPages]);
-		for (let page = currentPage - 1; page <= currentPage + 1; page++) {
-			if (page >= 1 && page <= totalPages) visiblePages.add(page);
-		}
-		if (currentPage <= 3) {
-			visiblePages.add(2);
-			visiblePages.add(3);
-		}
-		if (currentPage >= totalPages - 2) {
-			visiblePages.add(totalPages - 1);
-			visiblePages.add(totalPages - 2);
-		}
-
-		const orderedPages = [...visiblePages]
-			.filter((page) => page >= 1 && page <= totalPages)
-			.sort((a, b) => a - b);
-		const tokens: PaginationToken[] = [];
-		let previousPage = 0;
-		for (const page of orderedPages) {
-			if (previousPage > 0 && page - previousPage > 1) {
-				tokens.push('ellipsis');
-			}
-			tokens.push(page);
-			previousPage = page;
-		}
-		return tokens;
+		return buildPageHref('/roistot', {
+			publication: filters.publication,
+			sort: filters.sort,
+			page,
+			pageSize: meta.pageSize,
+			q: filters.q || undefined
+		});
 	}
 </script>
 
@@ -306,7 +224,9 @@
 				<article class="villain-card">
 					<h3>{villainTitle(villain)}</h3>
 					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
-					<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
+					{#if hasValues(appearance?.destiny)}
+						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
+					{/if}
 					{#if hasValues(appearance?.otherNames)}
 						<p><strong>Nimi:</strong> {joinValues(appearance?.otherNames)}</p>
 					{/if}

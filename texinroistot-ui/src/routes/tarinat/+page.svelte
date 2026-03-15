@@ -1,33 +1,20 @@
 <script lang="ts">
 	import { navigating } from '$app/stores';
+	import {
+		authorList,
+		buildPageHref,
+		hasValues,
+		joinValues,
+		paginationTokens,
+		publicationSummaryFromPublications
+	} from '$lib/listing/shared';
+	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
-	type Author = {
-		firstName: string;
-		lastName: string;
-		details?: string | null;
-	};
-
-	type Publication = {
-		type: string;
-		year: number;
-		issue: string;
-	};
-
-	type StoryPublication = {
-		title: string;
-		in?: Publication;
-	};
-
-	type Story = {
+	type Story = StoryBase & {
 		hash: string;
-		orderNumber: number;
-		writtenBy?: Author[] | null;
-		drawnBy?: Author[] | null;
-		translatedBy?: Author[] | null;
-		publications?: StoryPublication[] | null;
 	};
 
 	type StoryVillain = {
@@ -56,21 +43,12 @@
 		};
 	};
 
-	type Meta = {
-		total: number;
-		page: number;
-		pageSize: number;
-		totalPages: number;
-	};
-
 	type Filters = {
 		publication: string;
 		sort: string;
 		q: string;
 		year: number;
 	};
-
-	type PaginationToken = number | 'ellipsis';
 
 	const publicationOptions = [
 		{ value: 'all', label: 'Näytä kaikki' },
@@ -88,17 +66,6 @@
 		{ value: 'it_pub_date', label: 'Italian julkaisupäivän mukaan' },
 		{ value: 'alpha', label: 'Aakkosjärjestyksessä' }
 	];
-
-	const publicationTypeLabels: Record<string, string> = {
-		perus: 'Suomen perussarja',
-		italia_perus: 'Italian perussarja',
-		suur: 'Suuralbumit',
-		maxi: 'Maxi-Tex',
-		kirjasto: 'Kirjasto',
-		kronikka: 'Kronikka',
-		muu_erikois: 'Muut erikoiset',
-		italia_erikois: 'Italian erikoiset'
-	};
 
 	let stories: Story[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
@@ -133,28 +100,6 @@
 			errorByStoryHash = {};
 			villainsByStoryHash = {};
 		}
-	}
-
-	function authorList(authors?: Author[] | null): string {
-		if (!authors || authors.length === 0) return '-';
-		return authors
-			.map((author) => {
-				const base = `${author.firstName} ${author.lastName}`.trim();
-				const details = (author.details ?? '').trim();
-				if (details) return `${base} (${details})`.trim();
-				return base;
-			})
-			.filter(Boolean)
-			.join('; ');
-	}
-
-	function joinValues(values?: string[] | null, fallback = '-'): string {
-		if (!values || values.length === 0) return fallback;
-		return values.filter(Boolean).join(', ');
-	}
-
-	function hasValues(values?: string[] | null): boolean {
-		return Boolean(values && values.some((value) => Boolean(value)));
 	}
 
 	function storyTitle(story: Story): string {
@@ -228,128 +173,8 @@
 		return storyTitle(story);
 	}
 
-	function publicationItem(publication: StoryPublication): string {
-		const pub = publication.in;
-		if (!pub) return publication.title;
-
-		if (pub.year && pub.issue) return `${pub.year}/${pub.issue}`;
-		if (pub.issue) return pub.issue;
-		if (pub.year) return `${pub.year}`;
-		return publication.title;
-	}
-
-	type BaseSeriesIssue = {
-		year: number;
-		issue: string;
-		issueNumber: number;
-	};
-
-	function parseBaseSeriesIssue(publication: StoryPublication): BaseSeriesIssue | null {
-		const issue = (publication.in?.issue ?? '').trim();
-		const year = publication.in?.year ?? 0;
-		if (!issue || year <= 0) return null;
-
-		const issueNumber = Number.parseInt(issue.replace(/[^0-9]/g, ''), 10);
-		if (Number.isNaN(issueNumber)) return null;
-
-		return { year, issue, issueNumber };
-	}
-
-	function formatBaseSeriesRange(start: BaseSeriesIssue, end: BaseSeriesIssue): string {
-		if (start.year === end.year && start.issueNumber === end.issueNumber) {
-			return `${start.issue}/${start.year}`;
-		}
-		return `${start.issue}/${start.year}–${end.issue}/${end.year}`;
-	}
-
-	function baseSeriesSummary(publications: StoryPublication[]): string {
-		const parsedIssues: BaseSeriesIssue[] = [];
-		const fallbackItems: string[] = [];
-
-		for (const publication of publications) {
-			const parsed = parseBaseSeriesIssue(publication);
-			if (parsed) {
-				parsedIssues.push(parsed);
-				continue;
-			}
-			const item = publicationItem(publication).trim();
-			if (item) fallbackItems.push(item);
-		}
-
-		const dedupedParsed = new Map<string, BaseSeriesIssue>();
-		for (const issue of parsedIssues) {
-			const key = `${issue.year}:${issue.issueNumber}`;
-			if (!dedupedParsed.has(key)) dedupedParsed.set(key, issue);
-		}
-		const orderedIssues = [...dedupedParsed.values()].sort((a, b) => {
-			if (a.year !== b.year) return a.year - b.year;
-			if (a.issueNumber !== b.issueNumber) return a.issueNumber - b.issueNumber;
-			return a.issue.localeCompare(b.issue);
-		});
-
-		const ranges: string[] = [];
-		if (orderedIssues.length > 0) {
-			let start = orderedIssues[0];
-			let previous = orderedIssues[0];
-
-			for (let i = 1; i < orderedIssues.length; i++) {
-				const current = orderedIssues[i];
-				const isContinuous =
-					current.year === previous.year && current.issueNumber === previous.issueNumber + 1;
-				if (isContinuous) {
-					previous = current;
-					continue;
-				}
-				ranges.push(formatBaseSeriesRange(start, previous));
-				start = current;
-				previous = current;
-			}
-
-			ranges.push(formatBaseSeriesRange(start, previous));
-		}
-
-		const uniqueFallbackItems = fallbackItems.filter(
-			(item, index, values) => values.indexOf(item) === index
-		);
-		const items = [...ranges, ...uniqueFallbackItems];
-		return items.join(', ');
-	}
-
 	function publicationSummary(story: Story): string {
-		const groups: Record<string, StoryPublication[]> = {};
-		for (const publication of story.publications ?? []) {
-			const pType = publication.in?.type ?? 'muu_erikois';
-			if (!groups[pType]) groups[pType] = [];
-			groups[pType].push(publication);
-		}
-
-		const order = [
-			'perus',
-			'italia_perus',
-			'suur',
-			'maxi',
-			'kirjasto',
-			'kronikka',
-			'muu_erikois',
-			'italia_erikois'
-		];
-		const parts = order.flatMap((type) => {
-			const publications = groups[type] ?? [];
-			if (publications.length === 0) return [];
-
-			const items =
-				type === 'perus' || type === 'italia_perus'
-					? baseSeriesSummary(publications)
-					: publications
-							.map((publication) => publicationItem(publication).trim())
-							.filter((item, index, values) => Boolean(item) && values.indexOf(item) === index)
-							.join(', ');
-
-			if (!items) return [];
-			return [`${publicationTypeLabels[type] ?? type} ${items}`];
-		});
-
-		return parts.length > 0 ? parts.join('; ') : 'Ei julkaisutietoja';
+		return publicationSummaryFromPublications(story.publications, 'Ei julkaisutietoja');
 	}
 
 	function storyVillainForStory(villain: Villain, storyHash: string): StoryVillain | null {
@@ -435,45 +260,14 @@
 	}
 
 	function pageHref(page: number): string {
-		const params = new URLSearchParams();
-		params.set('publication', filters.publication);
-		params.set('sort', filters.sort);
-		params.set('page', String(page));
-		params.set('pageSize', String(meta.pageSize));
-		if (filters.q) params.set('q', filters.q);
-		if (filters.year > 0) params.set('year', String(filters.year));
-		return `/tarinat?${params.toString()}`;
-	}
-
-	function paginationTokens(currentPage: number, totalPages: number): PaginationToken[] {
-		if (totalPages <= 0) return [];
-
-		const visiblePages = new Set<number>([1, totalPages]);
-		for (let page = currentPage - 1; page <= currentPage + 1; page++) {
-			if (page >= 1 && page <= totalPages) visiblePages.add(page);
-		}
-		if (currentPage <= 3) {
-			visiblePages.add(2);
-			visiblePages.add(3);
-		}
-		if (currentPage >= totalPages - 2) {
-			visiblePages.add(totalPages - 1);
-			visiblePages.add(totalPages - 2);
-		}
-
-		const orderedPages = [...visiblePages]
-			.filter((page) => page >= 1 && page <= totalPages)
-			.sort((a, b) => a - b);
-		const tokens: PaginationToken[] = [];
-		let previousPage = 0;
-		for (const page of orderedPages) {
-			if (previousPage > 0 && page - previousPage > 1) {
-				tokens.push('ellipsis');
-			}
-			tokens.push(page);
-			previousPage = page;
-		}
-		return tokens;
+		return buildPageHref('/tarinat', {
+			publication: filters.publication,
+			sort: filters.sort,
+			page,
+			pageSize: meta.pageSize,
+			q: filters.q || undefined,
+			year: filters.year > 0 ? filters.year : undefined
+		});
 	}
 </script>
 
@@ -585,9 +379,9 @@
 				{@const italianOriginal = italianOriginalPublication(story)}
 				<article class="story-card">
 					<h3>{cardTitle(story)}</h3>
-					<p><strong>Kertoi:</strong> {authorList(story.writtenBy)}</p>
-					<p><strong>Piirsi:</strong> {authorList(story.drawnBy)}</p>
-					<p><strong>Suomensi:</strong> {authorList(story.translatedBy)}</p>
+					<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
+					<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
+					<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
 					{#if italianOriginal}
 						<p>
 							<strong>Alkuperäisjulkaisu (Italia):</strong>
