@@ -29,6 +29,7 @@ func main() {
 	adminapi.Get("/users", admin.ListUsersHandler)
 	adminapi.Post("/users/grant-admin", admin.GrantAdminHandler)
 	adminapi.Get("/versions", admin.ListVersionsHandler)
+	adminapi.Post("/versions/import", admin.ImportVersionHandler)
 	adminapi.Post("/versions/:versionID/activate", admin.ActivateVersionHandler)
 	adminapi.Delete("/versions/:versionID", admin.DeleteVersionHandler)
 

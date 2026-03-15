@@ -47,6 +47,7 @@ Main backend packages:
   - `/api/admin/users` -> backend `/api/admin/users`
   - `/api/admin/users/grant-admin` -> backend `/api/admin/users/grant-admin`
   - `/api/admin/versions` -> backend `/api/admin/versions`
+  - `/api/admin/versions/import` -> backend `/api/admin/versions/import`
   - `/api/admin/versions/[versionID]/activate` -> backend `/api/admin/versions/:versionID/activate`
   - `/api/admin/versions/[versionID]` -> backend `/api/admin/versions/:versionID`
   - `/api/roistot` -> backend `/api/villains`

@@ -19,6 +19,7 @@
 	let usersError = data.usersError ?? '';
 	let versions: AdminVersion[] = [...(data.versions ?? [])];
 	let versionsError = data.versionsError ?? '';
+	let importUrl = data.importUrl ?? '';
 	let isLoggingOut = false;
 	let logoutError = '';
 	let isDeletingAccount = false;
@@ -29,6 +30,7 @@
 	let grantAdminSuccess = '';
 	let isActivatingVersionID: number | null = null;
 	let isDeletingVersionID: number | null = null;
+	let isImportingVersion = false;
 	let versionActionError = '';
 	let versionActionSuccess = '';
 
@@ -139,7 +141,8 @@
 	}
 
 	async function activateVersion(versionID: number): Promise<void> {
-		if (isActivatingVersionID !== null || isDeletingVersionID !== null) return;
+		if (isActivatingVersionID !== null || isDeletingVersionID !== null || isImportingVersion)
+			return;
 
 		isActivatingVersionID = versionID;
 		versionActionError = '';
@@ -173,7 +176,13 @@
 	}
 
 	async function deleteVersion(version: AdminVersion): Promise<void> {
-		if (version.isActive || isActivatingVersionID !== null || isDeletingVersionID !== null) return;
+		if (
+			version.isActive ||
+			isActivatingVersionID !== null ||
+			isDeletingVersionID !== null ||
+			isImportingVersion
+		)
+			return;
 		if (!window.confirm(`Poistetaanko versio ${version.id}? Tätä ei voi perua.`)) return;
 
 		isDeletingVersionID = version.id;
@@ -201,6 +210,65 @@
 			isDeletingVersionID = null;
 		}
 	}
+
+	async function refreshVersions(): Promise<boolean> {
+		try {
+			const response = await fetch('/api/admin/versions');
+			const payload = (await response.json().catch(() => null)) as {
+				error?: string;
+				versions?: AdminVersion[];
+				importUrl?: string;
+			} | null;
+
+			if (!response.ok) {
+				versionsError = payload?.error ?? 'Versioiden haku epäonnistui.';
+				return false;
+			}
+
+			versions = payload?.versions ?? [];
+			importUrl = payload?.importUrl ?? '';
+			versionsError = '';
+			return true;
+		} catch {
+			versionsError = 'Versioiden haku epäonnistui.';
+			return false;
+		}
+	}
+
+	async function importVersionFromOneDrive(): Promise<void> {
+		if (isImportingVersion || isActivatingVersionID !== null || isDeletingVersionID !== null)
+			return;
+
+		isImportingVersion = true;
+		versionActionError = '';
+		versionActionSuccess = '';
+
+		try {
+			const response = await fetch('/api/admin/versions/import', {
+				method: 'POST'
+			});
+			const payload = (await response.json().catch(() => null)) as {
+				error?: string;
+				version?: AdminVersion;
+			} | null;
+
+			if (!response.ok) {
+				versionActionError = payload?.error ?? 'Version tuonti epäonnistui.';
+				return;
+			}
+
+			await refreshVersions();
+			if (payload?.version?.id) {
+				versionActionSuccess = `Uusi versio ${payload.version.id} tuotiin OneDrivesta.`;
+			} else {
+				versionActionSuccess = 'Uusi versio tuotiin OneDrivesta.';
+			}
+		} catch {
+			versionActionError = 'Version tuonti epäonnistui.';
+		} finally {
+			isImportingVersion = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -218,6 +286,25 @@
 		{#if data.user.isAdmin}
 			<section class="admin-section">
 				<h2>Versiot</h2>
+				<div class="version-toolbar">
+					<button
+						type="button"
+						on:click={importVersionFromOneDrive}
+						disabled={isImportingVersion ||
+							isActivatingVersionID !== null ||
+							isDeletingVersionID !== null}
+					>
+						{isImportingVersion ? 'Tuodaan OneDrivesta...' : 'Tuo uusi versio OneDrivesta'}
+					</button>
+				</div>
+				<p class="import-url-status">
+					<strong>Käytössä oleva tuonti-URL:</strong>
+					{#if importUrl}
+						<a href={importUrl} target="_blank" rel="noreferrer noopener">{importUrl}</a>
+					{:else}
+						<em>Ei asetettu</em>
+					{/if}
+				</p>
 				{#if versionsError}
 					<p class="config-error">{versionsError}</p>
 				{/if}
@@ -250,7 +337,9 @@
 											<button
 												type="button"
 												on:click={() => activateVersion(version.id)}
-												disabled={isActivatingVersionID !== null || isDeletingVersionID !== null}
+												disabled={isImportingVersion ||
+													isActivatingVersionID !== null ||
+													isDeletingVersionID !== null}
 											>
 												{isActivatingVersionID === version.id
 													? 'Asetetaan...'
@@ -260,7 +349,9 @@
 												type="button"
 												class="danger"
 												on:click={() => deleteVersion(version)}
-												disabled={isActivatingVersionID !== null || isDeletingVersionID !== null}
+												disabled={isImportingVersion ||
+													isActivatingVersionID !== null ||
+													isDeletingVersionID !== null}
 											>
 												{isDeletingVersionID === version.id ? 'Poistetaan...' : 'Poista versio'}
 											</button>
@@ -430,6 +521,22 @@
 	.versions-list ul {
 		padding-left: 0;
 		list-style: none;
+	}
+
+	.version-toolbar {
+		margin-bottom: 0.6rem;
+	}
+
+	.import-url-status {
+		margin: 0 0 0.6rem;
+		font-size: 0.9rem;
+		color: #2f2f2f;
+	}
+
+	.import-url-status a {
+		margin-left: 0.35rem;
+		color: inherit;
+		word-break: break-all;
 	}
 
 	.version-item {

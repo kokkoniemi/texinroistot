@@ -94,10 +94,15 @@ func (i *importer) LoadData(dataRows [][]string) error {
 }
 
 func (i *importer) PersistData() error {
+	_, err := i.PersistDataWithVersion()
+	return err
+}
+
+func (i *importer) PersistDataWithVersion() (*db.Version, error) {
 	versionRepo := db.NewVersionRepository()
 	version, err := versionRepo.Create(db.Version{IsActive: false})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Save other models in following order:
@@ -111,24 +116,23 @@ func (i *importer) PersistData() error {
 
 	err = i.persistAuthors(version)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = i.persistPublications(version)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = i.persistStories(version)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = i.persistVillains(version)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	//fmt.Println(version)
-	return nil
+	return version, nil
 }
 
 func (i *importer) TrimmedSplit(str string, delimiter string) []string {

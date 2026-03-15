@@ -195,6 +195,13 @@ Response shape:
 - Returns `409` when trying to delete active version.
 - Returns `404` if version does not exist.
 
+### `POST /api/admin/versions/import`
+
+- Protected by backend middleware (`auth.ProtectedRoute`).
+- Downloads spreadsheet from configured import URL and creates a new inactive version.
+- Returns `409` if another import is already running.
+- Returns `400` if source URL is invalid, unavailable, or does not resolve to a valid `.xlsx` payload.
+
 ## Error behavior
 
 Common patterns:
@@ -221,6 +228,7 @@ SvelteKit exposes same-shape proxy routes under frontend origin:
 - `GET /api/admin/users`
 - `POST /api/admin/users/grant-admin`
 - `GET /api/admin/versions`
+- `POST /api/admin/versions/import`
 - `POST /api/admin/versions/:versionID/activate`
 - `DELETE /api/admin/versions/:versionID`
 - `GET /api/version/active`

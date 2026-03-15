@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kokkoniemi/texinroistot/internal/config"
 	"github.com/kokkoniemi/texinroistot/internal/db"
 )
 
@@ -24,7 +25,10 @@ func ListVersionsHandler(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list versions"})
 	}
 
-	return c.JSON(fiber.Map{"versions": versions})
+	return c.JSON(fiber.Map{
+		"versions":  versions,
+		"importUrl": config.ImportExcelURL,
+	})
 }
 
 func ActivateVersionHandler(c *fiber.Ctx) error {

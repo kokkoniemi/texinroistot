@@ -23,6 +23,10 @@ Read in `internal/config/config.go` via `godotenv` autoload.
 - `ROISTOT_ADMIN_EMAILS`
   - comma-separated admin email list (for example `admin@example.com,second@example.com`)
   - applied when users log in; matching users are marked as admin
+- `ROISTOT_IMPORT_EXCEL_URL`
+  - source URL for admin-triggered version import in `/hallinta`
+  - defaults to OneDrive link configured in backend code
+  - must be anonymously downloadable `.xlsx` content for backend fetch/import to succeed
 
 ### Database
 

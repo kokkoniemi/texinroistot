@@ -19,6 +19,10 @@ var (
 var (
 	GoogleOauth2ClientID string = getEnvConfig("GOOGLE_OAUTH2_CLIENT_ID", "")
 	AdminEmails          string = getEnvConfig("ROISTOT_ADMIN_EMAILS", "")
+	ImportExcelURL       string = getEnvConfig(
+		"ROISTOT_IMPORT_EXCEL_URL",
+		"https://1drv.ms/x/s!Alxd45tPW6_6iVdpB3HmJkpWXdyF?e=BNzoBz&download=1",
+	)
 )
 
 var (

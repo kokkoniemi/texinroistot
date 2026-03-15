@@ -31,7 +31,8 @@ export const load: PageServerLoad = async ({ fetch }) => {
 		users: [] as AdminUser[],
 		usersError: '',
 		versions: [] as AdminVersion[],
-		versionsError: ''
+		versionsError: '',
+		importUrl: ''
 	};
 
 	try {
@@ -54,7 +55,8 @@ export const load: PageServerLoad = async ({ fetch }) => {
 				users: [],
 				usersError: '',
 				versions: [],
-				versionsError: ''
+				versionsError: '',
+				importUrl: ''
 			};
 		}
 
@@ -70,10 +72,15 @@ export const load: PageServerLoad = async ({ fetch }) => {
 
 		let versions: AdminVersion[] = [];
 		let versionsError = '';
+		let importUrl = '';
 		const versionsResponse = await fetch('/api/admin/versions');
 		if (versionsResponse.ok) {
-			const versionsPayload = (await versionsResponse.json()) as { versions?: AdminVersion[] };
+			const versionsPayload = (await versionsResponse.json()) as {
+				versions?: AdminVersion[];
+				importUrl?: string;
+			};
 			versions = versionsPayload.versions ?? [];
+			importUrl = versionsPayload.importUrl ?? '';
 		} else {
 			versionsError = 'Versioiden haku epäonnistui.';
 		}
@@ -84,7 +91,8 @@ export const load: PageServerLoad = async ({ fetch }) => {
 			users,
 			usersError,
 			versions,
-			versionsError
+			versionsError,
+			importUrl
 		};
 	} catch {
 		return fallbackData;
