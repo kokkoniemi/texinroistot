@@ -5,6 +5,7 @@
 		buildPageHref,
 		hasValues,
 		joinValues,
+		nonItalianTitlesByFirstPublication,
 		paginationTokens
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
@@ -75,16 +76,23 @@
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
 	}
 
-	function villainTitle(villain: Villain): string {
+	function appearanceCodeNames(appearance?: StoryVillain | null): string[] {
+		return (appearance?.codeNames ?? [])
+			.map((codeName) => codeName.trim())
+			.filter((codeName, index, values) => Boolean(codeName) && values.indexOf(codeName) === index);
+	}
+
+	type VillainTitle = {
+		baseName: string;
+		nicknames: string[];
+	};
+
+	function villainTitle(villain: Villain): VillainTitle {
 		const rank = joinValues(villain.ranks, '').trim();
 		const realName = villainRealName(villain);
 		const nicknames = villainNicknames(villain);
 		const baseName = `${rank} ${realName}`.trim();
-		const quotedNicknames = nicknames.map((name) => `"${name}"`);
-		const fullName = [baseName, ...quotedNicknames].filter(Boolean).join(', ');
-
-		if (fullName) return fullName;
-		return 'Nimetön roisto';
+		return { baseName, nicknames };
 	}
 
 	function primaryAppearance(villain: Villain): StoryVillain | null {
@@ -95,17 +103,16 @@
 	function storyTitle(story?: Story | null): string {
 		if (!story) return '-';
 		const publications = story.publications ?? [];
-		const finBase = publications.find(
-			(publication) => publication.in?.type === 'perus' && publication.title
+		const baseTitles = nonItalianTitlesByFirstPublication(
+			publications.filter((publication) => publication.in?.type === 'perus')
 		);
-		if (finBase?.title) return finBase.title;
+		if (baseTitles.length > 0) return baseTitles[0];
 
-		const nonItalian = publications.find(
-			(publication) => !publication.in?.type?.startsWith('italia_') && publication.title
-		);
-		if (nonItalian?.title) return nonItalian.title;
+		const nonItalianTitles = nonItalianTitlesByFirstPublication(publications);
+		if (nonItalianTitles.length > 0) return nonItalianTitles[0];
 
-		return publications[0]?.title ?? 'Nimetön tarina';
+		const anyTitle = publications.find((publication) => Boolean(publication.title?.trim()))?.title?.trim();
+		return anyTitle || 'Nimetön tarina';
 	}
 
 	function authorsSummary(story?: Story | null): string {
@@ -204,22 +211,20 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="villain-list">
-			{#each villains as villain}
-				{@const appearance = primaryAppearance(villain)}
-				{@const baseTitle = villainTitle(villain)}
-				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
-				{@const cardTitle =
-					displayName && baseTitle === 'Nimetön roisto'
-						? displayName
-						: displayName
-							? `${baseTitle}, ${displayName}`
-							: baseTitle}
-				<article class="villain-card">
-					<h3>{cardTitle}</h3>
-					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
-					{#if hasValues(appearance?.destiny)}
-						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
-					{/if}
+				{#each villains as villain}
+					{@const appearance = primaryAppearance(villain)}
+					{@const title = villainTitle(villain)}
+					{@const displayName = joinValues(appearance?.otherNames, '').trim()}
+					{@const codeNames = appearanceCodeNames(appearance)}
+					{@const nicknameTitle = title.nicknames.map((nickname) => `"${nickname}"`).join(', ')}
+					{@const cardTitle = [title.baseName, nicknameTitle, displayName].filter(Boolean).join(', ')}
+					{@const hasCodeNames = codeNames.length > 0}
+					<article class="villain-card">
+						<h3>{#if cardTitle}{cardTitle}{/if}{#if hasCodeNames}{cardTitle ? ', ' : ''}{#each codeNames as codeName, index}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !cardTitle}Nimetön roisto{/if}</h3>
+						<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
+						{#if hasValues(appearance?.destiny)}
+							<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
+						{/if}
 						{#if hasValues(appearance?.codeNames)}
 							<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
 						{/if}

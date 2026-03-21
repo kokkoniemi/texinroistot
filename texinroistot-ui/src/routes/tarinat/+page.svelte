@@ -5,6 +5,7 @@
 		buildPageHref,
 		hasValues,
 		joinValues,
+		nonItalianTitlesByFirstPublication,
 		paginationTokens,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
@@ -103,10 +104,7 @@
 	}
 
 	function storyTitle(story: Story): string {
-		const uniqueTitles = (story.publications ?? [])
-			.filter((publication) => !publication.in?.type?.startsWith('italia_'))
-			.map((publication) => publication.title.trim())
-			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
+		const uniqueTitles = nonItalianTitlesByFirstPublication(story.publications);
 
 		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
 	}
@@ -389,7 +387,7 @@
 							{/if}
 						</p>
 					{/if}
-					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>
+					<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary(story)}</p>
 
 					<button
 						type="button"

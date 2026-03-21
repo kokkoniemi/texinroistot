@@ -5,6 +5,7 @@
 		buildPageHref,
 		hasValues,
 		joinValues,
+		nonItalianTitlesByFirstPublication,
 		paginationTokens,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
@@ -143,23 +144,28 @@
 		return storiesByAuthorHash[authorHash] ?? [];
 	}
 
+	function finnishPublications(story: Story) {
+		return (story.publications ?? []).filter(
+			(publication) => !publication.in?.type?.startsWith('italia_')
+		);
+	}
+
 	function storyTitle(story: Story): string {
-		const publications = story.publications ?? [];
-		const finBase = publications.find(
-			(publication) => publication.in?.type === 'perus' && publication.title
+		const publications = finnishPublications(story);
+		const baseTitles = nonItalianTitlesByFirstPublication(
+			publications.filter((publication) => publication.in?.type === 'perus')
 		);
-		if (finBase?.title) return finBase.title;
+		if (baseTitles.length > 0) return baseTitles[0];
 
-		const nonItalian = publications.find(
-			(publication) => !publication.in?.type?.startsWith('italia_') && publication.title
-		);
-		if (nonItalian?.title) return nonItalian.title;
+		const nonItalianTitles = nonItalianTitlesByFirstPublication(publications);
+		if (nonItalianTitles.length > 0) return nonItalianTitles[0];
 
-		return publications[0]?.title ?? 'Nimetön tarina';
+		const anyTitle = publications.find((publication) => Boolean(publication.title?.trim()))?.title?.trim();
+		return anyTitle || 'Nimetön tarina';
 	}
 
 	function publicationSummary(story: Story): string {
-		return publicationSummaryFromPublications(story.publications, 'Ei julkaisutietoja');
+		return publicationSummaryFromPublications(finnishPublications(story), 'Ei julkaisutietoja');
 	}
 
 	function normalizeStoryHash(raw?: string | null): string {
@@ -504,7 +510,7 @@
 							{/if}
 						</p>
 					{/if}
-					<p><strong>Julkaisut:</strong> {publicationSummary(selectedStory)}</p>
+					<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary(selectedStory)}</p>
 
 					<button
 						type="button"

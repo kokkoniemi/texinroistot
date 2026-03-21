@@ -32,21 +32,17 @@ export type Meta = {
 
 export type PaginationToken = number | 'ellipsis';
 
-const publicationTypeLabels: Record<string, string> = {
-	perus: 'Suomen perussarja',
-	italia_perus: 'Italian perussarja',
-	suur: 'Suuralbumit',
-	maxi: 'Maxi-Tex',
-	kirjasto: 'Kirjasto',
-	kronikka: 'Kronikka',
-	muu_erikois: 'Muut erikoiset',
-	italia_erikois: 'Italian erikoiset'
-};
-
 type BaseSeriesIssue = {
 	year: number;
 	issue: string;
 	issueNumber: number;
+};
+
+type PublicationOrderKey = {
+	year: number;
+	issueNumber: number;
+	issue: string;
+	index: number;
 };
 
 export function joinValues(values?: string[] | null, fallback = '-', separator = ', '): string {
@@ -79,6 +75,53 @@ export function publicationItem(publication: StoryPublication): string {
 	if (pub.issue) return pub.issue;
 	if (pub.year) return `${pub.year}`;
 	return publication.title;
+}
+
+function publicationOrderKey(publication: StoryPublication, index: number): PublicationOrderKey {
+	const year = publication.in?.year ?? 0;
+	const issue = (publication.in?.issue ?? '').trim();
+	const parsedIssueNumber = Number.parseInt(issue.replace(/[^0-9]/g, ''), 10);
+	return {
+		year: year > 0 ? year : Number.MAX_SAFE_INTEGER,
+		issueNumber: Number.isNaN(parsedIssueNumber) ? Number.MAX_SAFE_INTEGER : parsedIssueNumber,
+		issue,
+		index
+	};
+}
+
+function comparePublicationOrderKey(a: PublicationOrderKey, b: PublicationOrderKey): number {
+	if (a.year !== b.year) return a.year - b.year;
+	if (a.issueNumber !== b.issueNumber) return a.issueNumber - b.issueNumber;
+	const issueCompare = a.issue.localeCompare(b.issue);
+	if (issueCompare !== 0) return issueCompare;
+	return a.index - b.index;
+}
+
+export function nonItalianTitlesByFirstPublication(
+	publications?: StoryPublication[] | null
+): string[] {
+	const earliestByTitle = new Map<string, { title: string; key: PublicationOrderKey }>();
+
+	for (const [index, publication] of (publications ?? []).entries()) {
+		if (publication.in?.type?.startsWith('italia_')) continue;
+
+		const title = publication.title.trim();
+		if (!title) continue;
+
+		const key = publicationOrderKey(publication, index);
+		const existing = earliestByTitle.get(title);
+		if (!existing || comparePublicationOrderKey(key, existing.key) < 0) {
+			earliestByTitle.set(title, { title, key });
+		}
+	}
+
+	return [...earliestByTitle.values()]
+		.sort((a, b) => {
+			const order = comparePublicationOrderKey(a.key, b.key);
+			if (order !== 0) return order;
+			return a.title.localeCompare(b.title);
+		})
+		.map((entry) => entry.title);
 }
 
 function parseBaseSeriesIssue(publication: StoryPublication): BaseSeriesIssue | null {
@@ -156,6 +199,11 @@ export function publicationSummaryFromPublications(
 	publications?: StoryPublication[] | null,
 	emptyText = '-'
 ): string {
+	const sectionLabels: Record<string, string> = {
+		kronikka: 'Kronikka (näköispainos)',
+		kirjasto: 'Kirjasto'
+	};
+
 	const groups: Record<string, StoryPublication[]> = {};
 	for (const publication of publications ?? []) {
 		const pType = publication.in?.type ?? 'muu_erikois';
@@ -165,20 +213,19 @@ export function publicationSummaryFromPublications(
 
 	const order = [
 		'perus',
-		'italia_perus',
+		'kronikka',
 		'suur',
 		'maxi',
-		'kirjasto',
-		'kronikka',
 		'muu_erikois',
-		'italia_erikois'
+		'italia_erikois',
+		'kirjasto'
 	];
 	const parts = order.flatMap((type) => {
 		const groupedPublications = groups[type] ?? [];
 		if (groupedPublications.length === 0) return [];
 
 		const items =
-			type === 'perus' || type === 'italia_perus'
+			type === 'perus'
 				? baseSeriesSummary(groupedPublications)
 				: groupedPublications
 						.map((publication) => publicationItem(publication).trim())
@@ -186,7 +233,8 @@ export function publicationSummaryFromPublications(
 						.join(', ');
 
 		if (!items) return [];
-		return [`${publicationTypeLabels[type] ?? type} ${items}`];
+		const sectionLabel = sectionLabels[type];
+		return [sectionLabel ? `${sectionLabel} ${items}` : items];
 	});
 
 	return parts.length > 0 ? parts.join('; ') : emptyText;

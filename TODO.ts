@@ -1,1 +1,7 @@
-// Roistot-listauksen kortissa ei tarvitse näyttää erillistä "Nimi"-kenttää. Nimi voisi olla kursiivilla kortin otsikossa. Heittomerkit on vain lempinimiä varten
+// TODO: "Sama tarina, sama roisto", sarake päivitetään väärin
+// TODO: Italian julkaisupäivän mukaan -> alkuperäisessä ilmestymisjärjestyksessä (Italia)
+// TODO: "Sama tarina, sama roisto", sarake päivitetään väärin. Roisto pitäisi yhdistää useampaan tarinaan, mutta tällä hetkellä yhdistetään vain yhteen. Käyttöliittymillä pitäisi näkyä, missä tarinoissa roisto on. Myös tarinan nimessä tulisi näkyä kaikki samat nimet, mitä tarinat-välilehdellä tarinakortissa.
+// TODO: Roistot-listauksessa klikatessa Tarinan nimeä, tarinakortti (sama kuin tarinat-listauksessa) avautuu popupiin
+// TODO: Paholaiskolo näyttää väärin julkaisutiedot
+// TODO: Kursiivilla kirjoitetut osuudet Excelin tekstissä tulisi näyttää kursiivilla käyttöliittymässä
+// TODO: tarkista filtterit. Suomen perussarjassa ei näytä esim. kuolma tulee taivaalta
