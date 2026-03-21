@@ -167,6 +167,109 @@ var publicationTypesByFilter = map[string][]string{
 	"special":  {"muu_erikois", "italia_erikois"},
 }
 
+const authorExistsByHashSQL = `
+SELECT 1
+FROM authors AS a
+WHERE
+	a.version = $1
+	AND a.hash = $2
+LIMIT 1;
+`
+
+const selectStoriesByAuthorHashSQL = `
+SELECT DISTINCT
+	s.id,
+	s.hash,
+	s.order_num
+FROM stories AS s
+JOIN authors_in_stories AS sa ON sa.story = s.id
+JOIN authors AS a ON a.id = sa.author
+WHERE
+	s.version = $1
+	AND a.hash = $2
+%v
+ORDER BY s.order_num ASC NULLS LAST, s.id ASC;
+`
+
+func normalizeAuthorStoryType(raw string) (string, error) {
+	authorType := strings.TrimSpace(strings.ToLower(raw))
+	if authorType == "" {
+		return "", nil
+	}
+	switch authorType {
+	case "writer", "drawer", "translator":
+		return authorType, nil
+	default:
+		return "", fmt.Errorf("invalid author type")
+	}
+}
+
+// ListByAuthorHash implements StoryRepository.
+func (s *storyRepo) ListByAuthorHash(version *Version, authorHash string, authorType string) ([]*Story, bool, error) {
+	if version.ID == 0 {
+		return nil, false, fmt.Errorf("invalid version")
+	}
+
+	authorHash = strings.TrimSpace(authorHash)
+	if authorHash == "" {
+		return nil, false, fmt.Errorf("author hash is required")
+	}
+
+	normalizedType, err := normalizeAuthorStoryType(authorType)
+	if err != nil {
+		return nil, false, err
+	}
+
+	existsRows, err := Query(authorExistsByHashSQL, version.ID, authorHash)
+	if err != nil {
+		return nil, false, err
+	}
+	defer existsRows.Close()
+
+	if !existsRows.Next() {
+		return []*Story{}, false, nil
+	}
+
+	querySQL := fmt.Sprintf(selectStoriesByAuthorHashSQL, "")
+	args := []interface{}{version.ID, authorHash}
+	if normalizedType != "" {
+		querySQL = fmt.Sprintf(selectStoriesByAuthorHashSQL, "AND sa.type = $3")
+		args = append(args, normalizedType)
+	}
+
+	rows, err := Query(querySQL, args...)
+	if err != nil {
+		return nil, true, err
+	}
+	defer rows.Close()
+
+	var stories []*Story
+	var storyIDs []int
+
+	for rows.Next() {
+		var story Story
+		if err = rows.Scan(&story.ID, &story.Hash, &story.OrderNumber); err != nil {
+			return nil, true, err
+		}
+		stories = append(stories, &story)
+		storyIDs = append(storyIDs, story.ID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, true, err
+	}
+
+	if len(stories) == 0 {
+		return []*Story{}, true, nil
+	}
+
+	if err = s.hydrateStories(stories, storyIDs); err != nil {
+		return nil, true, err
+	}
+
+	return stories, true, nil
+}
+
 // ListFiltered implements StoryRepository.
 func (s *storyRepo) ListFiltered(version *Version, params StoryListParams) ([]*Story, int, error) {
 	stories, storyIDs, total, err := s.selectStoryRowsFiltered(version, params)

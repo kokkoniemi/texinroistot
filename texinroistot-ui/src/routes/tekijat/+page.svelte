@@ -8,13 +8,27 @@
 		paginationTokens,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
-	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
+	import type { Author, Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
+	type ListedAuthor = Author & {
+		hash?: string;
+		isWriter?: boolean;
+		isDrawer?: boolean;
+	};
+
 	type Story = StoryBase & {
 		hash: string;
+	};
+
+	type AuthorStoriesResponse = {
+		authorHash: string;
+		stories: Story[];
+		meta?: {
+			total: number;
+		};
 	};
 
 	type StoryVillain = {
@@ -43,78 +57,114 @@
 		};
 	};
 
-	type Filters = {
-		publication: string;
-		sort: string;
-		q: string;
-		year: number;
-	};
-
-	const publicationOptions = [
-		{ value: 'all', label: 'Näytä kaikki' },
-		{ value: 'perus_fi', label: 'Suomen perussarja' },
-		{ value: 'perus_it', label: 'Italian perussarja' },
-		{ value: 'suur', label: 'Suuralbumit' },
-		{ value: 'maxi', label: 'Maxi-Tex' },
-		{ value: 'kirjasto', label: 'Kirjasto' },
-		{ value: 'kronikka', label: 'Kronikka' },
-		{ value: 'special', label: 'Muut erikoiset' }
-	];
-
-	const sortOptions = [
-		{ value: 'fi_pub_date', label: 'Suomen julkaisupäivän mukaan' },
-		{ value: 'it_pub_date', label: 'Alkuperäisessä ilmestymisjärjestyksessä (Italia)' },
-		{ value: 'alpha', label: 'Aakkosjärjestyksessä' }
-	];
-
-	let stories: Story[] = [];
-	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	let filters: Filters = { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
-	let hasPrev = false;
-	let hasNext = false;
-	let expandedStoryHashes: Record<string, boolean> = {};
-	let loadingStoryHashes: Record<string, boolean> = {};
-	let errorByStoryHash: Record<string, string> = {};
-	let villainsByStoryHash: Record<string, Villain[]> = {};
-	let storyListSignature = '';
-	let isFilterLoading = false;
-	let pageTokens: PaginationToken[] = [];
-
-	function normalizeStoryHash(raw?: string | null): string {
-		return (raw ?? '').trim();
-	}
-
-	$: stories = data.stories ?? [];
-	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
-	$: hasPrev = meta.page > 1;
-	$: hasNext = meta.page < meta.totalPages;
-	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tarinat';
-	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
-	$: {
-		const nextSignature = stories.map((story) => normalizeStoryHash(story.hash)).join('|');
-		if (nextSignature !== storyListSignature) {
-			storyListSignature = nextSignature;
-			expandedStoryHashes = {};
-			loadingStoryHashes = {};
-			errorByStoryHash = {};
-			villainsByStoryHash = {};
-		}
-	}
-
-	function storyTitle(story: Story): string {
-		const uniqueTitles = (story.publications ?? [])
-			.filter((publication) => !publication.in?.type?.startsWith('italia_'))
-			.map((publication) => publication.title.trim())
-			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
-
-		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
-	}
-
 	type ItalianOriginalPublication = {
 		title: string;
 		details: string;
 	};
+
+	type Filters = {
+		type: string;
+		sort: string;
+		q: string;
+	};
+
+	const typeOptions = [
+		{ value: 'writer', label: 'Kertojat' },
+		{ value: 'drawer', label: 'Piirtäjät' }
+	];
+
+	let authors: ListedAuthor[] = [];
+	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
+	let filters: Filters = { type: 'writer', sort: 'last_name', q: '' };
+	let hasPrev = false;
+	let hasNext = false;
+	let isFilterLoading = false;
+	let pageTokens: PaginationToken[] = [];
+	let expandedAuthorHashes: Record<string, boolean> = {};
+	let loadingAuthorHashes: Record<string, boolean> = {};
+	let errorByAuthorHash: Record<string, string> = {};
+	let storiesByAuthorHash: Record<string, Story[]> = {};
+	let authorListSignature = '';
+	let selectedStory: Story | null = null;
+	let popupStoryVillainsExpanded = false;
+	let popupStoryVillainsLoading = false;
+	let popupStoryVillainsError = '';
+	let popupStoryVillains: Villain[] = [];
+	let popupStoryVillainsLoadedHash = '';
+
+	$: authors = data.authors ?? [];
+	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
+	$: filters = data.filters ?? { type: 'writer', sort: 'last_name', q: '' };
+	$: hasPrev = meta.page > 1;
+	$: hasNext = meta.page < meta.totalPages;
+	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tekijat';
+	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
+	$: {
+		const nextSignature = authors
+			.map((author) => (author.hash ?? '').trim())
+			.filter(Boolean)
+			.join('|');
+		if (nextSignature !== authorListSignature) {
+			authorListSignature = nextSignature;
+			expandedAuthorHashes = {};
+			loadingAuthorHashes = {};
+			errorByAuthorHash = {};
+			storiesByAuthorHash = {};
+		}
+	}
+
+	function authorName(author: ListedAuthor): string {
+		return `${author.firstName} ${author.lastName}`.trim() || '-';
+	}
+
+	function resultLabel(authorType: string): string {
+		return authorType === 'drawer' ? 'Piirtäjiä yhteensä' : 'Kertojia yhteensä';
+	}
+
+	function pageHref(page: number): string {
+		return buildPageHref('/tekijat', {
+			type: filters.type,
+			sort: 'last_name',
+			page,
+			pageSize: meta.pageSize,
+			q: filters.q || undefined
+		});
+	}
+
+	function normalizeAuthorHash(raw?: string): string {
+		return (raw ?? '').trim();
+	}
+
+	function hasFetchedAuthorStories(authorHash: string): boolean {
+		return Object.prototype.hasOwnProperty.call(storiesByAuthorHash, authorHash);
+	}
+
+	function authorStories(authorHash: string): Story[] {
+		return storiesByAuthorHash[authorHash] ?? [];
+	}
+
+	function storyTitle(story: Story): string {
+		const publications = story.publications ?? [];
+		const finBase = publications.find(
+			(publication) => publication.in?.type === 'perus' && publication.title
+		);
+		if (finBase?.title) return finBase.title;
+
+		const nonItalian = publications.find(
+			(publication) => !publication.in?.type?.startsWith('italia_') && publication.title
+		);
+		if (nonItalian?.title) return nonItalian.title;
+
+		return publications[0]?.title ?? 'Nimetön tarina';
+	}
+
+	function publicationSummary(story: Story): string {
+		return publicationSummaryFromPublications(story.publications, 'Ei julkaisutietoja');
+	}
+
+	function normalizeStoryHash(raw?: string | null): string {
+		return (raw ?? '').trim();
+	}
 
 	function italianOriginalPublication(story: Story): ItalianOriginalPublication | null {
 		const italianPublications = (story.publications ?? []).filter((publication) =>
@@ -169,14 +219,6 @@
 		return { title: titlePart, details };
 	}
 
-	function cardTitle(story: Story): string {
-		return storyTitle(story);
-	}
-
-	function publicationSummary(story: Story): string {
-		return publicationSummaryFromPublications(story.publications, 'Ei julkaisutietoja');
-	}
-
 	function storyVillainForStory(villain: Villain, storyHash: string): StoryVillain | null {
 		const appearances = villain.as ?? [];
 		const matchingStory = appearances.find(
@@ -213,30 +255,47 @@
 		return 'Nimetön roisto';
 	}
 
-	function storyVillains(storyHash: string): Villain[] {
-		return villainsByStoryHash[storyHash] ?? [];
+	function openStoryPopup(story: Story): void {
+		selectedStory = story;
+		popupStoryVillainsExpanded = false;
+		popupStoryVillainsLoading = false;
+		popupStoryVillainsError = '';
+		popupStoryVillains = [];
+		popupStoryVillainsLoadedHash = '';
 	}
 
-	function hasFetchedStoryVillains(storyHash: string): boolean {
-		return Object.prototype.hasOwnProperty.call(villainsByStoryHash, storyHash);
+	function closeStoryPopup(): void {
+		selectedStory = null;
+		popupStoryVillainsExpanded = false;
+		popupStoryVillainsLoading = false;
+		popupStoryVillainsError = '';
+		popupStoryVillains = [];
+		popupStoryVillainsLoadedHash = '';
 	}
 
-	async function toggleStoryVillains(storyHash: string): Promise<void> {
+	function handleWindowKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Escape' && selectedStory) {
+			closeStoryPopup();
+		}
+	}
+
+	async function togglePopupStoryVillains(): Promise<void> {
+		if (!selectedStory) return;
+		const storyHash = normalizeStoryHash(selectedStory.hash);
 		if (!storyHash) return;
-		const isCurrentlyExpanded = Boolean(expandedStoryHashes[storyHash]);
 
-		if (isCurrentlyExpanded) {
-			expandedStoryHashes = { ...expandedStoryHashes, [storyHash]: false };
+		if (popupStoryVillainsExpanded) {
+			popupStoryVillainsExpanded = false;
 			return;
 		}
 
-		expandedStoryHashes = { ...expandedStoryHashes, [storyHash]: true };
-		if (hasFetchedStoryVillains(storyHash) || loadingStoryHashes[storyHash]) {
+		popupStoryVillainsExpanded = true;
+		if (popupStoryVillainsLoadedHash === storyHash || popupStoryVillainsLoading) {
 			return;
 		}
 
-		loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: true };
-		errorByStoryHash = { ...errorByStoryHash, [storyHash]: '' };
+		popupStoryVillainsLoading = true;
+		popupStoryVillainsError = '';
 
 		try {
 			const response = await fetch(`/api/tarinat/${encodeURIComponent(storyHash)}/roistot`);
@@ -244,88 +303,92 @@
 				throw new Error(`Roistojen haku epäonnistui (${response.status})`);
 			}
 			const payload = (await response.json()) as StoryVillainsResponse;
-			villainsByStoryHash = { ...villainsByStoryHash, [storyHash]: payload.villains ?? [] };
+			popupStoryVillains = payload.villains ?? [];
+			popupStoryVillainsLoadedHash = storyHash;
 		} catch (error) {
-			errorByStoryHash = {
-				...errorByStoryHash,
-				[storyHash]: error instanceof Error ? error.message : 'Roistojen haku epäonnistui'
-			};
+			popupStoryVillainsError =
+				error instanceof Error ? error.message : 'Roistojen haku epäonnistui';
 		} finally {
-			loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: false };
+			popupStoryVillainsLoading = false;
 		}
 	}
 
-	function pageHref(page: number): string {
-		return buildPageHref('/tarinat', {
-			publication: filters.publication,
-			sort: filters.sort,
-			page,
-			pageSize: meta.pageSize,
-			q: filters.q || undefined,
-			year: filters.year > 0 ? filters.year : undefined
-		});
+	async function toggleAuthorStories(author: ListedAuthor): Promise<void> {
+		const authorHash = normalizeAuthorHash(author.hash);
+		if (!authorHash) {
+			return;
+		}
+
+		const isCurrentlyExpanded = Boolean(expandedAuthorHashes[authorHash]);
+		if (isCurrentlyExpanded) {
+			expandedAuthorHashes = { ...expandedAuthorHashes, [authorHash]: false };
+			return;
+		}
+
+		expandedAuthorHashes = { ...expandedAuthorHashes, [authorHash]: true };
+		if (hasFetchedAuthorStories(authorHash) || loadingAuthorHashes[authorHash]) {
+			return;
+		}
+
+		loadingAuthorHashes = { ...loadingAuthorHashes, [authorHash]: true };
+		errorByAuthorHash = { ...errorByAuthorHash, [authorHash]: '' };
+
+		try {
+			const response = await fetch(
+				`/api/tekijat/${encodeURIComponent(authorHash)}/tarinat?type=${encodeURIComponent(filters.type)}`
+			);
+			if (!response.ok) {
+				throw new Error(`Tarinoiden haku epäonnistui (${response.status})`);
+			}
+			const payload = (await response.json()) as AuthorStoriesResponse;
+			storiesByAuthorHash = { ...storiesByAuthorHash, [authorHash]: payload.stories ?? [] };
+		} catch (error) {
+			errorByAuthorHash = {
+				...errorByAuthorHash,
+				[authorHash]: error instanceof Error ? error.message : 'Tarinoiden haku epäonnistui'
+			};
+		} finally {
+			loadingAuthorHashes = { ...loadingAuthorHashes, [authorHash]: false };
+		}
 	}
 </script>
 
-<section class="tarinat-page">
-	<h1>Tarinat</h1>
+<svelte:window on:keydown={handleWindowKeydown} />
+
+<section class="tekijat-page">
+	<h1>Tekijät</h1>
 
 	<form method="GET" class="filters">
 		<label class="field">
-			<span>Julkaisu</span>
-			<select name="publication" disabled={isFilterLoading}>
-				{#each publicationOptions as option}
-					<option value={option.value} selected={filters.publication === option.value}
-						>{option.label}</option
-					>
+			<span>Ryhmä</span>
+			<select name="type" disabled={isFilterLoading}>
+				{#each typeOptions as option}
+					<option value={option.value} selected={filters.type === option.value}>{option.label}</option>
 				{/each}
 			</select>
-		</label>
-
-		<label class="field">
-			<span>Järjestys</span>
-			<select name="sort" disabled={isFilterLoading}>
-				{#each sortOptions as option}
-					<option value={option.value} selected={filters.sort === option.value}
-						>{option.label}</option
-					>
-				{/each}
-			</select>
-		</label>
-
-		<label class="field year">
-			<span>Vuosi</span>
-			<input
-				name="year"
-				type="number"
-				min="1"
-				step="1"
-				value={filters.year > 0 ? String(filters.year) : ''}
-				placeholder="esim. 1980"
-				disabled={isFilterLoading}
-			/>
 		</label>
 
 		<label class="field search">
-			<span>Hae hakusanalla</span>
+			<span>Hae nimellä</span>
 			<input
 				name="q"
 				type="text"
 				value={filters.q ?? ''}
-				placeholder="Kirjoita hakusana..."
+				placeholder="Kirjoita nimi..."
 				disabled={isFilterLoading}
 			/>
 		</label>
 
 		<input type="hidden" name="page" value="1" />
 		<input type="hidden" name="pageSize" value={meta.pageSize} />
+		<input type="hidden" name="sort" value="last_name" />
 
 		<div class="actions">
 			<button type="submit" disabled={isFilterLoading}>
 				{isFilterLoading ? 'Ladataan...' : 'Hae'}
 			</button>
 			<a
-				href="/tarinat"
+				href="/tekijat"
 				class:loading-link-disabled={isFilterLoading}
 				aria-disabled={isFilterLoading}>Palauta oletukset</a
 			>
@@ -333,7 +396,7 @@
 	</form>
 
 	<div class="result-row">
-		<p class="result-total">Tarinoita yhteensä {meta.total}</p>
+		<p class="result-total">{resultLabel(filters.type)} {meta.total}</p>
 
 		<nav class="pagination pagination-top">
 			{#if hasPrev && !isFilterLoading}
@@ -366,18 +429,70 @@
 		</p>
 	</div>
 
-	{#if stories.length === 0}
+	{#if authors.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
-		<div class="story-list">
-			{#each stories as story}
-				{@const storyHash = normalizeStoryHash(story.hash)}
-				{@const italianOriginal = italianOriginalPublication(story)}
-				<article class="story-card">
-					<h3>{cardTitle(story)}</h3>
-					<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
-					<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
-					<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
+		<div class="author-list">
+			{#each authors as author}
+				{@const authorHash = normalizeAuthorHash(author.hash)}
+				<article class="author-card">
+					<h3>
+						<button
+							type="button"
+							class="author-link"
+							on:click={() => toggleAuthorStories(author)}
+							disabled={!authorHash}
+						>
+							{authorName(author)}
+						</button>
+					</h3>
+
+					{#if expandedAuthorHashes[authorHash]}
+						<section class="author-stories">
+							{#if loadingAuthorHashes[authorHash]}
+								<p>Haetaan tarinoita...</p>
+							{:else if errorByAuthorHash[authorHash]}
+								<p class="author-stories-error">{errorByAuthorHash[authorHash]}</p>
+							{:else if authorStories(authorHash).length === 0}
+								<p>Tekijälle ei löytynyt tarinoita.</p>
+							{:else}
+								<ul class="author-story-list">
+									{#each authorStories(authorHash) as story}
+										<li>
+											<button
+												type="button"
+												class="author-story-link"
+												on:click={() => openStoryPopup(story)}
+											>
+												{storyTitle(story)}
+											</button>
+											<br />
+											<span>{publicationSummary(story)}</span>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</section>
+					{/if}
+				</article>
+			{/each}
+		</div>
+	{/if}
+
+	{#if selectedStory}
+		{@const selectedStoryHash = normalizeStoryHash(selectedStory.hash)}
+		{@const italianOriginal = italianOriginalPublication(selectedStory)}
+		<div class="story-popup-backdrop" role="presentation" on:click|self={closeStoryPopup}>
+			<div class="story-popup" role="dialog" aria-modal="true" aria-labelledby="story-popup-title">
+				<div class="story-popup-actions">
+					<button type="button" class="story-popup-close" on:click={closeStoryPopup}>Sulje</button>
+				</div>
+
+				<article class="story-card popup-story-card">
+					<h3 id="story-popup-title">{storyTitle(selectedStory)}</h3>
+					<p><strong>Kertoi:</strong> {authorList(selectedStory.writtenBy, '; ')}</p>
+					<p><strong>Piirsi:</strong> {authorList(selectedStory.drawnBy, '; ')}</p>
+					<p><strong>Suomensi:</strong> {authorList(selectedStory.translatedBy, '; ')}</p>
 					{#if italianOriginal}
 						<p>
 							<strong>Alkuperäisjulkaisu (Italia):</strong>
@@ -389,34 +504,34 @@
 							{/if}
 						</p>
 					{/if}
-					<p><strong>Julkaisut:</strong> {publicationSummary(story)}</p>
+					<p><strong>Julkaisut:</strong> {publicationSummary(selectedStory)}</p>
 
 					<button
 						type="button"
 						class="toggle-villains"
-						on:click={() => toggleStoryVillains(storyHash)}
-						disabled={!storyHash}
+						on:click={togglePopupStoryVillains}
+						disabled={!selectedStoryHash}
 					>
-						{#if expandedStoryHashes[storyHash]}
+						{#if popupStoryVillainsExpanded}
 							Piilota tarinan roistot
 						{:else}
 							Näytä tarinan roistot
 						{/if}
 					</button>
 
-					{#if expandedStoryHashes[storyHash]}
+					{#if popupStoryVillainsExpanded}
 						<section class="story-villains">
-							{#if loadingStoryHashes[storyHash]}
+							{#if popupStoryVillainsLoading}
 								<p>Haetaan roistoja...</p>
-							{:else if errorByStoryHash[storyHash]}
-								<p class="villain-error">{errorByStoryHash[storyHash]}</p>
-							{:else if storyVillains(storyHash).length === 0}
+							{:else if popupStoryVillainsError}
+								<p class="villain-error">{popupStoryVillainsError}</p>
+							{:else if popupStoryVillains.length === 0}
 								<p>Tarinalle ei löytynyt roistoja.</p>
 							{:else}
 								<div class="story-villains-list">
-									{#each storyVillains(storyHash) as villain}
-										{@const appearance = storyVillainForStory(villain, storyHash)}
-										{@const baseTitle = villainTitle(villain, storyHash)}
+									{#each popupStoryVillains as villain}
+										{@const appearance = storyVillainForStory(villain, selectedStoryHash)}
+										{@const baseTitle = villainTitle(villain, selectedStoryHash)}
 										{@const displayName = joinValues(appearance?.otherNames, '').trim()}
 										{@const cardTitle =
 											displayName && baseTitle === 'Nimetön roisto'
@@ -445,7 +560,7 @@
 						</section>
 					{/if}
 				</article>
-			{/each}
+			</div>
 		</div>
 	{/if}
 
@@ -477,15 +592,13 @@
 </section>
 
 <style>
-	.tarinat-page {
+	.tekijat-page {
 		margin: 1rem 1.5rem 0;
 	}
 
 	.filters {
 		display: grid;
-		grid-template-columns:
-			minmax(150px, 220px) minmax(200px, 320px) minmax(120px, 150px) minmax(260px, 1fr)
-			auto;
+		grid-template-columns: minmax(220px, 260px) minmax(300px, 1fr) auto;
 		gap: 0.75rem;
 		align-items: end;
 		padding: 0.75rem;
@@ -497,6 +610,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+	}
+
+	.field.search {
 		min-width: 0;
 	}
 
@@ -505,7 +621,7 @@
 	}
 
 	select,
-	input {
+	input[type='text'] {
 		font-size: 1rem;
 		padding: 0.45rem 0.5rem;
 		border: 1px solid black;
@@ -518,17 +634,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		flex-wrap: wrap;
-		justify-content: flex-start;
 		grid-column: 1 / -1;
 		justify-self: start;
 	}
 
-	.actions a {
-		white-space: nowrap;
-	}
-
-	.actions button {
+	button {
 		font-size: 1rem;
 		padding: 0.45rem 1rem;
 		border: 1px solid black;
@@ -537,7 +647,7 @@
 		cursor: pointer;
 	}
 
-	.actions button:disabled {
+	button:disabled {
 		opacity: 0.65;
 		cursor: wait;
 	}
@@ -565,10 +675,101 @@
 		justify-self: end;
 	}
 
-	.story-list {
+	.author-list {
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+
+	.author-card {
+		border: 1px solid black;
+		background-color: #f7f7f7;
+		padding: 1rem;
+		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+	}
+
+	.author-card h3 {
+		margin: 0 0 0.25rem;
+	}
+
+	.author-link {
+		border: 0;
+		padding: 0;
+		background: transparent;
+		font: inherit;
+		font-weight: 700;
+		color: inherit;
+		text-align: left;
+		cursor: pointer;
+		text-decoration: underline;
+	}
+
+	.author-link:disabled {
+		text-decoration: none;
+		color: #777;
+		cursor: default;
+	}
+
+	.author-stories {
+		border: 1px solid black;
+		background: #fff;
+		margin-top: 0.55rem;
+		padding: 0.65rem 0.8rem;
+	}
+
+	.author-story-list {
+		margin: 0;
+		padding-left: 1.1rem;
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.author-story-link {
+		border: 0;
+		padding: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-weight: 700;
+		text-align: left;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.story-popup-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 1000;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+	}
+
+	.story-popup {
+		width: min(920px, 100%);
+		max-height: calc(100vh - 2rem);
+		overflow: auto;
+		background: #ffffed;
+		border: 1px solid black;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+		padding: 0.9rem;
+	}
+
+	.story-popup-actions {
+		display: flex;
+		justify-content: flex-end;
+		margin-bottom: 0.6rem;
+	}
+
+	.story-popup-close {
+		padding: 0.35rem 0.7rem;
+		font-size: 0.95rem;
+	}
+
+	.popup-story-card {
+		margin: 0;
 	}
 
 	.story-card {
@@ -627,6 +828,11 @@
 		margin: 0.2rem 0;
 	}
 
+	.author-stories-error {
+		margin: 0;
+		color: #8b0000;
+	}
+
 	.villain-error {
 		color: #8a0000;
 	}
@@ -670,43 +876,24 @@
 		background-color: #f7f7f7;
 	}
 
-	@media (max-width: 1500px) {
-		.filters {
-			grid-template-columns: minmax(150px, 1fr) minmax(200px, 1.35fr) minmax(120px, 0.7fr) minmax(
-					230px,
-					1.4fr
-				);
-		}
-	}
-
-	@media (max-width: 1200px) {
-		.filters {
-			grid-template-columns: minmax(150px, 1fr) minmax(200px, 1fr);
-		}
-
-		.field.search {
-			grid-column: 1 / -1;
-		}
-
-		.actions {
-			grid-column: 1 / -1;
-			justify-self: start;
-		}
-	}
-
 	@media (max-width: 900px) {
 		.filters {
 			grid-template-columns: 1fr;
 		}
-
-		.actions {
-			justify-self: start;
-		}
 	}
 
 	@media (max-width: 640px) {
-		.tarinat-page {
+		.tekijat-page {
 			margin: 0.75rem 0.75rem 0;
+		}
+
+		.story-popup-backdrop {
+			padding: 0.5rem;
+		}
+
+		.story-popup {
+			max-height: calc(100vh - 1rem);
+			padding: 0.55rem;
 		}
 
 		.pagination {

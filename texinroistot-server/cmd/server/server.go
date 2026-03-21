@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kokkoniemi/texinroistot/internal/admin"
+	"github.com/kokkoniemi/texinroistot/internal/authors"
 	"github.com/kokkoniemi/texinroistot/internal/auth"
 	"github.com/kokkoniemi/texinroistot/internal/stories"
 	"github.com/kokkoniemi/texinroistot/internal/versions"
@@ -24,6 +25,8 @@ func main() {
 	api.Get("/stories", stories.ListStoriesHandler)
 	api.Get("/stories/:storyHash/villains", stories.ListStoryVillainsHandler)
 	api.Get("/villains", villains.ListVillainsHandler)
+	api.Get("/authors", authors.ListAuthorsHandler)
+	api.Get("/authors/:authorHash/stories", authors.ListAuthorStoriesHandler)
 
 	adminapi := api.Group("/admin", auth.ProtectedRoute)
 	adminapi.Get("/users", admin.ListUsersHandler)

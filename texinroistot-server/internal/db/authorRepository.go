@@ -65,9 +65,13 @@ func (*authorRepo) list(version *Version, descending bool, limit int) ([]*Author
 	var queryString string
 	if descending {
 		queryString = fmt.Sprintf(listAuthorsSQL, "ORDER BY id DESC %v")
+	} else {
+		queryString = fmt.Sprintf(listAuthorsSQL, "ORDER BY id ASC %v")
 	}
 	if limit > 0 {
 		queryString = fmt.Sprintf(queryString, fmt.Sprintf("LIMIT %v", limit))
+	} else {
+		queryString = fmt.Sprintf(queryString, "")
 	}
 	rows, err := Query(queryString, version.ID)
 	if err != nil {

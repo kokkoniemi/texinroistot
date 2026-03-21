@@ -56,6 +56,7 @@ type AuthorRepository interface {
 type StoryRepository interface {
 	List(version *Version, limit int, offset int) ([]*Story, error)
 	ListFiltered(version *Version, params StoryListParams) ([]*Story, int, error)
+	ListByAuthorHash(version *Version, authorHash string, authorType string) ([]*Story, bool, error)
 	BulkCreate(stories []*Story, version *Version) ([]*Story, error)
 	BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error)
 }

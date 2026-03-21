@@ -5,8 +5,7 @@
 		buildPageHref,
 		hasValues,
 		joinValues,
-		paginationTokens,
-		publicationSummaryFromPublications
+		paginationTokens
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
 	import type { PageData } from './$types';
@@ -44,7 +43,7 @@
 		{ value: 'other_name', label: 'Etnisen nimen mukaan' },
 		{ value: 'rank', label: 'Arvon mukaan' },
 		{ value: 'fi_pub_date', label: 'Suomen julkaisupäivän mukaan' },
-		{ value: 'it_pub_date', label: 'Italian julkaisupäivän mukaan' }
+		{ value: 'it_pub_date', label: 'Alkuperäisessä ilmestymisjärjestyksessä (Italia)' }
 	];
 
 	let villains: Villain[] = [];
@@ -76,24 +75,13 @@
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
 	}
 
-	function villainAlternativeNames(villain: Villain): string[] {
-		return (villain.as ?? [])
-			.flatMap((appearance) => [...(appearance.otherNames ?? []), ...(appearance.codeNames ?? [])])
-			.map((name) => name.trim())
-			.filter((name, index, values) => Boolean(name) && values.indexOf(name) === index);
-	}
-
 	function villainTitle(villain: Villain): string {
 		const rank = joinValues(villain.ranks, '').trim();
 		const realName = villainRealName(villain);
 		const nicknames = villainNicknames(villain);
-		const alternativeNames = villainAlternativeNames(villain);
-		const aliases = [...nicknames, ...alternativeNames].filter(
-			(name, index, values) => Boolean(name) && values.indexOf(name) === index
-		);
 		const baseName = `${rank} ${realName}`.trim();
-		const quotedAliases = aliases.map((name) => `"${name}"`);
-		const fullName = [baseName, ...quotedAliases].filter(Boolean).join(', ');
+		const quotedNicknames = nicknames.map((name) => `"${name}"`);
+		const fullName = [baseName, ...quotedNicknames].filter(Boolean).join(', ');
 
 		if (fullName) return fullName;
 		return 'Nimetön roisto';
@@ -118,10 +106,6 @@
 		if (nonItalian?.title) return nonItalian.title;
 
 		return publications[0]?.title ?? 'Nimetön tarina';
-	}
-
-	function publicationSummary(story?: Story | null): string {
-		return publicationSummaryFromPublications(story?.publications, '-');
 	}
 
 	function authorsSummary(story?: Story | null): string {
@@ -222,24 +206,28 @@
 		<div class="villain-list">
 			{#each villains as villain}
 				{@const appearance = primaryAppearance(villain)}
+				{@const baseTitle = villainTitle(villain)}
+				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
+				{@const cardTitle =
+					displayName && baseTitle === 'Nimetön roisto'
+						? displayName
+						: displayName
+							? `${baseTitle}, ${displayName}`
+							: baseTitle}
 				<article class="villain-card">
-					<h3>{villainTitle(villain)}</h3>
+					<h3>{cardTitle}</h3>
 					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
 					{#if hasValues(appearance?.destiny)}
 						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
 					{/if}
-					{#if hasValues(appearance?.otherNames)}
-						<p><strong>Nimi:</strong> {joinValues(appearance?.otherNames)}</p>
-					{/if}
-					{#if hasValues(appearance?.codeNames)}
-						<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
-					{/if}
-					<p><strong>Tarina:</strong> {storyTitle(appearance?.story)}</p>
-					<p><strong>Julkaisut:</strong> {publicationSummary(appearance?.story)}</p>
-					<p><strong>Tekijät:</strong> {authorsSummary(appearance?.story)}</p>
-				</article>
-			{/each}
-		</div>
+						{#if hasValues(appearance?.codeNames)}
+							<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
+						{/if}
+						<p><strong>Tarina:</strong> {storyTitle(appearance?.story)}</p>
+						<p><strong>Tekijät:</strong> {authorsSummary(appearance?.story)}</p>
+					</article>
+				{/each}
+			</div>
 	{/if}
 
 	<nav class="pagination">

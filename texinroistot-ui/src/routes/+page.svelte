@@ -42,13 +42,32 @@
 	<p>
 		<a href="/tarinat?publication=all&sort=alpha">Aakkosjärjestyksessä</a> |
 		<a href="/tarinat?publication=perus_fi&sort=fi_pub_date">Suomen julkaisupäivän mukaan</a> |
-		<a href="/tarinat?publication=perus_it&sort=it_pub_date">Italian julkaisupäivän mukaan</a>
+		<a href="/tarinat?publication=perus_it&sort=it_pub_date">Alkuperäisessä ilmestymisjärjestyksessä (Italia)</a>
 		| <a href="/tarinat?publication=all&sort=fi_pub_date">Näytä kaikki</a> |
 		<a href="/tarinat?publication=suur&sort=alpha">Suuralbumit</a> |
-		<a href="/tarinat?publication=maxi&sort=alpha">Maxi-Texit</a> |
+		<a href="/tarinat?publication=maxi&sort=alpha">Maxi Texit</a> |
 		<a href="/tarinat?publication=kirjasto&sort=alpha">Kirjastot</a>
-		| <a href="/tarinat?publication=kronikka&sort=alpha">Kronikat</a> |
+		<!-- TODO: Poista kronikat etusivulta ja listaussivujen filttereistä -->
+		<!-- TODO: Filtteriksi "Muut erikoisjulkaisut" -->
+		<!-- I-->
 		<a href="/tarinat?publication=all&sort=alpha">Hae hakusanalla</a>
+	</p>
+
+	<p>
+				<a href="/tarinat?publication=all&sort=alpha">Serie extra</a> |
+				<a href="/tarinat?publication=all&sort=alpha">Texone</a> |
+				<a href="/tarinat?publication=all&sort=alpha">Mini Texone & Maxi Tex</a> |
+				<a href="/tarinat?publication=all&sort=alpha">Almanacco del West</a> |
+				<a href="/tarinat?publication=all&sort=alpha">Color Tex</a> |
+				<a href="/tarinat?publication=all&sort=alpha">Tex romanzi a fumetti</a> |
+				<a href="/tarinat?publication=all&sort=alpha">Tex Magazine</a>
+	</p>
+
+	<p>Selaa tekijöitä</p>
+
+	<p>
+		<a href="/tekijat?type=writer&sort=last_name">Kertojat</a> |
+		<a href="/tekijat?type=drawer&sort=last_name">Piirtäjät</a>
 	</p>
 </section>
 

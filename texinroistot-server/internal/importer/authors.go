@@ -21,6 +21,7 @@ type parsedTranslator struct {
 }
 
 var translatorDetailAtEndRegex = regexp.MustCompile(`\s+([0-9][0-9\.\-\s]*p\.?)$`)
+var authorAndSeparatorRegex = regexp.MustCompile(`\s*&\s*`)
 
 func (i *importer) loadWriters(storyID id, r row) {
 	writers := i.loadAuthorColumn(r, "story_written_by")
@@ -70,51 +71,134 @@ func splitTranslatorFirstNameAndDetails(firstName string) (string, string) {
 	return firstName, ""
 }
 
+func splitAuthorColumnNames(raw string) []string {
+	parts := strings.Split(raw, ";")
+	var names []string
+
+	for _, part := range parts {
+		trimmedPart := strings.TrimSpace(part)
+		if trimmedPart == "" {
+			continue
+		}
+
+		subParts := authorAndSeparatorRegex.Split(trimmedPart, -1)
+		for _, subPart := range subParts {
+			trimmedName := strings.TrimSpace(subPart)
+			if trimmedName == "" {
+				continue
+			}
+			names = append(names, trimmedName)
+		}
+	}
+
+	return names
+}
+
+func parseAuthorName(name string) (string, string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", ""
+	}
+
+	if !strings.Contains(name, ",") {
+		fields := strings.Fields(name)
+		if len(fields) == 0 {
+			return "", ""
+		}
+		if len(fields) == 1 {
+			return fields[0], ""
+		}
+		firstName := strings.Join(fields[:len(fields)-1], " ")
+		lastName := fields[len(fields)-1]
+		return strings.TrimSpace(firstName), strings.TrimSpace(lastName)
+	}
+
+	nameParts := strings.Split(name, ",")
+	// Excel format has been inverted:
+	// firstName is now on the left side of comma, lastName on the right.
+	firstName := strings.TrimSpace(nameParts[0])
+	lastName := strings.TrimSpace(strings.Join(nameParts[1:], " "))
+	return firstName, lastName
+}
+
+func splitTranslatorGroup(raw string) ([]string, string) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, ""
+	}
+
+	sharedDetails := ""
+	if openIdx := strings.LastIndex(trimmed, "("); openIdx > 0 && strings.HasSuffix(trimmed, ")") {
+		sharedDetails = strings.TrimSpace(strings.TrimSuffix(trimmed[openIdx+1:], ")"))
+		trimmed = strings.TrimSpace(trimmed[:openIdx])
+	} else {
+		matches := translatorDetailAtEndRegex.FindStringSubmatchIndex(trimmed)
+		if matches != nil && len(matches) >= 4 {
+			sharedDetails = strings.TrimSpace(trimmed[matches[2]:matches[3]])
+			trimmed = strings.TrimSpace(trimmed[:matches[0]])
+		}
+	}
+
+	if trimmed == "" {
+		return nil, strings.TrimSpace(sharedDetails)
+	}
+
+	names := authorAndSeparatorRegex.Split(trimmed, -1)
+	var trimmedNames []string
+	for _, name := range names {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue
+		}
+		trimmedNames = append(trimmedNames, trimmedName)
+	}
+
+	return trimmedNames, strings.TrimSpace(sharedDetails)
+}
+
 func (i *importer) loadTranslatorColumn(r row) []parsedTranslator {
 	names := strings.Split(r.getValue("story_translated_by"), ";")
 	var translators []parsedTranslator
 
-	for _, rawName := range names {
-		trimmedName := strings.TrimSpace(rawName)
-		if trimmedName == "" {
+	for _, rawGroup := range names {
+		trimmedGroup := strings.TrimSpace(rawGroup)
+		if trimmedGroup == "" {
 			continue
 		}
 
-		isParenthesized := strings.HasPrefix(trimmedName, "(") && strings.HasSuffix(trimmedName, ")")
+		isParenthesized := strings.HasPrefix(trimmedGroup, "(") && strings.HasSuffix(trimmedGroup, ")")
 		if isParenthesized {
-			trimmedName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(trimmedName, ")"), "("))
+			trimmedGroup = strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(trimmedGroup, ")"), "("))
 		}
 
-		nameParts := strings.Split(trimmedName, ",")
-		var firstName string
-		var lastName string
-		if len(nameParts) == 1 {
-			firstName = strings.TrimSpace(nameParts[0])
-		} else {
-			lastName = strings.TrimSpace(nameParts[0])
-			firstName = strings.TrimSpace(strings.Join(nameParts[1:], " "))
-		}
+		translatorNames, sharedDetails := splitTranslatorGroup(trimmedGroup)
+		for _, trimmedName := range translatorNames {
+			parsedName, details := splitTranslatorFirstNameAndDetails(trimmedName)
+			if details == "" {
+				details = sharedDetails
+			}
+			if parsedName == "" && details == "" {
+				continue
+			}
 
-		firstName, details := splitTranslatorFirstNameAndDetails(firstName)
-		if firstName == "" && details == "" {
-			continue
-		}
+			firstName, lastName := parseAuthorName(parsedName)
 
-		var author *importerAuthor
-		if !i.hasAuthorWithName(firstName, lastName) {
-			author = i.addAuthor(&db.Author{
-				Hash:      crypt.Hash(firstName + lastName),
-				FirstName: firstName,
-				LastName:  lastName,
+			var author *importerAuthor
+			if !i.hasAuthorWithName(firstName, lastName) {
+				author = i.addAuthor(&db.Author{
+					Hash:      crypt.Hash(firstName + lastName),
+					FirstName: firstName,
+					LastName:  lastName,
+				})
+			} else {
+				author = i.getAuthorWithName(firstName, lastName)
+			}
+
+			translators = append(translators, parsedTranslator{
+				author:  author,
+				details: strings.TrimSpace(details),
 			})
-		} else {
-			author = i.getAuthorWithName(firstName, lastName)
 		}
-
-		translators = append(translators, parsedTranslator{
-			author:  author,
-			details: strings.TrimSpace(details),
-		})
 	}
 
 	return translators
@@ -168,21 +252,13 @@ func (i *importer) addAuthor(author *db.Author) *importerAuthor {
 }
 
 func (i *importer) loadAuthorColumn(r row, columnName string) []*importerAuthor {
-	names := strings.Split(r.getValue(columnName), ";")
+	names := splitAuthorColumnNames(r.getValue(columnName))
 	var authors []*importerAuthor
 	for _, n := range names {
-		if len(n) == 0 {
+		if len(strings.TrimSpace(n)) == 0 {
 			continue
 		}
-		nameParts := strings.Split(n, ",")
-		var firstName string
-		var lastName string
-		if len(nameParts) == 1 {
-			firstName = strings.TrimSpace(nameParts[0])
-		} else {
-			lastName = strings.TrimSpace(nameParts[0])
-			firstName = strings.TrimSpace(strings.Join(nameParts[1:], " "))
-		}
+		firstName, lastName := parseAuthorName(n)
 
 		var author *importerAuthor
 

@@ -32,6 +32,9 @@
 		<li class:active={$page.url.pathname === '/tarinat'}>
 			<a href="/tarinat">Tarinat</a>
 		</li>
+		<li class:active={$page.url.pathname === '/tekijat'}>
+			<a href="/tekijat">Tekijät</a>
+		</li>
 	</ul>
 {/if}
 
