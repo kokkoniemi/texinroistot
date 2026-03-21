@@ -428,10 +428,10 @@
 												<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
 											{/if}
 											{#if hasValues(appearance?.roles)}
-												<p><strong>Rooli:</strong> {joinValues(appearance?.roles)}</p>
+												<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
 											{/if}
 											{#if hasValues(appearance?.destiny)}
-												<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny)}</p>
+												<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
 											{/if}
 											{#if hasValues(appearance?.codeNames)}
 												<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
