@@ -1,4 +1,5 @@
-import type { LayoutLoad } from './$types';
+import { env } from '$env/dynamic/private';
+import type { LayoutServerLoad } from './$types';
 
 type ActiveVersionPayload = {
 	version?: {
@@ -13,9 +14,12 @@ type ActiveVersionPayload = {
 	};
 };
 
-export const load: LayoutLoad = async ({ fetch, url }) => {
+export const load: LayoutServerLoad = async ({ fetch, url }) => {
+	const systemVersion = env.SYSTEM_VERSION?.trim() || 'ei tiedossa';
+
 	if (url.pathname === '/julkaisematon') {
 		return {
+			systemVersion,
 			activeVersionCreatedAt: null,
 			activeVersionStats: null
 		};
@@ -25,6 +29,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 		const res = await fetch('/api/version/active');
 		if (!res.ok) {
 			return {
+				systemVersion,
 				activeVersionCreatedAt: null,
 				activeVersionStats: null
 			};
@@ -32,6 +37,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 
 		const payload = (await res.json()) as ActiveVersionPayload;
 		return {
+			systemVersion,
 			activeVersionCreatedAt: payload.version?.createdAt ?? null,
 			activeVersionStats: payload.stats
 				? {
@@ -45,6 +51,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 		};
 	} catch {
 		return {
+			systemVersion,
 			activeVersionCreatedAt: null,
 			activeVersionStats: null
 		};

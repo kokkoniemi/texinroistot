@@ -18,9 +18,12 @@ FROM node:24-alpine AS runtime
 
 WORKDIR /ui
 
+ARG SYSTEM_VERSION=dev
+
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV SYSTEM_VERSION=${SYSTEM_VERSION}
 
 COPY --from=builder /ui/package.json /ui/package-lock.json ./
 COPY --from=builder /ui/node_modules ./node_modules

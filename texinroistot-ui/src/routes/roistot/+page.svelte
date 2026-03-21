@@ -41,6 +41,7 @@
 		{ value: 'first_name', label: 'Etunimen mukaan' },
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
 		{ value: 'nickname', label: 'Lempinimen mukaan' },
+		{ value: 'other_name', label: 'Etnisen nimen mukaan' },
 		{ value: 'rank', label: 'Arvon mukaan' },
 		{ value: 'fi_pub_date', label: 'Suomen julkaisupäivän mukaan' },
 		{ value: 'it_pub_date', label: 'Italian julkaisupäivän mukaan' }

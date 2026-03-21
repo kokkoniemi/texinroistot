@@ -26,14 +26,15 @@
 	<p>
 		<a href="/roistot?publication=all&sort=first_name">Etunimen mukaan</a> |
 		<a href="/roistot?publication=all&sort=last_name">Sukunimen mukaan</a> |
-		<a href="/roistot?publication=all&sort=nickname">Lempinimen mukaan</a>
-		|
+		<a href="/roistot?publication=all&sort=nickname">Lempinimen mukaan</a> |
+		<a href="/roistot?publication=all&sort=other_name">Etnisen nimen mukaan</a> |
 		<a href="/roistot?publication=all&sort=rank">Arvon mukaan</a> |
 		<a href="/roistot?publication=all&sort=fi_pub_date">Näytä kaikki</a> |
-		<a href="/roistot?publication=fi&sort=fi_pub_date">Näytä Suomessa julkaistut</a>
-		|
-		<a href="/roistot?publication=it&sort=fi_pub_date">Näytä Italiassa julkaistut</a> |
 		<a href="/roistot?publication=all&sort=fi_pub_date">Hae hakusanalla</a>
+	</p>
+	<p>
+		Etninen nimi on sama kuin "Nimi", eli "Ei etunimi-sukunimi-muotoiset nimet (esim.
+		intiaani- ja kiinalaisten nimet)".
 	</p>
 
 	<p>Selaa tarinoita</p>

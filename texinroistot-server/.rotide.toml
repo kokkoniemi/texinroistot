@@ -1,0 +1,83 @@
+# Rotide example project config.
+# Configurable sections: [editor], [theme.syntax], [lsp], [keymap]
+# Editor:
+# - cursor_style = "block" | "bar" | "underline" (case-insensitive)
+# - Invalid cursor_style values fall back to "bar" with a warning
+# Theme:
+# - [theme.syntax] supports semantic classes:
+#   comment|keyword|type|function|string|number|constant|preprocessor|operator|punctuation
+# - values are ANSI 16-color names:
+#   default|black|red|green|yellow|blue|magenta|cyan|white|
+#   bright_black|bright_red|bright_green|bright_yellow|bright_blue|bright_magenta|bright_cyan|bright_white
+# - aliases: gray/grey => bright_black
+# - Invalid [theme.syntax] entries are ignored with a warning; defaults remain in effect.
+# LSP:
+# - [lsp]
+# - enabled = true|false
+# - gopls_command = "gopls" (command/path used to start gopls)
+# - Invalid [lsp] values fall back to defaults with a warning.
+# Key spec format:
+# - "ctrl+<a-z>", "alt+<a-z>", "ctrl+alt+<a-z>", "ctrl+]"
+# - "ctrl+left/right/up/down", "alt+left/right/up/down",
+#   "ctrl+alt+left/right/up/down"
+# - "alt+shift+left/right/up/down"
+# - Modifiers are case-insensitive and can be in any order
+# - or one of
+# left/right/up/down/home/end/page_up/page_down/enter/esc/backspace/del
+# - In drawer focus, enter toggles directories and opens files in tabs
+#   (reusing an already-open file tab when possible)
+
+[editor]
+cursor_style = "bar"
+
+[theme.syntax]
+comment = "gray"
+keyword = "bright_cyan"
+type = "bright_blue"
+function = "bright_yellow"
+string = "green"
+number = "bright_magenta"
+constant = "cyan"
+preprocessor = "bright_red"
+operator = "white"
+punctuation = "bright_black"
+
+[lsp]
+enabled = true
+gopls_command = "gopls"
+
+[keymap]
+quit = "ctrl+q"
+save = "ctrl+s"
+new_tab = "ctrl+n"
+close_tab = "ctrl+w"
+next_tab = "alt+right"
+prev_tab = "alt+left"
+focus_drawer = "ctrl+e"
+resize_drawer_narrow = "alt+shift+left"
+resize_drawer_widen = "alt+shift+right"
+find = "ctrl+f"
+goto_line = "ctrl+g"
+goto_definition = "ctrl+]"
+toggle_selection = "ctrl+b"
+copy_selection = "ctrl+c"
+cut_selection = "ctrl+x"
+delete_selection = "ctrl+d"
+paste = "ctrl+v"
+undo = "ctrl+z"
+redo = "ctrl+y"
+move_home = "home"
+move_end = "end"
+page_up = "page_up"
+page_down = "page_down"
+scroll_left = "ctrl+left"
+scroll_right = "ctrl+right"
+move_up = "up"
+move_down = "down"
+move_left = "left"
+move_right = "right"
+newline = "enter"
+escape = "esc"
+redraw = "ctrl+l"
+delete_char = "del"
+backspace = "backspace"

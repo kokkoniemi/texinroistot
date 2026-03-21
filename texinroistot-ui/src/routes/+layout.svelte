@@ -40,6 +40,7 @@
 {#if $page.url.pathname !== '/julkaisematon'}
 	<hr />
 	<p>Sisältö päivitetty: {formatLastUpdated(data.activeVersionCreatedAt)}</p>
+	<p>Järjestelmän versio: {data.systemVersion}</p>
 	<p>Kaikki oikeudet pidätetään | <a href="/hallinta">Hallinta</a></p>
 {/if}
 
