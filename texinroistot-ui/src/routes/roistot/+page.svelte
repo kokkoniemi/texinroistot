@@ -55,23 +55,24 @@
 		q: string;
 	};
 
+	const defaultSortOption = 'first_name';
+
 	const sortOptions = [
 		{ value: 'first_name', label: 'Etunimen mukaan' },
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
 		{ value: 'nickname', label: 'Lempinimen mukaan' },
 		{ value: 'other_name', label: 'Etnisen nimen mukaan' },
-		{ value: 'rank', label: 'Arvon mukaan' },
-		{ value: 'fi_pub_date', label: 'Suomen julkaisupäivän mukaan' },
-		{ value: 'it_pub_date', label: 'Alkuperäisessä ilmestymisjärjestyksessä (Italia)' }
+		{ value: 'rank', label: 'Arvon mukaan' }
 	];
 
 	let villains: Villain[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	let filters: Filters = { publication: 'fi', sort: 'fi_pub_date', q: '' };
+	let filters: Filters = { publication: 'fi', sort: defaultSortOption, q: '' };
 	let hasPrev = false;
 	let hasNext = false;
 	let isFilterLoading = false;
 	let pageTokens: PaginationToken[] = [];
+	let selectedSort = defaultSortOption;
 	let selectedStory: Story | null = null;
 	let popupStoryVillainsExpanded = false;
 	let popupStoryVillainsLoading = false;
@@ -81,7 +82,10 @@
 
 	$: villains = data.villains ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	$: filters = data.filters ?? { publication: 'fi', sort: 'fi_pub_date', q: '' };
+	$: filters = data.filters ?? { publication: 'fi', sort: defaultSortOption, q: '' };
+	$: selectedSort = sortOptions.some((option) => option.value === filters.sort)
+		? filters.sort
+		: defaultSortOption;
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/roistot';
@@ -298,7 +302,7 @@
 	function pageHref(page: number): string {
 		return buildPageHref('/roistot', {
 			publication: filters.publication,
-			sort: filters.sort,
+			sort: selectedSort,
 			page,
 			pageSize: meta.pageSize,
 			q: filters.q || undefined
@@ -316,7 +320,7 @@
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
 				{#each sortOptions as option}
-					<option value={option.value} selected={filters.sort === option.value}
+					<option value={option.value} selected={selectedSort === option.value}
 						>{option.label}</option
 					>
 				{/each}
@@ -343,7 +347,7 @@
 				{isFilterLoading ? 'Ladataan...' : 'Hae'}
 			</button>
 			<a
-				href="/roistot"
+				href="/roistot?sort=first_name&publication=fi"
 				class:loading-link-disabled={isFilterLoading}
 				aria-disabled={isFilterLoading}>Palauta oletukset</a
 			>
