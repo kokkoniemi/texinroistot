@@ -86,7 +86,7 @@ func (i *importer) addStoryVillain(storyVillain *db.StoryVillain, villainID id, 
 	return importerStoryVillain
 }
 
-func (i *importer) loadVillain(storyID id, r row) {
+func (i *importer) loadVillain(storyID id, r row) error {
 	villainID, err := strconv.ParseInt(strings.TrimSpace(r.getValue("villain_id")), 10, 64)
 	if err != nil {
 		villainID = -1
@@ -146,46 +146,29 @@ func (i *importer) loadVillain(storyID id, r row) {
 
 	}
 
-	var storyVillain *importerStoryVillain
-
-	// create storyVillain if not exist
-	if !i.hasStoryVillain(villain.ID, storyID) {
-		storyVillain = i.addStoryVillain(&db.StoryVillain{
-			Hash:       crypt.Hash(fmt.Sprintf("%d%d", villain.ID, storyID)),
-			Nicknames:  nicknames,
-			OtherNames: otherNames,
-			CodeNames:  codeNames,
-			Roles:      roles,
-			Destiny:    destiny,
-		}, villain.ID, storyID)
-	} else {
-		// update existing storyVillain with row info
-		storyVillain = i.getStoryVillain(villain.ID, storyID)
-
-		for _, nick := range nicknames {
-			if !slices.Contains(storyVillain.item.Nicknames, nick) {
-				storyVillain.item.Nicknames = append(storyVillain.item.Nicknames, nick)
-			}
+	// same villain + same story must not appear twice in the source data
+	if i.hasStoryVillain(villain.ID, storyID) {
+		if villainID != -1 {
+			return fmt.Errorf(
+				"duplicate villain_id %d for story %d at row %d",
+				villainID,
+				storyID,
+				r.index+2,
+			)
 		}
-
-		for _, name := range otherNames {
-			if !slices.Contains(storyVillain.item.OtherNames, name) {
-				storyVillain.item.OtherNames = append(storyVillain.item.OtherNames, name)
-			}
-		}
-
-		for _, codeName := range codeNames {
-			if !slices.Contains(storyVillain.item.CodeNames, codeName) {
-				storyVillain.item.CodeNames = append(storyVillain.item.CodeNames, codeName)
-			}
-		}
-
-		for _, role := range roles {
-			if !slices.Contains(storyVillain.item.Roles, role) {
-				storyVillain.item.Roles = append(storyVillain.item.Roles, role)
-			}
-		}
+		return fmt.Errorf("duplicate villain in story %d at row %d", storyID, r.index+2)
 	}
+
+	i.addStoryVillain(&db.StoryVillain{
+		Hash:       crypt.Hash(fmt.Sprintf("%d%d", villain.ID, storyID)),
+		Nicknames:  nicknames,
+		OtherNames: otherNames,
+		CodeNames:  codeNames,
+		Roles:      roles,
+		Destiny:    destiny,
+	}, villain.ID, storyID)
+
+	return nil
 }
 
 func (i *importer) getStoryVillainItems(villainID id) []*db.StoryVillain {

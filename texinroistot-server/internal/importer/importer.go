@@ -87,7 +87,10 @@ func (i *importer) LoadData(dataRows [][]string) error {
 		if err != nil {
 			return err
 		}
-		i.loadVillain(storyID, row)
+		err = i.loadVillain(storyID, row)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

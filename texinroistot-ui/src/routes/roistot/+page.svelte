@@ -128,26 +128,26 @@
 		return appearances.length > 0 ? appearances[0] : null;
 	}
 
+	function villainStories(villain: Villain): Story[] {
+		const stories: Story[] = [];
+		const seenHashes = new Set<string>();
+		for (const appearance of villain.as ?? []) {
+			const story = appearance.story;
+			if (!story) continue;
+
+			const storyHash = normalizeStoryHash(story.hash);
+			if (storyHash && seenHashes.has(storyHash)) continue;
+			if (storyHash) seenHashes.add(storyHash);
+			stories.push(story);
+		}
+		return stories;
+	}
+
 	function normalizeStoryHash(raw?: string | null): string {
 		return (raw ?? '').trim();
 	}
 
-	function storyTitle(story?: Story | null): string {
-		if (!story) return '-';
-		const publications = story.publications ?? [];
-		const baseTitles = nonItalianTitlesByFirstPublication(
-			publications.filter((publication) => publication.in?.type === 'perus')
-		);
-		if (baseTitles.length > 0) return baseTitles[0];
-
-		const nonItalianTitles = nonItalianTitlesByFirstPublication(publications);
-		if (nonItalianTitles.length > 0) return nonItalianTitles[0];
-
-		const anyTitle = publications.find((publication) => Boolean(publication.title?.trim()))?.title?.trim();
-		return anyTitle || 'Nimetön tarina';
-	}
-
-	function cardTitle(story: Story): string {
+	function storyCardTitle(story: Story): string {
 		const uniqueTitles = nonItalianTitlesByFirstPublication(story.publications);
 		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
 	}
@@ -392,36 +392,40 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="villain-list">
-				{#each villains as villain}
-					{@const appearance = primaryAppearance(villain)}
-					{@const title = villainTitle(villain)}
-					{@const displayName = joinValues(appearance?.otherNames, '').trim()}
-					{@const codeNames = appearanceCodeNames(appearance)}
-					{@const nicknameTitle = title.nicknames.map((nickname) => `"${nickname}"`).join(', ')}
-					{@const cardTitle = [title.baseName, nicknameTitle, displayName].filter(Boolean).join(', ')}
-					{@const hasCodeNames = codeNames.length > 0}
-					<article class="villain-card">
-						<h3>{#if cardTitle}{cardTitle}{/if}{#if hasCodeNames}{cardTitle ? ', ' : ''}{#each codeNames as codeName, index}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !cardTitle}Nimetön roisto{/if}</h3>
-						<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
-						{#if hasValues(appearance?.destiny)}
-							<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
-						{/if}
-						{#if hasValues(appearance?.codeNames)}
-							<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
-						{/if}
-						<p>
-							<strong>Tarina:</strong>
-							{#if appearance?.story}
-								<button type="button" class="story-link" on:click={() => openStoryPopup(appearance.story)}
-									>{storyTitle(appearance.story)}</button
+			{#each villains as villain}
+				{@const appearance = primaryAppearance(villain)}
+				{@const stories = villainStories(villain)}
+				{@const title = villainTitle(villain)}
+				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
+				{@const codeNames = appearanceCodeNames(appearance)}
+				{@const nicknameTitle = title.nicknames.map((nickname) => `"${nickname}"`).join(', ')}
+				{@const villainCardTitle = [title.baseName, nicknameTitle, displayName].filter(Boolean).join(', ')}
+				{@const hasCodeNames = codeNames.length > 0}
+				<article class="villain-card">
+					<h3>{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle ? ', ' : ''}{#each codeNames as codeName, index}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}</h3>
+					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
+					{#if hasValues(appearance?.destiny)}
+						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
+					{/if}
+					{#if hasValues(appearance?.codeNames)}
+						<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
+					{/if}
+					<p>
+						<strong>Tarinat:</strong>
+						{#if stories.length > 0}
+							{#each stories as story, index}
+								{#if index > 0}, {/if}
+								<button type="button" class="story-link" on:click={() => openStoryPopup(story)}
+									>{storyCardTitle(story)}</button
 								>
-							{:else}
-								-
-							{/if}
-						</p>
-					</article>
-				{/each}
-			</div>
+							{/each}
+						{:else}
+							-
+						{/if}
+					</p>
+				</article>
+			{/each}
+		</div>
 	{/if}
 
 	{#if selectedStory}
@@ -434,7 +438,7 @@
 				</div>
 
 				<article class="story-card popup-story-card">
-					<h3 id="story-popup-title">{cardTitle(selectedStory)}</h3>
+					<h3 id="story-popup-title">{storyCardTitle(selectedStory)}</h3>
 					<p><strong>Kertoi:</strong> {authorList(selectedStory.writtenBy, '; ')}</p>
 					<p><strong>Piirsi:</strong> {authorList(selectedStory.drawnBy, '; ')}</p>
 					<p><strong>Suomensi:</strong> {authorList(selectedStory.translatedBy, '; ')}</p>
