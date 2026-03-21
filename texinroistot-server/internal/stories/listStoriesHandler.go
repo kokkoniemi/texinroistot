@@ -19,14 +19,21 @@ const (
 )
 
 var allowedPublicationFilters = map[string]bool{
-	"all":      true,
-	"perus_fi": true,
-	"perus_it": true,
-	"suur":     true,
-	"maxi":     true,
-	"kirjasto": true,
-	"kronikka": true,
-	"special":  true,
+	"all":                   true,
+	"perus_fi":              true,
+	"perus_it":              true,
+	"suur":                  true,
+	"maxi":                  true,
+	"kirjasto":              true,
+	"kronikka":              true,
+	"serie_extra":           true,
+	"texone":                true,
+	"mini_texone_maxi_tex":  true,
+	"almanacco_del_west":    true,
+	"color_tex":             true,
+	"tex_romanzi_a_fumetti": true,
+	"tex_magazine":          true,
+	"special":               true,
 }
 
 var allowedSorts = map[string]bool{

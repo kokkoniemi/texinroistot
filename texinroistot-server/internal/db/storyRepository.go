@@ -157,14 +157,31 @@ func (s *storyRepo) List(version *Version, limit int, offset int) ([]*Story, err
 }
 
 var publicationTypesByFilter = map[string][]string{
-	"all":      {},
-	"perus_fi": {"perus"},
-	"perus_it": {"italia_perus"},
-	"suur":     {"suur"},
-	"maxi":     {"maxi"},
-	"kirjasto": {"kirjasto"},
-	"kronikka": {"kronikka"},
-	"special":  {"muu_erikois", "italia_erikois"},
+	"all":                   {},
+	"perus_fi":              {"perus"},
+	"perus_it":              {"italia_perus"},
+	"suur":                  {"suur"},
+	"maxi":                  {"maxi"},
+	"kirjasto":              {"kirjasto"},
+	"kronikka":              {"kronikka"},
+	"serie_extra":           {"italia_serie_extra"},
+	"texone":                {"italia_texone"},
+	"mini_texone_maxi_tex":  {"italia_mini_texone_maxi_tex"},
+	"almanacco_del_west":    {"italia_almanacco_del_west"},
+	"color_tex":             {"italia_color_tex"},
+	"tex_romanzi_a_fumetti": {"italia_tex_romanzi_a_fumetti"},
+	"tex_magazine":          {"italia_tex_magazine"},
+	"special": {
+		"muu_erikois",
+		"italia_erikois",
+		"italia_serie_extra",
+		"italia_texone",
+		"italia_mini_texone_maxi_tex",
+		"italia_almanacco_del_west",
+		"italia_color_tex",
+		"italia_tex_romanzi_a_fumetti",
+		"italia_tex_magazine",
+	},
 }
 
 const authorExistsByHashSQL = `
@@ -335,13 +352,40 @@ func buildSortClause(sort string, publication string) string {
 	AND p.type = '%s'
 )`, pubType)
 	}
+	alphaPublicationTypeForFilter := func(filter string) string {
+		switch filter {
+		case "perus_it":
+			return "italia_perus"
+		case "suur":
+			return "suur"
+		case "maxi":
+			return "maxi"
+		case "kirjasto":
+			return "kirjasto"
+		case "kronikka":
+			return "kronikka"
+		case "serie_extra":
+			return "italia_serie_extra"
+		case "texone":
+			return "italia_texone"
+		case "mini_texone_maxi_tex":
+			return "italia_mini_texone_maxi_tex"
+		case "almanacco_del_west":
+			return "italia_almanacco_del_west"
+		case "color_tex":
+			return "italia_color_tex"
+		case "tex_romanzi_a_fumetti":
+			return "italia_tex_romanzi_a_fumetti"
+		case "tex_magazine":
+			return "italia_tex_magazine"
+		default:
+			return "perus"
+		}
+	}
 
 	switch sort {
 	case "alpha":
-		alphaTitleType := "perus"
-		if publication == "perus_it" {
-			alphaTitleType = "italia_perus"
-		}
+		alphaTitleType := alphaPublicationTypeForFilter(publication)
 		return fmt.Sprintf(`LOWER(%s) ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, alphaTitleExpr(alphaTitleType))
 	case "it_pub_date":
 		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, publicationSortExpr("italia_perus"))

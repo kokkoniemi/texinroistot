@@ -60,7 +60,23 @@ CREATE TABLE "public"."stories_in_publications" (
 );
 
 DROP TYPE IF EXISTS "public"."publication_type";
-CREATE TYPE "public"."publication_type" AS ENUM ('perus', 'maxi', 'suur', 'muu_erikois', 'kronikka', 'kirjasto', 'italia_perus', 'italia_erikois');
+CREATE TYPE "public"."publication_type" AS ENUM (
+	'perus',
+	'maxi',
+	'suur',
+	'muu_erikois',
+	'kronikka',
+	'kirjasto',
+	'italia_perus',
+	'italia_erikois',
+	'italia_serie_extra',
+	'italia_texone',
+	'italia_mini_texone_maxi_tex',
+	'italia_almanacco_del_west',
+	'italia_color_tex',
+	'italia_tex_romanzi_a_fumetti',
+	'italia_tex_magazine'
+);
 
 -- Table Definition
 CREATE TABLE "public"."publications" (

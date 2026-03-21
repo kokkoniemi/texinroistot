@@ -31,6 +31,13 @@ const (
 	PUB_KIRJASTO = "kirjasto"
 	PUB_IT_PERUS = "italia_perus"
 	PUB_IT_ERIK  = "italia_erikois"
+	PUB_IT_SERIE_EXTRA          = "italia_serie_extra"
+	PUB_IT_TEXONE               = "italia_texone"
+	PUB_IT_MINI_TEXONE_MAXI_TEX = "italia_mini_texone_maxi_tex"
+	PUB_IT_ALMANACCO_DEL_WEST   = "italia_almanacco_del_west"
+	PUB_IT_COLOR_TEX            = "italia_color_tex"
+	PUB_IT_TEX_ROMANZI          = "italia_tex_romanzi_a_fumetti"
+	PUB_IT_TEX_MAGAZINE         = "italia_tex_magazine"
 )
 
 func (i *importer) addPublication(pub *db.Publication) *importerPublication {
@@ -238,9 +245,10 @@ func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
 		return nil
 	}
 
+	pubType := italianSpecialPublicationType(val)
 	pub := &db.Publication{
-		Hash:  crypt.Hash(fmt.Sprintf("%s%s", PUB_IT_ERIK, val)),
-		Type:  PUB_IT_ERIK,
+		Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
+		Type:  pubType,
 		Issue: val,
 	}
 
@@ -261,6 +269,30 @@ func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
 	}
 
 	return nil
+}
+
+func italianSpecialPublicationType(value string) string {
+	normalize := strings.NewReplacer("&", " ", "-", " ", "_", " ", "/", " ")
+	normalized := strings.Join(strings.Fields(normalize.Replace(strings.ToLower(strings.TrimSpace(value)))), " ")
+
+	switch {
+	case strings.Contains(normalized, "mini texone"), strings.Contains(normalized, "maxi tex"):
+		return PUB_IT_MINI_TEXONE_MAXI_TEX
+	case strings.Contains(normalized, "serie extra"):
+		return PUB_IT_SERIE_EXTRA
+	case strings.Contains(normalized, "texone"):
+		return PUB_IT_TEXONE
+	case strings.Contains(normalized, "almanacco del west"):
+		return PUB_IT_ALMANACCO_DEL_WEST
+	case strings.Contains(normalized, "color tex"):
+		return PUB_IT_COLOR_TEX
+	case strings.Contains(normalized, "romanzi a fumetti"):
+		return PUB_IT_TEX_ROMANZI
+	case strings.Contains(normalized, "tex magazine"):
+		return PUB_IT_TEX_MAGAZINE
+	default:
+		return PUB_IT_ERIK
+	}
 }
 
 func (i *importer) loadKronikka(storyID id, r row) error {

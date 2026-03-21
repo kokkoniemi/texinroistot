@@ -58,3 +58,23 @@ func TestBuildStoryListWhere_YearWithoutPublicationFilter(t *testing.T) {
 		t.Fatalf("expected year arg to be 1967, got %v", args[1])
 	}
 }
+
+func TestMapPublicationFilterToTypes_ItalianSpecialSeries(t *testing.T) {
+	types, err := mapPublicationFilterToTypes("texone")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(types) != 1 {
+		t.Fatalf("expected 1 publication type for texone filter, got %d (%v)", len(types), types)
+	}
+	if types[0] != "italia_texone" {
+		t.Fatalf("expected italia_texone publication type, got %q", types[0])
+	}
+}
+
+func TestBuildSortClause_AlphaUsesSelectedItalianSpecialSeries(t *testing.T) {
+	clause := buildSortClause("alpha", "texone")
+	if !strings.Contains(clause, "p.type = 'italia_texone'") {
+		t.Fatalf("expected alpha sort to use italia_texone publication type, got %s", clause)
+	}
+}

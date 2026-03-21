@@ -59,7 +59,13 @@
 		{ value: 'maxi', label: 'Maxi-Tex' },
 		{ value: 'kirjasto', label: 'Kirjasto' },
 		{ value: 'kronikka', label: 'Kronikka' },
-		{ value: 'special', label: 'Muut erikoiset' }
+		{ value: 'serie_extra', label: 'Serie extra' },
+		{ value: 'texone', label: 'Texone' },
+		{ value: 'mini_texone_maxi_tex', label: 'Mini Texone & Maxi Tex' },
+		{ value: 'almanacco_del_west', label: 'Almanacco del West' },
+		{ value: 'color_tex', label: 'Color Tex' },
+		{ value: 'tex_romanzi_a_fumetti', label: 'Tex romanzi a fumetti' },
+		{ value: 'tex_magazine', label: 'Tex Magazine' }
 	];
 
 	const sortOptions = [

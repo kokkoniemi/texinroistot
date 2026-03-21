@@ -12,7 +12,17 @@ type villainRepo struct{}
 var villainPublicationTypesByFilter = map[string][]string{
 	"all": {},
 	"fi":  {"perus", "maxi", "suur", "muu_erikois", "kronikka", "kirjasto"},
-	"it":  {"italia_perus", "italia_erikois"},
+	"it": {
+		"italia_perus",
+		"italia_erikois",
+		"italia_serie_extra",
+		"italia_texone",
+		"italia_mini_texone_maxi_tex",
+		"italia_almanacco_del_west",
+		"italia_color_tex",
+		"italia_tex_romanzi_a_fumetti",
+		"italia_tex_magazine",
+	},
 }
 
 func (v *villainRepo) BulkCreate(villains []*Villain, version *Version) ([]*Villain, error) {

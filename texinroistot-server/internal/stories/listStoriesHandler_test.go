@@ -79,7 +79,15 @@ func TestParseStoryListParamsDefaults(t *testing.T) {
 func TestParseStoryListParamsRejectsInvalidEnum(t *testing.T) {
 	app := testParseParamsRoute()
 
-	_, status, body := decodeParamsFromResponse(t, app, "/?sort=unknown")
+	params, status, body := decodeParamsFromResponse(t, app, "/?publication=texone")
+	if status != 200 {
+		t.Fatalf("expected 200 for texone publication filter, got %d (%s)", status, body)
+	}
+	if params.Publication != "texone" {
+		t.Fatalf("expected parsed publication to be texone, got %q", params.Publication)
+	}
+
+	_, status, body = decodeParamsFromResponse(t, app, "/?sort=unknown")
 	if status != 400 {
 		t.Fatalf("expected 400 for invalid sort, got %d (%s)", status, body)
 	}

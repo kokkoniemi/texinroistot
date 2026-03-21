@@ -217,6 +217,13 @@ export function publicationSummaryFromPublications(
 		'suur',
 		'maxi',
 		'muu_erikois',
+		'italia_serie_extra',
+		'italia_texone',
+		'italia_mini_texone_maxi_tex',
+		'italia_almanacco_del_west',
+		'italia_color_tex',
+		'italia_tex_romanzi_a_fumetti',
+		'italia_tex_magazine',
 		'italia_erikois',
 		'kirjasto'
 	];
