@@ -278,6 +278,107 @@ export function paginationTokens(currentPage: number, totalPages: number): Pagin
 	return tokens;
 }
 
+export type ItalianOriginalPublication = {
+	title: string;
+	details: string;
+};
+
+export function italianOriginalPublication(story: StoryBase): ItalianOriginalPublication | null {
+	const italianPublications = (story.publications ?? []).filter((publication) =>
+		publication.in?.type?.startsWith('italia_')
+	);
+	if (italianPublications.length === 0) return null;
+
+	const titles = italianPublications
+		.map((publication) => publication.title.trim())
+		.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
+	const titlePart = titles.join('; ');
+
+	const issues = italianPublications
+		.map((publication) => {
+			const issue = (publication.in?.issue ?? '').trim();
+			const year = publication.in?.year ?? 0;
+			const sortIssue = Number.parseInt(issue.replace(/\D/g, ''), 10);
+			return {
+				issue,
+				year,
+				sortIssue: Number.isNaN(sortIssue) ? Number.MAX_SAFE_INTEGER : sortIssue
+			};
+		})
+		.filter((entry) => entry.issue && entry.year > 0)
+		.filter(
+			(entry, index, values) =>
+				values.findIndex((other) => other.issue === entry.issue && other.year === entry.year) ===
+				index
+		)
+		.sort((a, b) => {
+			if (a.year !== b.year) return a.year - b.year;
+			if (a.sortIssue !== b.sortIssue) return a.sortIssue - b.sortIssue;
+			return a.issue.localeCompare(b.issue);
+		});
+
+	let issuePart = '';
+	if (issues.length === 1) {
+		issuePart = `${issues[0].issue}/${issues[0].year}`;
+	} else if (issues.length > 1) {
+		const first = issues[0];
+		const last = issues[issues.length - 1];
+		issuePart = `${first.issue}/${first.year}-${last.issue}/${last.year}`;
+	}
+
+	let details = issuePart;
+	if (story.orderNumber > 0) {
+		const storyNumberPart = `(tarina nro ${story.orderNumber})`;
+		details = details ? `${details} ${storyNumberPart}` : storyNumberPart;
+	}
+
+	if (!titlePart && !details) return null;
+	return { title: titlePart, details };
+}
+
+export function storyVillainForStory<T extends { story?: { hash?: string | null } | null }>(
+	villain: { as?: T[] | null },
+	storyHash: string
+): T | null {
+	const appearances = villain.as ?? [];
+	const matchingStory = appearances.find(
+		(appearance) => (appearance.story?.hash ?? '').trim() === storyHash
+	);
+	if (matchingStory) return matchingStory;
+	return appearances.length > 0 ? appearances[0] : null;
+}
+
+type VillainForTitle = {
+	firstNames?: string[] | null;
+	lastName?: string | null;
+	as?: Array<{
+		nicknames?: string[] | null;
+		codeNames?: string[] | null;
+		story?: { hash?: string | null } | null;
+	}> | null;
+};
+
+export function storyVillainTitle(villain: VillainForTitle, storyHash: string): string {
+	const firstNames = joinValues(villain.firstNames, '').trim();
+	const lastName = (villain.lastName ?? '').trim();
+	const realName = `${firstNames} ${lastName}`.trim();
+
+	const appearance = storyVillainForStory(villain, storyHash);
+	const nicknames = (appearance?.nicknames ?? [])
+		.map((n) => n.trim())
+		.filter((n, i, arr) => Boolean(n) && arr.indexOf(n) === i);
+	const codeNames = (appearance?.codeNames ?? [])
+		.map((c) => c.trim())
+		.filter((c, i, arr) => Boolean(c) && arr.indexOf(c) === i);
+	const quotedNicknames = nicknames.map((n) => `"${n}"`);
+
+	if (realName && quotedNicknames.length > 0) return [realName, ...quotedNicknames].join(', ');
+	if (realName) return realName;
+	if (quotedNicknames.length > 0) return quotedNicknames.join(', ');
+	if (codeNames.length > 0) return codeNames.join(', ');
+	return 'Nimetön roisto';
+}
+
 export function buildPageHref(
 	pathname: string,
 	params: Record<string, string | number | undefined | null>

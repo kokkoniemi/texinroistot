@@ -7,9 +7,15 @@
 		joinValues,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
-		publicationSummaryFromPublications
+		publicationSummaryFromPublications,
+		italianOriginalPublication,
+		storyVillainForStory,
+		storyVillainTitle
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
+	import FilterForm from '$lib/components/FilterForm.svelte';
+	import Pagination from '$lib/components/Pagination.svelte';
+	import VillainCard from '$lib/components/VillainCard.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -87,10 +93,6 @@
 	let isFilterLoading = false;
 	let pageTokens: PaginationToken[] = [];
 
-	function normalizeStoryHash(raw?: string | null): string {
-		return (raw ?? '').trim();
-	}
-
 	$: stories = data.stories ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
 	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
@@ -99,7 +101,7 @@
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tarinat';
 	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
 	$: {
-		const nextSignature = stories.map((story) => normalizeStoryHash(story.hash)).join('|');
+		const nextSignature = stories.map((story) => story.hash.trim()).join('|');
 		if (nextSignature !== storyListSignature) {
 			storyListSignature = nextSignature;
 			expandedStoryHashes = {};
@@ -111,110 +113,11 @@
 
 	function storyTitle(story: Story): string {
 		const uniqueTitles = nonItalianTitlesByFirstPublication(story.publications);
-
 		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
-	}
-
-	type ItalianOriginalPublication = {
-		title: string;
-		details: string;
-	};
-
-	function italianOriginalPublication(story: Story): ItalianOriginalPublication | null {
-		const italianPublications = (story.publications ?? []).filter((publication) =>
-			publication.in?.type?.startsWith('italia_')
-		);
-		if (italianPublications.length === 0) return null;
-
-		const titles = italianPublications
-			.map((publication) => publication.title.trim())
-			.filter((title, index, values) => Boolean(title) && values.indexOf(title) === index);
-		const titlePart = titles.join('; ');
-
-		const issues = italianPublications
-			.map((publication) => {
-				const issue = (publication.in?.issue ?? '').trim();
-				const year = publication.in?.year ?? 0;
-				const sortIssue = Number.parseInt(issue.replace(/\D/g, ''), 10);
-				return {
-					issue,
-					year,
-					sortIssue: Number.isNaN(sortIssue) ? Number.MAX_SAFE_INTEGER : sortIssue
-				};
-			})
-			.filter((entry) => entry.issue && entry.year > 0)
-			.filter(
-				(entry, index, values) =>
-					values.findIndex((other) => other.issue === entry.issue && other.year === entry.year) ===
-					index
-			)
-			.sort((a, b) => {
-				if (a.year !== b.year) return a.year - b.year;
-				if (a.sortIssue !== b.sortIssue) return a.sortIssue - b.sortIssue;
-				return a.issue.localeCompare(b.issue);
-			});
-
-		let issuePart = '';
-		if (issues.length === 1) {
-			issuePart = `${issues[0].issue}/${issues[0].year}`;
-		} else if (issues.length > 1) {
-			const first = issues[0];
-			const last = issues[issues.length - 1];
-			issuePart = `${first.issue}/${first.year}-${last.issue}/${last.year}`;
-		}
-
-		let details = issuePart;
-		if (story.orderNumber > 0) {
-			const storyNumberPart = `(tarina nro ${story.orderNumber})`;
-			details = details ? `${details} ${storyNumberPart}` : storyNumberPart;
-		}
-
-		if (!titlePart && !details) return null;
-		return { title: titlePart, details };
-	}
-
-	function cardTitle(story: Story): string {
-		return storyTitle(story);
 	}
 
 	function publicationSummary(story: Story): string {
 		return publicationSummaryFromPublications(story.publications, 'Ei julkaisutietoja');
-	}
-
-	function storyVillainForStory(villain: Villain, storyHash: string): StoryVillain | null {
-		const appearances = villain.as ?? [];
-		const matchingStory = appearances.find(
-			(appearance) => normalizeStoryHash(appearance.story?.hash) === storyHash
-		);
-		if (matchingStory) return matchingStory;
-		return appearances.length > 0 ? appearances[0] : null;
-	}
-
-	function villainRealName(villain: Villain): string {
-		const firstNames = joinValues(villain.firstNames, '').trim();
-		const lastName = (villain.lastName ?? '').trim();
-		return `${firstNames} ${lastName}`.trim();
-	}
-
-	function villainNicknames(villain: Villain, storyHash: string): string[] {
-		return (storyVillainForStory(villain, storyHash)?.nicknames ?? [])
-			.map((nickname) => nickname.trim())
-			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
-	}
-
-	function villainTitle(villain: Villain, storyHash: string): string {
-		const realName = villainRealName(villain);
-		const nicknames = villainNicknames(villain, storyHash);
-		const codeNames = (storyVillainForStory(villain, storyHash)?.codeNames ?? [])
-			.map((codeName) => codeName.trim())
-			.filter((codeName, index, values) => Boolean(codeName) && values.indexOf(codeName) === index);
-		const quotedNicknames = nicknames.map((nickname) => `"${nickname}"`);
-
-		if (realName && quotedNicknames.length > 0) return [realName, ...quotedNicknames].join(', ');
-		if (realName) return realName;
-		if (quotedNicknames.length > 0) return quotedNicknames.join(', ');
-		if (codeNames.length > 0) return codeNames.join(', ');
-		return 'Nimetön roisto';
 	}
 
 	function storyVillains(storyHash: string): Villain[] {
@@ -235,18 +138,14 @@
 		}
 
 		expandedStoryHashes = { ...expandedStoryHashes, [storyHash]: true };
-		if (hasFetchedStoryVillains(storyHash) || loadingStoryHashes[storyHash]) {
-			return;
-		}
+		if (hasFetchedStoryVillains(storyHash) || loadingStoryHashes[storyHash]) return;
 
 		loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: true };
 		errorByStoryHash = { ...errorByStoryHash, [storyHash]: '' };
 
 		try {
 			const response = await fetch(`/api/tarinat/${encodeURIComponent(storyHash)}/roistot`);
-			if (!response.ok) {
-				throw new Error(`Roistojen haku epäonnistui (${response.status})`);
-			}
+			if (!response.ok) throw new Error(`Roistojen haku epäonnistui (${response.status})`);
 			const payload = (await response.json()) as StoryVillainsResponse;
 			villainsByStoryHash = { ...villainsByStoryHash, [storyHash]: payload.villains ?? [] };
 		} catch (error) {
@@ -278,7 +177,19 @@
 <section class="tarinat-page">
 	<h1>Tarinat</h1>
 
-	<form method="GET" class="filters">
+	<FilterForm
+		isLoading={isFilterLoading}
+		resetHref="/tarinat"
+		totalLabel="Tarinoita yhteensä {meta.total}"
+		{meta}
+		{pageTokens}
+		{hasPrev}
+		{hasNext}
+		{pageHref}
+		filterColumns="minmax(150px, 220px) minmax(200px, 320px) minmax(120px, 150px) minmax(260px, 1fr) auto"
+		filterColumns1500="minmax(150px, 1fr) minmax(200px, 1.35fr) minmax(120px, 0.7fr) minmax(230px, 1.4fr)"
+		filterColumns1200="minmax(150px, 1fr) minmax(200px, 1fr)"
+	>
 		<label class="field">
 			<span>Julkaisu</span>
 			<select name="publication" disabled={isFilterLoading}>
@@ -294,9 +205,7 @@
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
 				{#each sortOptions as option (option.value)}
-					<option value={option.value} selected={filters.sort === option.value}
-						>{option.label}</option
-					>
+					<option value={option.value} selected={filters.sort === option.value}>{option.label}</option>
 				{/each}
 			</select>
 		</label>
@@ -327,74 +236,25 @@
 
 		<input type="hidden" name="page" value="1" />
 		<input type="hidden" name="pageSize" value={meta.pageSize} />
-
-		<div class="actions">
-			<button type="submit" disabled={isFilterLoading}>
-				{isFilterLoading ? 'Ladataan...' : 'Hae'}
-			</button>
-			<a
-				href="/tarinat"
-				class:loading-link-disabled={isFilterLoading}
-				aria-disabled={isFilterLoading}>Palauta oletukset</a
-			>
-		</div>
-	</form>
-
-	<div class="result-row">
-		<p class="result-total">Tarinoita yhteensä {meta.total}</p>
-
-		<nav class="pagination pagination-top">
-			{#if hasPrev && !isFilterLoading}
-				<a href={pageHref(meta.page - 1)}>Edellinen</a>
-			{:else}
-				<span class="disabled">Edellinen</span>
-			{/if}
-
-			{#each pageTokens as token, i (i)}
-				{#if token === 'ellipsis'}
-					<span class="ellipsis">...</span>
-				{:else if token === meta.page}
-					<span class="current-page">{token}</span>
-				{:else if !isFilterLoading}
-					<a href={pageHref(token)}>{token}</a>
-				{:else}
-					<span class="disabled">{token}</span>
-				{/if}
-			{/each}
-
-			{#if hasNext && !isFilterLoading}
-				<a href={pageHref(meta.page + 1)}>Seuraava</a>
-			{:else}
-				<span class="disabled">Seuraava</span>
-			{/if}
-		</nav>
-
-		<p class="result-page">
-			Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
-		</p>
-	</div>
+	</FilterForm>
 
 	{#if stories.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="story-list">
 			{#each stories as story (story.hash)}
-				{@const storyHash = normalizeStoryHash(story.hash)}
+				{@const storyHash = story.hash.trim()}
 				{@const italianOriginal = italianOriginalPublication(story)}
 				<article class="story-card">
-					<h3>{cardTitle(story)}</h3>
+					<h3>{storyTitle(story)}</h3>
 					<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
 					<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
 					{#if italianOriginal}
 						<p>
 							<strong>Alkuperäisjulkaisu (Italia):</strong>
-							{#if italianOriginal.title}
-								<em>{italianOriginal.title}</em>
-							{/if}
-							{#if italianOriginal.details}
-								{italianOriginal.title ? ', ' : ''}{italianOriginal.details}
-							{/if}
+							{#if italianOriginal.title}<em>{italianOriginal.title}</em>{/if}
+							{#if italianOriginal.details}{italianOriginal.title ? ', ' : ''}{italianOriginal.details}{/if}
 						</p>
 					{/if}
 					<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary(story)}</p>
@@ -424,7 +284,7 @@
 								<div class="story-villains-list">
 									{#each storyVillains(storyHash) as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, storyHash)}
-										{@const baseTitle = villainTitle(villain, storyHash)}
+										{@const baseTitle = storyVillainTitle(villain, storyHash)}
 										{@const displayName = joinValues(appearance?.otherNames, '').trim()}
 										{@const cardTitle =
 											displayName && baseTitle === 'Nimetön roisto'
@@ -432,21 +292,13 @@
 												: displayName
 													? `${baseTitle}, ${displayName}`
 													: baseTitle}
-										<article class="story-villain-card">
-											<h4>{cardTitle}</h4>
-											{#if hasValues(villain.ranks)}
-												<p><strong>Arvo:</strong> {joinValues(villain.ranks)}</p>
-											{/if}
-											{#if hasValues(appearance?.roles)}
-												<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
-											{/if}
-											{#if hasValues(appearance?.destiny)}
-												<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
-											{/if}
-											{#if hasValues(appearance?.codeNames)}
-												<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
-											{/if}
-										</article>
+										<VillainCard
+											title={cardTitle}
+											ranks={villain.ranks}
+											roles={appearance?.roles}
+											destiny={appearance?.destiny}
+											codeNames={appearance?.codeNames}
+										/>
 									{/each}
 								</div>
 							{/if}
@@ -457,48 +309,12 @@
 		</div>
 	{/if}
 
-	<nav class="pagination">
-		{#if hasPrev && !isFilterLoading}
-			<a href={pageHref(meta.page - 1)}>Edellinen</a>
-		{:else}
-			<span class="disabled">Edellinen</span>
-		{/if}
-
-		{#each pageTokens as token, i (i)}
-			{#if token === 'ellipsis'}
-				<span class="ellipsis">...</span>
-			{:else if token === meta.page}
-				<span class="current-page">{token}</span>
-			{:else if !isFilterLoading}
-				<a href={pageHref(token)}>{token}</a>
-			{:else}
-				<span class="disabled">{token}</span>
-			{/if}
-		{/each}
-
-		{#if hasNext && !isFilterLoading}
-			<a href={pageHref(meta.page + 1)}>Seuraava</a>
-		{:else}
-			<span class="disabled">Seuraava</span>
-		{/if}
-	</nav>
+	<Pagination {meta} {pageTokens} {hasPrev} {hasNext} isLoading={isFilterLoading} {pageHref} />
 </section>
 
 <style>
 	.tarinat-page {
 		margin: 1rem 1.5rem 0;
-	}
-
-	.filters {
-		display: grid;
-		grid-template-columns:
-			minmax(150px, 220px) minmax(200px, 320px) minmax(120px, 150px) minmax(260px, 1fr)
-			auto;
-		gap: 0.75rem;
-		align-items: end;
-		padding: 0.75rem;
-		border: 1px solid black;
-		background-color: #f7f7f7;
 	}
 
 	.field {
@@ -520,57 +336,6 @@
 		background: #fff;
 		width: 100%;
 		box-sizing: border-box;
-	}
-
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-		justify-content: flex-start;
-		grid-column: 1 / -1;
-		justify-self: start;
-	}
-
-	.actions a {
-		white-space: nowrap;
-	}
-
-	.actions button {
-		font-size: 1rem;
-		padding: 0.45rem 1rem;
-		border: 1px solid black;
-		background: black;
-		color: white;
-		cursor: pointer;
-	}
-
-	.actions button:disabled {
-		opacity: 0.65;
-		cursor: wait;
-	}
-
-	.loading-link-disabled {
-		pointer-events: none;
-		opacity: 0.65;
-	}
-
-	.result-row {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-		align-items: center;
-		gap: 0.75rem 1rem;
-		margin: 1rem 0;
-	}
-
-	.result-total,
-	.result-page {
-		margin: 0;
-	}
-
-	.result-page {
-		text-align: right;
-		justify-self: end;
 	}
 
 	.story-list {
@@ -621,55 +386,8 @@
 		gap: 0.6rem;
 	}
 
-	.story-villain-card {
-		border: 1px solid black;
-		background: #fff;
-		padding: 0.6rem 0.75rem;
-	}
-
-	.story-villain-card h4 {
-		margin: 0 0 0.25rem;
-	}
-
-	.story-villain-card p {
-		margin: 0.2rem 0;
-	}
-
 	.villain-error {
 		color: var(--color-error);
-	}
-
-	.pagination {
-		margin: 1.25rem 0 0.5rem;
-		display: flex;
-		justify-content: center;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	.pagination-top {
-		grid-column: 2;
-		margin: 0;
-		justify-content: center;
-	}
-
-	.pagination a,
-	.pagination span {
-		white-space: nowrap;
-	}
-
-	.disabled {
-		color: #666;
-		text-decoration: none;
-	}
-
-	.current-page {
-		font-weight: 700;
-		text-decoration: underline;
-	}
-
-	.ellipsis {
-		color: #333;
 	}
 
 	.empty {
@@ -678,72 +396,15 @@
 		background-color: #f7f7f7;
 	}
 
-	@media (max-width: 1500px) {
-		.filters {
-			grid-template-columns: minmax(150px, 1fr) minmax(200px, 1.35fr) minmax(120px, 0.7fr) minmax(
-					230px,
-					1.4fr
-				);
-		}
-	}
-
 	@media (max-width: 1200px) {
-		.filters {
-			grid-template-columns: minmax(150px, 1fr) minmax(200px, 1fr);
-		}
-
 		.field.search {
 			grid-column: 1 / -1;
-		}
-
-		.actions {
-			grid-column: 1 / -1;
-			justify-self: start;
-		}
-	}
-
-	@media (max-width: 900px) {
-		.filters {
-			grid-template-columns: 1fr;
-		}
-
-		.actions {
-			justify-self: start;
 		}
 	}
 
 	@media (max-width: 640px) {
 		.tarinat-page {
 			margin: 0.75rem 0.75rem 0;
-		}
-
-		.pagination {
-			justify-content: center;
-			gap: 0.55rem;
-		}
-
-		.result-row {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: baseline;
-			margin: 0.85rem 0;
-		}
-
-		.result-page {
-			order: 2;
-			margin-left: auto;
-			text-align: right;
-			justify-self: auto;
-		}
-
-		.result-total {
-			order: 1;
-		}
-
-		.pagination-top {
-			order: 3;
-			width: 100%;
-			justify-content: center;
 		}
 	}
 </style>

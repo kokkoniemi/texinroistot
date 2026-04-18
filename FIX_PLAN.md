@@ -21,11 +21,11 @@
 | 10 | "Danger" button visually identical to normal button — no red/destructive styling | `hallinta/+page.svelte` | ✅ Done |
 | 11 | Front page section links are `<p>` tags, should be `<h2>` | `routes/+page.svelte` | ✅ Done |
 
-## Phase 3 — Shared Components & Deduplication
+## Phase 3 — Shared Components & Deduplication ✅ Done
 
 Highest-leverage structural work. The app has zero shared components — nearly everything is copy-pasted across `tekijat`, `roistot`, and `tarinat`.
 
-### Components to extract into `src/lib/components/`
+### Components extracted into `src/lib/components/`
 
 | Component | What gets deduplicated |
 |-----------|------------------------|
@@ -34,12 +34,12 @@ Highest-leverage structural work. The app has zero shared components — nearly 
 | `VillainCard.svelte` | Villain card inside popups/expanded rows (3 copies → 1) |
 | `FilterForm.svelte` | Submit button, reset link, loading state, result-row/total/page (3 copies) |
 
-### Functions to move into `$lib/listing/shared.ts`
+### Functions moved into `$lib/listing/shared.ts`
 
-| Function | Currently duplicated in |
+| Function | Previously duplicated in |
 |----------|------------------------|
 | `italianOriginalPublication()` | All 3 listing pages (identical) |
-| `villainTitle()` / `popupVillainTitle()` | Same function, different names across pages |
+| `storyVillainTitle()` (was `villainTitle`/`popupVillainTitle`) | Same function, different names across pages |
 | `storyVillainForStory()` | All 3 listing pages (identical) |
 
 ## Phase 4 — TypeScript & Type Safety
