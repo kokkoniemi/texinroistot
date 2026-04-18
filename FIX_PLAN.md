@@ -15,11 +15,11 @@
 
 | # | Issue | Detail | Status |
 |---|-------|--------|--------|
-| 7 | Popup "Sulje" button: **black bg/white text** on Tekijät, **white bg/dark text** on Roistot | CSS in both pages | ⬜ Todo |
-| 8 | No CSS custom properties — error colors alone have 3 different hex values (`#8b0000`, `#8a0000`, `#8f0000`) | global styles / all pages | ⬜ Todo |
-| 9 | "Rooli" row in villain card always renders even when empty ("Rooli: -"), while other rows are conditional | `roistot/+page.svelte:406` | ⬜ Todo |
-| 10 | "Danger" button visually identical to normal button — no red/destructive styling | `hallinta/+page.svelte` | ⬜ Todo |
-| 11 | Front page section links are `<p>` tags, should be `<h2>` | `routes/+page.svelte` | ⬜ Todo |
+| 7 | Popup "Sulje" button: **black bg/white text** on Tekijät, **white bg/dark text** on Roistot | CSS in both pages | ✅ Done |
+| 8 | No CSS custom properties — error colors alone have 3 different hex values (`#8b0000`, `#8a0000`, `#8f0000`) | global styles / all pages | ✅ Done |
+| 9 | "Rooli" row in villain card always renders even when empty ("Rooli: -"), while other rows are conditional | `roistot/+page.svelte:406` | ✅ Done |
+| 10 | "Danger" button visually identical to normal button — no red/destructive styling | `hallinta/+page.svelte` | ✅ Done |
+| 11 | Front page section links are `<p>` tags, should be `<h2>` | `routes/+page.svelte` | ✅ Done |
 
 ## Phase 3 — Shared Components & Deduplication
 

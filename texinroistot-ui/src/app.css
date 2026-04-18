@@ -1,3 +1,7 @@
+:root {
+	--color-error: #8b0000;
+}
+
 body {
 	background: #ffffed;
 }

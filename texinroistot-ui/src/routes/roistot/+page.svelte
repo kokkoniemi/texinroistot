@@ -413,7 +413,9 @@
 				{@const hasCodeNames = codeNames.length > 0}
 				<article class="villain-card">
 					<h3>{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle ? ', ' : ''}{#each codeNames as codeName, index (codeName)}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}</h3>
-					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
+					{#if hasValues(appearance?.roles)}
+						<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
+					{/if}
 					{#if hasValues(appearance?.destiny)}
 						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
 					{/if}
@@ -764,7 +766,7 @@
 	}
 
 	.villain-error {
-		color: #8a0000;
+		color: var(--color-error);
 	}
 
 	.pagination {

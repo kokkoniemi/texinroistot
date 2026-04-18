@@ -756,7 +756,8 @@
 	}
 
 	button.danger {
-		background: #111;
+		background: var(--color-error);
+		border-color: var(--color-error);
 	}
 
 	.no-access {
@@ -764,7 +765,7 @@
 	}
 
 	.config-error {
-		color: #8a0000;
+		color: var(--color-error);
 	}
 
 	.success-message {

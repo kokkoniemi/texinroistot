@@ -25,7 +25,7 @@
 		{formatCount(data.activeVersionStats?.writers)}:sta kirjoittajasta.
 	</p>
 
-	<p>Selaa roistoja</p>
+	<h2>Selaa roistoja</h2>
 
 	<p>
 		<a href="/roistot?publication=all&sort=first_name">Etunimen mukaan</a> |
@@ -41,7 +41,7 @@
 		intiaani- ja kiinalaisten nimet)".
 	</p>
 
-	<p>Selaa tarinoita</p>
+	<h2>Selaa tarinoita</h2>
 
 	<p>
 		<a href="/tarinat?publication=all&sort=alpha">Aakkosjärjestyksessä</a> |
@@ -67,7 +67,7 @@
 				<a href="/tarinat?publication=tex_magazine&sort=alpha">Tex Magazine</a>
 	</p>
 
-	<p>Selaa tekijöitä</p>
+	<h2>Selaa tekijöitä</h2>
 
 	<p>
 		<a href="/tekijat?type=writer&sort=last_name">Kertojat</a> |

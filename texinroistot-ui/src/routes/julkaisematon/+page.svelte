@@ -79,7 +79,7 @@
 	}
 
 	.error {
-		color: #8f0000;
+		color: var(--color-error);
 		font-weight: 700;
 	}
 

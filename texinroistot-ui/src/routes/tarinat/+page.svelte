@@ -636,7 +636,7 @@
 	}
 
 	.villain-error {
-		color: #8a0000;
+		color: var(--color-error);
 	}
 
 	.pagination {

@@ -782,6 +782,10 @@
 	.story-popup-close {
 		padding: 0.35rem 0.7rem;
 		font-size: 0.95rem;
+		border: 1px solid black;
+		background: #fff;
+		color: #111;
+		cursor: pointer;
 	}
 
 	.popup-story-card {
@@ -846,11 +850,11 @@
 
 	.author-stories-error {
 		margin: 0;
-		color: #8b0000;
+		color: var(--color-error);
 	}
 
 	.villain-error {
-		color: #8a0000;
+		color: var(--color-error);
 	}
 
 	.pagination {
