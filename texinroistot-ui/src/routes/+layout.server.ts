@@ -15,7 +15,7 @@ type ActiveVersionPayload = {
 };
 
 export const load: LayoutServerLoad = async ({ fetch, url }) => {
-	const systemVersion = env.SYSTEM_VERSION?.trim() || 'ei tiedossa';
+	const systemVersion = env.IMAGE_TAG?.trim() || 'ei tiedossa';
 
 	if (url.pathname === '/julkaisematon') {
 		return {

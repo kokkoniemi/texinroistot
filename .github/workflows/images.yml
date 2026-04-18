@@ -79,8 +79,6 @@ jobs:
         with:
           context: ./texinroistot-ui
           file: ./texinroistot-ui/Dockerfile.prod
-          build-args: |
-            SYSTEM_VERSION=${{ steps.frontend-meta.outputs.version }}
           push: true
           tags: ${{ steps.frontend-meta.outputs.tags }}
           labels: ${{ steps.frontend-meta.outputs.labels }}

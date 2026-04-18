@@ -53,14 +53,6 @@ Read in `internal/config/config.go` via `godotenv` autoload.
   - Google OAuth2 client id used by `/hallinta` page Google Sign-In widget
   - should match backend `GOOGLE_OAUTH2_CLIENT_ID` audience
 
-### Footer system version (frontend)
-
-- `SYSTEM_VERSION`
-  - shown in footer as `Järjestelmän versio`
-  - production image can bake this from Docker build arg:
-    - `docker build --build-arg SYSTEM_VERSION=<version> ...`
-  - current GitHub image workflow sets this automatically to frontend image tag value
-
 ### Unpublished gate
 
 - `UNPUBLISHED_MODE`
