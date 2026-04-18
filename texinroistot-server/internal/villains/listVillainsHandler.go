@@ -24,11 +24,12 @@ var allowedPublicationFilters = map[string]bool{
 }
 
 var allowedSorts = map[string]bool{
-	"first_name": true,
-	"last_name":  true,
-	"nickname":   true,
-	"other_name": true,
-	"rank":       true,
+	"first_name":  true,
+	"last_name":   true,
+	"nickname":    true,
+	"other_name":  true,
+	"code_name":   true,
+	"rank":        true,
 	"fi_pub_date": true,
 	"it_pub_date": true,
 }

@@ -167,6 +167,11 @@ func buildVillainSortClause(sort string) string {
 	FROM villains_in_stories AS vis
 	WHERE vis.villain = v.id
 )`, normalizeSQL("array_to_string(vis.other_names, ' ')"))
+	codeNameExpr := fmt.Sprintf(`(
+	SELECT MIN(%s)
+	FROM villains_in_stories AS vis
+	WHERE vis.villain = v.id
+)`, normalizeSQL("array_to_string(vis.code_names, ' ')"))
 	rankExpr := normalizeSQL("array_to_string(v.ranks, ' ')")
 
 	switch sort {
@@ -180,6 +185,8 @@ func buildVillainSortClause(sort string) string {
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, nicknameExpr, lastNameExpr)
 	case "other_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, otherNameExpr, lastNameExpr)
+	case "code_name":
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, codeNameExpr, lastNameExpr)
 	case "rank":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, rankExpr, lastNameExpr)
 	default:

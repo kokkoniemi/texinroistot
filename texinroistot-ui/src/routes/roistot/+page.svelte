@@ -30,6 +30,7 @@
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
 		{ value: 'nickname', label: 'Lempinimen mukaan' },
 		{ value: 'other_name', label: 'Etnisen nimen mukaan' },
+		{ value: 'code_name', label: 'Salanimen mukaan' },
 		{ value: 'rank', label: 'Arvon mukaan' }
 	];
 
