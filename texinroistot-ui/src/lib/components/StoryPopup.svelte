@@ -2,7 +2,6 @@
 	import { createEventDispatcher } from 'svelte';
 	import {
 		authorList,
-		hasValues,
 		joinValues,
 		italianOriginalPublication,
 		storyVillainForStory,
@@ -75,7 +74,11 @@
 	}
 </script>
 
-<svelte:window on:keydown={(e) => { if (e.key === 'Escape') close(); }} />
+<svelte:window
+	on:keydown={(e) => {
+		if (e.key === 'Escape') close();
+	}}
+/>
 
 <div class="story-popup-backdrop" role="presentation" on:click|self={close}>
 	<div class="story-popup" role="dialog" aria-modal="true" aria-labelledby="story-popup-title">
@@ -92,17 +95,14 @@
 				<p>
 					<strong>Alkuperäisjulkaisu (Italia):</strong>
 					{#if italianOriginal.title}<em>{italianOriginal.title}</em>{/if}
-					{#if italianOriginal.details}{italianOriginal.title ? ', ' : ''}{italianOriginal.details}{/if}
+					{#if italianOriginal.details}{italianOriginal.title
+							? ', '
+							: ''}{italianOriginal.details}{/if}
 				</p>
 			{/if}
 			<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary}</p>
 
-			<button
-				type="button"
-				class="toggle-villains"
-				on:click={toggleVillains}
-				disabled={!storyHash}
-			>
+			<button type="button" class="toggle-villains" on:click={toggleVillains} disabled={!storyHash}>
 				{#if villainsExpanded}Piilota tarinan roistot{:else}Näytä tarinan roistot{/if}
 			</button>
 

@@ -37,8 +37,8 @@
 		<a href="/roistot">Hae hakusanalla</a>
 	</p>
 	<p>
-		Etninen nimi on sama kuin "Nimi", eli "Ei etunimi-sukunimi-muotoiset nimet (esim.
-		intiaani- ja kiinalaisten nimet)".
+		Etninen nimi on sama kuin "Nimi", eli "Ei etunimi-sukunimi-muotoiset nimet (esim. intiaani- ja
+		kiinalaisten nimet)".
 	</p>
 
 	<h2>Selaa tarinoita</h2>
@@ -46,7 +46,9 @@
 	<p>
 		<a href="/tarinat?publication=all&sort=alpha">Aakkosjärjestyksessä</a> |
 		<a href="/tarinat?publication=perus_fi&sort=fi_pub_date">Suomen julkaisupäivän mukaan</a> |
-		<a href="/tarinat?publication=perus_it&sort=it_pub_date">Alkuperäisessä ilmestymisjärjestyksessä (Italia)</a>
+		<a href="/tarinat?publication=perus_it&sort=it_pub_date"
+			>Alkuperäisessä ilmestymisjärjestyksessä (Italia)</a
+		>
 		| <a href="/tarinat?publication=all&sort=fi_pub_date">Näytä kaikki</a> |
 		<a href="/tarinat?publication=suur&sort=alpha">Suuralbumit</a> |
 		<a href="/tarinat?publication=maxi&sort=alpha">Maxi Texit</a> |
@@ -58,13 +60,13 @@
 	</p>
 
 	<p>
-				<a href="/tarinat?publication=serie_extra&sort=alpha">Serie extra</a> |
-				<a href="/tarinat?publication=texone&sort=alpha">Texone</a> |
-				<a href="/tarinat?publication=mini_texone_maxi_tex&sort=alpha">Mini Texone & Maxi Tex</a> |
-				<a href="/tarinat?publication=almanacco_del_west&sort=alpha">Almanacco del West</a> |
-				<a href="/tarinat?publication=color_tex&sort=alpha">Color Tex</a> |
-				<a href="/tarinat?publication=tex_romanzi_a_fumetti&sort=alpha">Tex romanzi a fumetti</a> |
-				<a href="/tarinat?publication=tex_magazine&sort=alpha">Tex Magazine</a>
+		<a href="/tarinat?publication=serie_extra&sort=alpha">Serie extra</a> |
+		<a href="/tarinat?publication=texone&sort=alpha">Texone</a> |
+		<a href="/tarinat?publication=mini_texone_maxi_tex&sort=alpha">Mini Texone & Maxi Tex</a> |
+		<a href="/tarinat?publication=almanacco_del_west&sort=alpha">Almanacco del West</a> |
+		<a href="/tarinat?publication=color_tex&sort=alpha">Color Tex</a> |
+		<a href="/tarinat?publication=tex_romanzi_a_fumetti&sort=alpha">Tex romanzi a fumetti</a> |
+		<a href="/tarinat?publication=tex_magazine&sort=alpha">Tex Magazine</a>
 	</p>
 
 	<h2>Selaa tekijöitä</h2>

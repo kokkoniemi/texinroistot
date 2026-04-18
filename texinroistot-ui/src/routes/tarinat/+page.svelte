@@ -3,7 +3,6 @@
 	import {
 		authorList,
 		buildPageHref,
-		hasValues,
 		joinValues,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
@@ -176,7 +175,9 @@
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
 				{#each sortOptions as option (option.value)}
-					<option value={option.value} selected={filters.sort === option.value}>{option.label}</option>
+					<option value={option.value} selected={filters.sort === option.value}
+						>{option.label}</option
+					>
 				{/each}
 			</select>
 		</label>
@@ -225,7 +226,9 @@
 						<p>
 							<strong>Alkuperäisjulkaisu (Italia):</strong>
 							{#if italianOriginal.title}<em>{italianOriginal.title}</em>{/if}
-							{#if italianOriginal.details}{italianOriginal.title ? ', ' : ''}{italianOriginal.details}{/if}
+							{#if italianOriginal.details}{italianOriginal.title
+									? ', '
+									: ''}{italianOriginal.details}{/if}
 						</p>
 					{/if}
 					<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary(story)}</p>

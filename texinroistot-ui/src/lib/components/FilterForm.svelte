@@ -35,7 +35,7 @@
 
 <div class="result-row">
 	<p class="result-total">{totalLabel}</p>
-	<Pagination top {meta} {pageTokens} {hasPrev} {hasNext} isLoading={isLoading} {pageHref} />
+	<Pagination top {meta} {pageTokens} {hasPrev} {hasNext} {isLoading} {pageHref} />
 	<p class="result-page">
 		Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
 	</p>

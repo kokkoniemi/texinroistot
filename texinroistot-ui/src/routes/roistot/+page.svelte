@@ -148,7 +148,9 @@
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
 				{#each sortOptions as option (option.value)}
-					<option value={option.value} selected={selectedSort === option.value}>{option.label}</option>
+					<option value={option.value} selected={selectedSort === option.value}
+						>{option.label}</option
+					>
 				{/each}
 			</select>
 		</label>
@@ -180,10 +182,17 @@
 				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
 				{@const codeNames = appearanceCodeNames(appearance)}
 				{@const nicknameTitle = title.nicknames.map((nickname) => `"${nickname}"`).join(', ')}
-				{@const villainCardTitle = [title.baseName, nicknameTitle, displayName].filter(Boolean).join(', ')}
+				{@const villainCardTitle = [title.baseName, nicknameTitle, displayName]
+					.filter(Boolean)
+					.join(', ')}
 				{@const hasCodeNames = codeNames.length > 0}
 				<article class="villain-card">
-					<h3>{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle ? ', ' : ''}{#each codeNames as codeName, index (codeName)}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}</h3>
+					<h3>
+						{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle
+								? ', '
+								: ''}{#each codeNames as codeName, index (codeName)}{#if index > 0},
+								{/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}
+					</h3>
 					{#if hasValues(appearance?.roles)}
 						<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
 					{/if}
@@ -197,7 +206,8 @@
 						<strong>Tarinat:</strong>
 						{#if stories.length > 0}
 							{#each stories as story, index (story.hash)}
-								{#if index > 0}, {/if}
+								{#if index > 0},
+								{/if}
 								<button type="button" class="story-link" on:click={() => (selectedStory = story)}
 									>{storyCardTitle(story)}</button
 								>

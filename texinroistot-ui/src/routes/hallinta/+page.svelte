@@ -474,7 +474,7 @@
 						<p>Versioita ei löytynyt.</p>
 					{:else}
 						<ul>
-							{#each versions as version}
+							{#each versions as version (version.id)}
 								<li class="version-item">
 									<div class="version-meta">
 										<span><strong>ID:</strong> {version.id}</span>
@@ -559,7 +559,7 @@
 								</tr>
 							</thead>
 							<tbody>
-								{#each users as user}
+								{#each users as user (user.hash)}
 									<tr>
 										<td class="user-hash">{user.hash}</td>
 										<td>{user.isAdmin ? 'admin' : 'ei admin'}</td>

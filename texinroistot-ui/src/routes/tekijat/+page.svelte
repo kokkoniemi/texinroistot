@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { navigating } from '$app/stores';
 	import {
-		authorList,
 		buildPageHref,
-		joinValues,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
 		publicationSummaryFromPublications
@@ -109,7 +107,9 @@
 		const nonItalianTitles = nonItalianTitlesByFirstPublication(publications);
 		if (nonItalianTitles.length > 0) return nonItalianTitles[0];
 
-		const anyTitle = publications.find((publication) => Boolean(publication.title?.trim()))?.title?.trim();
+		const anyTitle = publications
+			.find((publication) => Boolean(publication.title?.trim()))
+			?.title?.trim();
 		return anyTitle || 'Nimetön tarina';
 	}
 
@@ -173,7 +173,9 @@
 			<span>Ryhmä</span>
 			<select name="type" disabled={isFilterLoading}>
 				{#each typeOptions as option (option.value)}
-					<option value={option.value} selected={filters.type === option.value}>{option.label}</option>
+					<option value={option.value} selected={filters.type === option.value}
+						>{option.label}</option
+					>
 				{/each}
 			</select>
 		</label>
