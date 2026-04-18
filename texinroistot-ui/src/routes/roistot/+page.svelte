@@ -8,35 +8,14 @@
 		paginationTokens,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
-	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
+	import type { Meta, PaginationToken } from '$lib/listing/shared';
+	import type { Story, StoryVillain, Villain } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-
-	type Story = StoryBase & {
-		hash?: string;
-	};
-
-	type StoryVillain = {
-		hash?: string;
-		nicknames?: string[] | null;
-		otherNames?: string[] | null;
-		codeNames?: string[] | null;
-		roles?: string[] | null;
-		destiny?: string[] | null;
-		story?: Story | null;
-	};
-
-	type Villain = {
-		hash?: string;
-		firstNames?: string[] | null;
-		lastName?: string | null;
-		ranks?: string[] | null;
-		as?: StoryVillain[] | null;
-	};
 
 	type Filters = {
 		publication: string;
@@ -118,7 +97,7 @@
 		for (const appearance of villain.as ?? []) {
 			const story = appearance.story;
 			if (!story) continue;
-			const storyHash = (story.hash ?? '').trim();
+			const storyHash = story.hash.trim();
 			if (storyHash && seenHashes.has(storyHash)) continue;
 			if (storyHash) seenHashes.add(storyHash);
 			stories.push(story);
@@ -194,7 +173,7 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="villain-list">
-			{#each villains as villain, i (villain.hash ?? i)}
+			{#each villains as villain (villain.hash)}
 				{@const appearance = primaryAppearance(villain)}
 				{@const stories = villainStories(villain)}
 				{@const title = villainTitle(villain)}
@@ -217,7 +196,7 @@
 					<p>
 						<strong>Tarinat:</strong>
 						{#if stories.length > 0}
-							{#each stories as story, index (story.hash ?? index)}
+							{#each stories as story, index (story.hash)}
 								{#if index > 0}, {/if}
 								<button type="button" class="story-link" on:click={() => (selectedStory = story)}
 									>{storyCardTitle(story)}</button

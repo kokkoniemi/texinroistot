@@ -1,5 +1,17 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
+import type { Meta } from '$lib/listing/shared';
+import type { Villain } from '$lib/types';
+
+type RoistotPageData = {
+	villains: Villain[];
+	meta: Meta;
+	filters: {
+		publication: string;
+		sort: string;
+		q: string;
+	};
+};
 
 export const load: PageLoad = async ({ fetch, url }) => {
 	const queryString = url.searchParams.toString();
@@ -9,5 +21,5 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		throw error(res.status, `Failed to load villains (${res.status})`);
 	}
 
-	return res.json();
+	return res.json() as Promise<RoistotPageData>;
 };

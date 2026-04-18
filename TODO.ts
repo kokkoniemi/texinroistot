@@ -4,3 +4,5 @@
 // TODO: Näytä kaikki Roistot-sivun Järjstys-filtteriin.
 // TODO: Salanimi Roistot-sivun Järjestys-filtteriin.
 // TODO: Aakkosten mukainen sivutus
+// TODO: Migraatiot. Miten tietokantamuutokset ajetaan sisään helpommin?
+// TODO: Ohjelmaversio ei toimi. Sen voisi ottaa IMAGE_TAG-muuttujasta ja paikallisesti syöttää aikaleiman

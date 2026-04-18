@@ -12,43 +12,14 @@
 		storyVillainForStory,
 		storyVillainTitle
 	} from '$lib/listing/shared';
-	import type { Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
+	import type { Meta, PaginationToken } from '$lib/listing/shared';
+	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import VillainCard from '$lib/components/VillainCard.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-
-	type Story = StoryBase & {
-		hash: string;
-	};
-
-	type StoryVillain = {
-		hash: string;
-		nicknames?: string[] | null;
-		otherNames?: string[] | null;
-		codeNames?: string[] | null;
-		roles?: string[] | null;
-		destiny?: string[] | null;
-		story?: { hash: string } | null;
-	};
-
-	type Villain = {
-		hash: string;
-		ranks?: string[] | null;
-		firstNames?: string[] | null;
-		lastName?: string | null;
-		as?: StoryVillain[] | null;
-	};
-
-	type StoryVillainsResponse = {
-		storyHash: string;
-		villains: Villain[];
-		meta?: {
-			total: number;
-		};
-	};
 
 	type Filters = {
 		publication: string;

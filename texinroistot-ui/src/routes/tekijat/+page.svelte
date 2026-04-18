@@ -8,31 +8,14 @@
 		paginationTokens,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
-	import type { Author, Meta, PaginationToken, StoryBase } from '$lib/listing/shared';
+	import type { Meta, PaginationToken } from '$lib/listing/shared';
+	import type { Story, ListedAuthor, AuthorStoriesResponse } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-
-	type ListedAuthor = Author & {
-		hash?: string;
-		isWriter?: boolean;
-		isDrawer?: boolean;
-	};
-
-	type Story = StoryBase & {
-		hash: string;
-	};
-
-	type AuthorStoriesResponse = {
-		authorHash: string;
-		stories: Story[];
-		meta?: {
-			total: number;
-		};
-	};
 
 	type Filters = {
 		type: string;
@@ -91,7 +74,7 @@
 	function pageHref(page: number): string {
 		return buildPageHref('/tekijat', {
 			type: filters.type,
-			sort: 'last_name',
+			sort: filters.sort,
 			page,
 			pageSize: meta.pageSize,
 			q: filters.q || undefined

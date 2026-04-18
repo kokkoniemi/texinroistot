@@ -8,37 +8,14 @@
 		storyVillainForStory,
 		storyVillainTitle
 	} from '$lib/listing/shared';
-	import type { StoryBase } from '$lib/listing/shared';
+	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
 	import VillainCard from './VillainCard.svelte';
 
-	export let story: StoryBase & { hash?: string | null };
+	export let story: Story;
 	export let title: string;
 	export let publicationSummary: string;
 
 	const dispatch = createEventDispatcher<{ close: void }>();
-
-	type StoryVillain = {
-		hash?: string | null;
-		nicknames?: string[] | null;
-		otherNames?: string[] | null;
-		codeNames?: string[] | null;
-		roles?: string[] | null;
-		destiny?: string[] | null;
-		story?: { hash?: string | null } | null;
-	};
-
-	type Villain = {
-		hash?: string | null;
-		ranks?: string[] | null;
-		firstNames?: string[] | null;
-		lastName?: string | null;
-		as?: StoryVillain[] | null;
-	};
-
-	type StoryVillainsResponse = {
-		storyHash: string;
-		villains: Villain[];
-	};
 
 	let villainsExpanded = false;
 	let villainsLoading = false;
@@ -47,7 +24,7 @@
 	let villainsLoadedHash = '';
 	let prevHash = '';
 
-	$: storyHash = (story.hash ?? '').trim();
+	$: storyHash = story.hash.trim();
 	$: italianOriginal = italianOriginalPublication(story);
 	$: {
 		if (storyHash !== prevHash) {
@@ -82,16 +59,16 @@
 			const response = await fetch(`/api/tarinat/${encodeURIComponent(storyHash)}/roistot`);
 			if (!response.ok) throw new Error(`Roistojen haku epäonnistui (${response.status})`);
 			const payload = (await response.json()) as StoryVillainsResponse;
-			if ((story.hash ?? '').trim() === storyHash) {
+			if (story.hash.trim() === storyHash) {
 				villains = payload.villains ?? [];
 				villainsLoadedHash = storyHash;
 			}
 		} catch (error) {
-			if ((story.hash ?? '').trim() === storyHash) {
+			if (story.hash.trim() === storyHash) {
 				villainsError = error instanceof Error ? error.message : 'Roistojen haku epäonnistui';
 			}
 		} finally {
-			if ((story.hash ?? '').trim() === storyHash) {
+			if (story.hash.trim() === storyHash) {
 				villainsLoading = false;
 			}
 		}
@@ -139,7 +116,7 @@
 						<p>Tarinalle ei löytynyt roistoja.</p>
 					{:else}
 						<div class="story-villains-list">
-							{#each villains as villain, i (villain.hash ?? i)}
+							{#each villains as villain (villain.hash)}
 								{@const appearance = storyVillainForStory(villain, storyHash)}
 								{@const baseTitle = storyVillainTitle(villain, storyHash)}
 								{@const displayName = joinValues(appearance?.otherNames, '').trim()}

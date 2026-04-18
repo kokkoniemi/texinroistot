@@ -46,11 +46,11 @@ Highest-leverage structural work. The app has zero shared components — nearly 
 
 | # | Issue | Status |
 |---|-------|--------|
-| 12 | `Villain`, `StoryVillain`, `StoryVillainsResponse` types declared locally in each page — move to `$lib/types.ts` | ⬜ Todo |
-| 13 | `StoryVillain.hash` and `Villain.hash` are `string` in tekijat/tarinat but `string \| undefined` in roistot — pick one truth | ⬜ Todo |
-| 14 | `+page.ts` load functions return `any` — define typed response shapes | ⬜ Todo |
-| 15 | `AdminUser`/`AdminVersion` types duplicated between `+page.server.ts` and `+page.svelte` in hallinta | ⬜ Todo |
-| 16 | `pageHref()` in tekijat hardcodes `sort: 'last_name'`, ignoring `filters.sort` | ⬜ Todo |
+| 12 | `Villain`, `StoryVillain`, `StoryVillainsResponse` types declared locally in each page — move to `$lib/types.ts` | ✅ Done |
+| 13 | `StoryVillain.hash` and `Villain.hash` are `string` in tekijat/tarinat but `string \| undefined` in roistot — pick one truth | ✅ Done |
+| 14 | `+page.ts` load functions return `any` — define typed response shapes | ✅ Done |
+| 15 | `AdminUser`/`AdminVersion` types duplicated between `+page.server.ts` and `+page.svelte` in hallinta | ✅ Done |
+| 16 | `pageHref()` in tekijat hardcodes `sort: 'last_name'`, ignoring `filters.sort` | ✅ Done |
 
 ## Phase 5 — Accessibility Polish
 

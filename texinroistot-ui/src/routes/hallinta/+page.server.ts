@@ -1,22 +1,11 @@
 import { env } from '$env/dynamic/public';
 import type { PageServerLoad } from './$types';
+import type { AdminUser, AdminVersion } from '$lib/types';
 
 type MePayload = {
 	loggedIn?: boolean;
 	email?: string;
 	isAdmin?: boolean;
-};
-
-type AdminUser = {
-	hash: string;
-	isAdmin: boolean;
-	createdAt?: string;
-};
-
-type AdminVersion = {
-	id: number;
-	createdAt?: string;
-	isActive: boolean;
 };
 
 export const load: PageServerLoad = async ({ fetch }) => {

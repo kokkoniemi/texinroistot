@@ -2,20 +2,9 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
+	import type { AdminUser, AdminVersion } from '$lib/types';
 
 	export let data: PageData;
-
-	type AdminUser = {
-		hash: string;
-		isAdmin: boolean;
-		createdAt?: string;
-	};
-
-	type AdminVersion = {
-		id: number;
-		createdAt?: string;
-		isActive: boolean;
-	};
 
 	let users: AdminUser[] = [...(data.users ?? [])];
 	let usersError = data.usersError ?? '';
