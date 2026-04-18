@@ -209,6 +209,7 @@
 							class="author-link"
 							on:click={() => toggleAuthorStories(author)}
 							disabled={!authorHash}
+							aria-expanded={Boolean(expandedAuthorHashes[authorHash])}
 						>
 							{authorName(author)}
 						</button>

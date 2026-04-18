@@ -27,7 +27,12 @@
 	<slot />
 	<div class="actions">
 		<button type="submit" disabled={isLoading}>{isLoading ? 'Ladataan...' : 'Hae'}</button>
-		<a href={resetHref} class:loading-link-disabled={isLoading} aria-disabled={isLoading}>
+		<a
+			href={resetHref}
+			class:loading-link-disabled={isLoading}
+			aria-disabled={isLoading || undefined}
+			tabindex={isLoading ? -1 : undefined}
+		>
 			Palauta oletukset
 		</a>
 	</div>

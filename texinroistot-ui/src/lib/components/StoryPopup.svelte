@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import {
 		authorList,
 		joinValues,
@@ -15,6 +15,10 @@
 	export let publicationSummary: string;
 
 	const dispatch = createEventDispatcher<{ close: void }>();
+
+	let closeButton: HTMLButtonElement;
+
+	onMount(() => closeButton.focus());
 
 	let villainsExpanded = false;
 	let villainsLoading = false;
@@ -83,7 +87,9 @@
 <div class="story-popup-backdrop" role="presentation" on:click|self={close}>
 	<div class="story-popup" role="dialog" aria-modal="true" aria-labelledby="story-popup-title">
 		<div class="story-popup-actions">
-			<button type="button" class="story-popup-close" on:click={close}>Sulje</button>
+			<button type="button" class="story-popup-close" on:click={close} bind:this={closeButton}
+				>Sulje</button
+			>
 		</div>
 
 		<article class="story-card popup-story-card">
@@ -102,7 +108,13 @@
 			{/if}
 			<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary}</p>
 
-			<button type="button" class="toggle-villains" on:click={toggleVillains} disabled={!storyHash}>
+			<button
+				type="button"
+				class="toggle-villains"
+				on:click={toggleVillains}
+				disabled={!storyHash}
+				aria-expanded={villainsExpanded}
+			>
 				{#if villainsExpanded}Piilota tarinan roistot{:else}Näytä tarinan roistot{/if}
 			</button>
 

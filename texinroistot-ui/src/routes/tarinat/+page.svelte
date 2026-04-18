@@ -238,6 +238,7 @@
 						class="toggle-villains"
 						on:click={() => toggleStoryVillains(storyHash)}
 						disabled={!storyHash}
+						aria-expanded={Boolean(expandedStoryHashes[storyHash])}
 					>
 						{#if expandedStoryHashes[storyHash]}
 							Piilota tarinan roistot
