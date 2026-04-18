@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultPublicationFilter = "fi"
-	defaultSort              = "fi_pub_date"
+	defaultSort              = "default"
 	defaultPage              = 1
 	defaultPageSize          = 25
 	maxPageSize              = 100
@@ -24,6 +24,7 @@ var allowedPublicationFilters = map[string]bool{
 }
 
 var allowedSorts = map[string]bool{
+	"default":     true,
 	"first_name":  true,
 	"last_name":   true,
 	"nickname":    true,

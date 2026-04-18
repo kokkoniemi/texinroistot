@@ -23,9 +23,10 @@
 		q: string;
 	};
 
-	const defaultSortOption = 'first_name';
+	const defaultSortOption = 'default';
 
 	const sortOptions = [
+		{ value: 'default', label: 'Oletus' },
 		{ value: 'first_name', label: 'Etunimen mukaan' },
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
 		{ value: 'nickname', label: 'Lempinimen mukaan' },
@@ -146,7 +147,7 @@
 
 	<FilterForm
 		isLoading={isFilterLoading}
-		resetHref="/roistot?sort=first_name&publication=fi"
+		resetHref="/roistot?sort=default&publication=fi"
 		totalLabel="Roistoja yhteensä {meta.total}"
 		totalInfo={sortRequirementLabel
 			? `Vain roistot, joilla on ${sortRequirementLabel}, näytetään.`

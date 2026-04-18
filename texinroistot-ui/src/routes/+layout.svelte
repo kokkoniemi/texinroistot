@@ -27,7 +27,7 @@
 			<a href="/">Etusivu</a>
 		</li>
 		<li class:active={$page.url.pathname === '/roistot'}>
-			<a href="/roistot?sort=first_name&publication=fi">Roistot</a>
+			<a href="/roistot?sort=default&publication=fi">Roistot</a>
 		</li>
 		<li class:active={$page.url.pathname === '/tarinat'}>
 			<a href="/tarinat">Tarinat</a>
