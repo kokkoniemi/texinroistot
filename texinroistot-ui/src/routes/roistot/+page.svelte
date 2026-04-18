@@ -34,6 +34,15 @@
 		{ value: 'rank', label: 'Arvon mukaan' }
 	];
 
+	const sortRequirementLabels: Record<string, string> = {
+		first_name: 'etunimi',
+		last_name: 'sukunimi',
+		nickname: 'lempinimi',
+		other_name: 'etninen nimi',
+		code_name: 'salanimi',
+		rank: 'arvo'
+	};
+
 	let villains: Villain[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
 	let filters: Filters = { publication: 'fi', sort: defaultSortOption, q: '' };
@@ -50,6 +59,7 @@
 	$: selectedSort = sortOptions.some((option) => option.value === filters.sort)
 		? filters.sort
 		: defaultSortOption;
+	$: sortRequirementLabel = sortRequirementLabels[selectedSort] ?? '';
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/roistot';
@@ -138,6 +148,9 @@
 		isLoading={isFilterLoading}
 		resetHref="/roistot?sort=first_name&publication=fi"
 		totalLabel="Roistoja yhteensä {meta.total}"
+		totalInfo={sortRequirementLabel
+			? `Vain roistot, joilla on ${sortRequirementLabel}, näytetään.`
+			: ''}
 		{meta}
 		{pageTokens}
 		{hasPrev}

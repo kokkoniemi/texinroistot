@@ -5,6 +5,7 @@
 	export let isLoading: boolean = false;
 	export let resetHref: string;
 	export let totalLabel: string;
+	export let totalInfo: string = '';
 	export let meta: Meta;
 	export let pageTokens: PaginationToken[];
 	export let hasPrev: boolean;
@@ -14,6 +15,9 @@
 	export let filterColumns1500: string = '';
 	export let filterColumns1200: string = '';
 
+	let showInfo = false;
+	let infoWrapper: HTMLSpanElement | null = null;
+
 	$: formStyle = [
 		`--filters-columns: ${filterColumns}`,
 		filterColumns1500 && `--filters-columns-1500: ${filterColumns1500}`,
@@ -21,7 +25,23 @@
 	]
 		.filter(Boolean)
 		.join('; ');
+
+	function handleDocumentClick(event: MouseEvent) {
+		if (!showInfo) return;
+		const target = event.target as Node | null;
+		if (infoWrapper && target && !infoWrapper.contains(target)) {
+			showInfo = false;
+		}
+	}
+
+	function handleDocumentKey(event: KeyboardEvent) {
+		if (event.key === 'Escape' && showInfo) {
+			showInfo = false;
+		}
+	}
 </script>
+
+<svelte:window on:click={handleDocumentClick} on:keydown={handleDocumentKey} />
 
 <form method="GET" class="filters" style={formStyle}>
 	<slot />
@@ -39,7 +59,17 @@
 </form>
 
 <div class="result-row">
-	<p class="result-total">{totalLabel}</p>
+	<p class="result-total">
+		{totalLabel}{#if totalInfo}<span class="info-wrapper" bind:this={infoWrapper}
+				><button
+					type="button"
+					class="info-trigger"
+					aria-label="Lisätietoa"
+					aria-expanded={showInfo}
+					on:click={() => (showInfo = !showInfo)}>i</button
+				>{#if showInfo}<span class="info-popover" role="tooltip">{totalInfo}</span>{/if}</span
+			>{/if}
+	</p>
 	<Pagination top {meta} {pageTokens} {hasPrev} {hasNext} {isLoading} {pageHref} />
 	<p class="result-page">
 		Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
@@ -119,6 +149,55 @@
 	.result-total,
 	.result-page {
 		margin: 0;
+	}
+
+	.info-wrapper {
+		position: relative;
+		display: inline-block;
+		margin-left: 0.35rem;
+	}
+
+	.info-trigger {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.1rem;
+		height: 1.1rem;
+		padding: 0;
+		border: 1px solid black;
+		border-radius: 50%;
+		background: #ffffed;
+		color: black;
+		font: inherit;
+		font-size: 0.8rem;
+		font-weight: 700;
+		font-style: italic;
+		line-height: 1;
+		font-family: Georgia, 'Times New Roman', serif;
+		cursor: pointer;
+	}
+
+	.info-trigger:hover,
+	.info-trigger:focus-visible {
+		background: black;
+		color: #ffffed;
+		outline: none;
+	}
+
+	.info-popover {
+		position: absolute;
+		top: calc(100% + 0.35rem);
+		left: 0;
+		z-index: 10;
+		min-width: 220px;
+		max-width: 320px;
+		padding: 0.5rem 0.65rem;
+		border: 1px solid black;
+		background: #fff;
+		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+		font-size: 0.85rem;
+		line-height: 1.35;
+		white-space: normal;
 	}
 
 	.result-page {

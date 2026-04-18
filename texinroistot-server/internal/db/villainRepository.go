@@ -194,6 +194,36 @@ func buildVillainSortClause(sort string) string {
 	}
 }
 
+func buildVillainSortRequirementClause(sort string) string {
+	nonEmptyArray := func(expr string) string {
+		return fmt.Sprintf(`COALESCE(btrim(array_to_string(%s, '')), '') <> ''`, expr)
+	}
+	nonEmptyStoryVillainArray := func(column string) string {
+		return fmt.Sprintf(`EXISTS (
+	SELECT 1 FROM villains_in_stories AS vis
+	WHERE vis.villain = v.id
+	AND COALESCE(btrim(array_to_string(vis.%s, '')), '') <> ''
+)`, column)
+	}
+
+	switch sort {
+	case "first_name":
+		return nonEmptyArray("v.first_names")
+	case "last_name":
+		return `COALESCE(btrim(v.last_name), '') <> ''`
+	case "rank":
+		return nonEmptyArray("v.ranks")
+	case "nickname":
+		return nonEmptyStoryVillainArray("nicknames")
+	case "other_name":
+		return nonEmptyStoryVillainArray("other_names")
+	case "code_name":
+		return nonEmptyStoryVillainArray("code_names")
+	default:
+		return ""
+	}
+}
+
 func buildVillainListWhere(versionID int, params VillainListParams) (string, []interface{}, error) {
 	clauses := []string{"v.version = $1"}
 	args := []interface{}{versionID}
@@ -216,6 +246,10 @@ EXISTS (
 )`, argPos))
 		args = append(args, ArrayParam(publicationTypes))
 		argPos++
+	}
+
+	if sortRequirement := buildVillainSortRequirementClause(params.Sort); sortRequirement != "" {
+		clauses = append(clauses, sortRequirement)
 	}
 
 	search := strings.TrimSpace(params.Search)
