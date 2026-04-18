@@ -29,8 +29,7 @@ export default [
 		rules: {
 			'no-useless-assignment': 'off',
 			'svelte/no-navigation-without-resolve': 'off',
-			'svelte/prefer-svelte-reactivity': 'off',
-			'svelte/require-each-key': 'off'
+			'svelte/prefer-svelte-reactivity': 'off'
 		}
 	},
 	{

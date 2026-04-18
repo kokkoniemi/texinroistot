@@ -309,13 +309,19 @@
 				throw new Error(`Roistojen haku epäonnistui (${response.status})`);
 			}
 			const payload = (await response.json()) as StoryVillainsResponse;
-			popupStoryVillains = payload.villains ?? [];
-			popupStoryVillainsLoadedHash = storyHash;
+			if (normalizeStoryHash(selectedStory?.hash) === storyHash) {
+				popupStoryVillains = payload.villains ?? [];
+				popupStoryVillainsLoadedHash = storyHash;
+			}
 		} catch (error) {
-			popupStoryVillainsError =
-				error instanceof Error ? error.message : 'Roistojen haku epäonnistui';
+			if (normalizeStoryHash(selectedStory?.hash) === storyHash) {
+				popupStoryVillainsError =
+					error instanceof Error ? error.message : 'Roistojen haku epäonnistui';
+			}
 		} finally {
-			popupStoryVillainsLoading = false;
+			if (normalizeStoryHash(selectedStory?.hash) === storyHash) {
+				popupStoryVillainsLoading = false;
+			}
 		}
 	}
 
@@ -361,6 +367,10 @@
 
 <svelte:window on:keydown={handleWindowKeydown} />
 
+<svelte:head>
+	<title>Tekijät – Texin roistot</title>
+</svelte:head>
+
 <section class="tekijat-page">
 	<h1>Tekijät</h1>
 
@@ -368,7 +378,7 @@
 		<label class="field">
 			<span>Ryhmä</span>
 			<select name="type" disabled={isFilterLoading}>
-				{#each typeOptions as option}
+				{#each typeOptions as option (option.value)}
 					<option value={option.value} selected={filters.type === option.value}>{option.label}</option>
 				{/each}
 			</select>
@@ -411,7 +421,7 @@
 				<span class="disabled">Edellinen</span>
 			{/if}
 
-			{#each pageTokens as token}
+			{#each pageTokens as token, i (i)}
 				{#if token === 'ellipsis'}
 					<span class="ellipsis">...</span>
 				{:else if token === meta.page}
@@ -439,7 +449,7 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="author-list">
-			{#each authors as author}
+			{#each authors as author (author.hash ?? authorName(author))}
 				{@const authorHash = normalizeAuthorHash(author.hash)}
 				<article class="author-card">
 					<h3>
@@ -463,7 +473,7 @@
 								<p>Tekijälle ei löytynyt tarinoita.</p>
 							{:else}
 								<ul class="author-story-list">
-									{#each authorStories(authorHash) as story}
+									{#each authorStories(authorHash) as story (story.hash)}
 										<li>
 											<button
 												type="button"
@@ -535,7 +545,7 @@
 								<p>Tarinalle ei löytynyt roistoja.</p>
 							{:else}
 								<div class="story-villains-list">
-									{#each popupStoryVillains as villain}
+									{#each popupStoryVillains as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, selectedStoryHash)}
 										{@const baseTitle = villainTitle(villain, selectedStoryHash)}
 										{@const displayName = joinValues(appearance?.otherNames, '').trim()}
@@ -577,7 +587,7 @@
 			<span class="disabled">Edellinen</span>
 		{/if}
 
-		{#each pageTokens as token}
+		{#each pageTokens as token, i (i)}
 			{#if token === 'ellipsis'}
 				<span class="ellipsis">...</span>
 			{:else if token === meta.page}

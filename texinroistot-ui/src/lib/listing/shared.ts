@@ -71,7 +71,7 @@ export function publicationItem(publication: StoryPublication): string {
 	const pub = publication.in;
 	if (!pub) return publication.title;
 
-	if (pub.year && pub.issue) return `${pub.year}/${pub.issue}`;
+	if (pub.year && pub.issue) return `${pub.issue}/${pub.year}`;
 	if (pub.issue) return pub.issue;
 	if (pub.year) return `${pub.year}`;
 	return publication.title;

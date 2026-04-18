@@ -9,6 +9,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Texin roistot-tietokanta</title>
+</svelte:head>
+
 <section class="page-front">
 	<img src="/favicon.png" class="front-logo" alt="Kuva Tex Willeristä" />
 	<h1>Texin roistot-tietokanta</h1>
@@ -30,7 +34,7 @@
 		<a href="/roistot?publication=all&sort=other_name">Etnisen nimen mukaan</a> |
 		<a href="/roistot?publication=all&sort=rank">Arvon mukaan</a> |
 		<a href="/roistot?publication=all&sort=fi_pub_date">Näytä kaikki</a> |
-		<a href="/roistot?publication=all&sort=fi_pub_date">Hae hakusanalla</a>
+		<a href="/roistot">Hae hakusanalla</a>
 	</p>
 	<p>
 		Etninen nimi on sama kuin "Nimi", eli "Ei etunimi-sukunimi-muotoiset nimet (esim.
@@ -50,7 +54,7 @@
 		<!-- TODO: Poista kronikat etusivulta ja listaussivujen filttereistä -->
 		<!-- TODO: Filtteriksi "Muut erikoisjulkaisut" -->
 		<!-- I-->
-		<a href="/tarinat?publication=all&sort=alpha">Hae hakusanalla</a>
+		<a href="/tarinat">Hae hakusanalla</a>
 	</p>
 
 	<p>

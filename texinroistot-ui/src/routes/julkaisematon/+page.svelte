@@ -5,6 +5,10 @@
 	export let form: ActionData;
 </script>
 
+<svelte:head>
+	<title>Texin roistot-tietokanta</title>
+</svelte:head>
+
 <section class="gate-page">
 	<h1>Sivustoa ei ole vielä julkaistu</h1>
 	<p>Palvelu on tällä hetkellä suljetussa testikäytössä. Syötä salasana jatkaaksesi.</p>

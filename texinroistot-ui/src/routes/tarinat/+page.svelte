@@ -271,6 +271,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Tarinat – Texin roistot</title>
+</svelte:head>
+
 <section class="tarinat-page">
 	<h1>Tarinat</h1>
 
@@ -278,7 +282,7 @@
 		<label class="field">
 			<span>Julkaisu</span>
 			<select name="publication" disabled={isFilterLoading}>
-				{#each publicationOptions as option}
+				{#each publicationOptions as option (option.value)}
 					<option value={option.value} selected={filters.publication === option.value}
 						>{option.label}</option
 					>
@@ -289,7 +293,7 @@
 		<label class="field">
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
-				{#each sortOptions as option}
+				{#each sortOptions as option (option.value)}
 					<option value={option.value} selected={filters.sort === option.value}
 						>{option.label}</option
 					>
@@ -346,7 +350,7 @@
 				<span class="disabled">Edellinen</span>
 			{/if}
 
-			{#each pageTokens as token}
+			{#each pageTokens as token, i (i)}
 				{#if token === 'ellipsis'}
 					<span class="ellipsis">...</span>
 				{:else if token === meta.page}
@@ -374,7 +378,7 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="story-list">
-			{#each stories as story}
+			{#each stories as story (story.hash)}
 				{@const storyHash = normalizeStoryHash(story.hash)}
 				{@const italianOriginal = italianOriginalPublication(story)}
 				<article class="story-card">
@@ -418,7 +422,7 @@
 								<p>Tarinalle ei löytynyt roistoja.</p>
 							{:else}
 								<div class="story-villains-list">
-									{#each storyVillains(storyHash) as villain}
+									{#each storyVillains(storyHash) as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, storyHash)}
 										{@const baseTitle = villainTitle(villain, storyHash)}
 										{@const displayName = joinValues(appearance?.otherNames, '').trim()}
@@ -460,7 +464,7 @@
 			<span class="disabled">Edellinen</span>
 		{/if}
 
-		{#each pageTokens as token}
+		{#each pageTokens as token, i (i)}
 			{#if token === 'ellipsis'}
 				<span class="ellipsis">...</span>
 			{:else if token === meta.page}

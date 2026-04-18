@@ -436,6 +436,7 @@
 </script>
 
 <svelte:head>
+	<title>Hallinta – Texin roistot</title>
 	{#if !data.user.loggedIn && data.googleClientId}
 		<script src="https://accounts.google.com/gsi/client" async defer></script>
 	{/if}

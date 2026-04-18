@@ -289,13 +289,19 @@
 				throw new Error(`Roistojen haku epäonnistui (${response.status})`);
 			}
 			const payload = (await response.json()) as StoryVillainsResponse;
-			popupStoryVillains = payload.villains ?? [];
-			popupStoryVillainsLoadedHash = storyHash;
+			if (normalizeStoryHash(selectedStory?.hash) === storyHash) {
+				popupStoryVillains = payload.villains ?? [];
+				popupStoryVillainsLoadedHash = storyHash;
+			}
 		} catch (error) {
-			popupStoryVillainsError =
-				error instanceof Error ? error.message : 'Roistojen haku epäonnistui';
+			if (normalizeStoryHash(selectedStory?.hash) === storyHash) {
+				popupStoryVillainsError =
+					error instanceof Error ? error.message : 'Roistojen haku epäonnistui';
+			}
 		} finally {
-			popupStoryVillainsLoading = false;
+			if (normalizeStoryHash(selectedStory?.hash) === storyHash) {
+				popupStoryVillainsLoading = false;
+			}
 		}
 	}
 
@@ -312,6 +318,10 @@
 
 <svelte:window on:keydown={handleWindowKeydown} />
 
+<svelte:head>
+	<title>Roistot – Texin roistot</title>
+</svelte:head>
+
 <section class="roistot-page">
 	<h1>Roistot</h1>
 
@@ -319,7 +329,7 @@
 		<label class="field">
 			<span>Järjestys</span>
 			<select name="sort" disabled={isFilterLoading}>
-				{#each sortOptions as option}
+				{#each sortOptions as option (option.value)}
 					<option value={option.value} selected={selectedSort === option.value}
 						>{option.label}</option
 					>
@@ -364,7 +374,7 @@
 				<span class="disabled">Edellinen</span>
 			{/if}
 
-			{#each pageTokens as token}
+			{#each pageTokens as token, i (i)}
 				{#if token === 'ellipsis'}
 					<span class="ellipsis">...</span>
 				{:else if token === meta.page}
@@ -392,7 +402,7 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="villain-list">
-			{#each villains as villain}
+			{#each villains as villain, i (villain.hash ?? i)}
 				{@const appearance = primaryAppearance(villain)}
 				{@const stories = villainStories(villain)}
 				{@const title = villainTitle(villain)}
@@ -402,7 +412,7 @@
 				{@const villainCardTitle = [title.baseName, nicknameTitle, displayName].filter(Boolean).join(', ')}
 				{@const hasCodeNames = codeNames.length > 0}
 				<article class="villain-card">
-					<h3>{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle ? ', ' : ''}{#each codeNames as codeName, index}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}</h3>
+					<h3>{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle ? ', ' : ''}{#each codeNames as codeName, index (codeName)}{#if index > 0}, {/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}</h3>
 					<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
 					{#if hasValues(appearance?.destiny)}
 						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
@@ -413,7 +423,7 @@
 					<p>
 						<strong>Tarinat:</strong>
 						{#if stories.length > 0}
-							{#each stories as story, index}
+							{#each stories as story, index (story.hash ?? index)}
 								{#if index > 0}, {/if}
 								<button type="button" class="story-link" on:click={() => openStoryPopup(story)}
 									>{storyCardTitle(story)}</button
@@ -478,7 +488,7 @@
 								<p>Tarinalle ei löytynyt roistoja.</p>
 							{:else}
 								<div class="story-villains-list">
-									{#each popupStoryVillains as villain}
+									{#each popupStoryVillains as villain, i (villain.hash ?? i)}
 										{@const appearance = storyVillainForStory(villain, selectedStoryHash)}
 										{@const baseTitle = popupVillainTitle(villain, selectedStoryHash)}
 										{@const displayName = joinValues(appearance?.otherNames, '').trim()}
@@ -520,7 +530,7 @@
 			<span class="disabled">Edellinen</span>
 		{/if}
 
-		{#each pageTokens as token}
+		{#each pageTokens as token, i (i)}
 			{#if token === 'ellipsis'}
 				<span class="ellipsis">...</span>
 			{:else if token === meta.page}
