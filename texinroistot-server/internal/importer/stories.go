@@ -37,7 +37,7 @@ func (i *importer) loadStory(r row) (id, error) {
 	}
 
 	hash := ""
-	if orderNum != 0 {
+	if orderNum > 0 {
 		hash = crypt.Hash(fmt.Sprintf("%v", orderNum))
 	} else {
 		hash = crypt.Hash(r.getValue("story_title"))

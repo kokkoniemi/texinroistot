@@ -150,14 +150,22 @@ func (i *importer) handleBasePublications(
 	if len(titles) == 0 {
 		return fmt.Errorf("title is missing")
 	}
-	title := titles[0]
+	title := strings.TrimSpace(titles[0])
 	if len(titles) >= titleIndex+1 {
-		title = titles[titleIndex]
+		title = strings.TrimSpace(titles[titleIndex])
 	}
 
 	var issues []map[string]int
 	if wrapAnnually {
-		issues, err = getIssuesBetween(from, to, year)
+		wrap, err := detectWrap(toVal, from, to, year)
+		if err != nil {
+			return err
+		}
+		issues, err = getIssuesBetween(from, to, year, wrap)
+		if err != nil {
+			return err
+		}
+		issues, err = applyExclusion(issues, toVal, year)
 		if err != nil {
 			return err
 		}
@@ -207,81 +215,92 @@ func (i *importer) parseNonBaseTitle(pubType string, r row) (string, error) {
 	}
 
 	index := 0
-	incrementIndex := func(fields ...string) {
-		for _, field := range fields {
-			if len(strings.TrimSpace(r.getValue(field))) > 0 {
-				index++
-			}
+	hasNonEmpty := func(field string) bool {
+		return len(strings.TrimSpace(r.getValue(field))) > 0
+	}
+	// A base/repub publication only occupies a title slot when the importer
+	// would actually create it — that requires the full (year, from, to) trio.
+	if hasNonEmpty("pub_year") && hasNonEmpty("pub_from") && hasNonEmpty("pub_to") {
+		index++
+	}
+	if hasNonEmpty("repub_year") && hasNonEmpty("repub_from") && hasNonEmpty("repub_to") {
+		index++
+	}
+
+	if pubType == PUB_KRONIKKA || pubType == PUB_KIRJASTO {
+		if hasNonEmpty("pub_special") {
+			index++
+		}
+	}
+	if pubType == PUB_KIRJASTO {
+		if hasNonEmpty("pub_kronikka") {
+			index++
 		}
 	}
 
-	if pubType == PUB_MAXI || pubType == PUB_SUUR || pubType == PUB_MUU {
-		incrementIndex("pub_from", "repub_from")
-
-	} else if pubType == PUB_KRONIKKA {
-		incrementIndex("pub_from", "repub_from", "pub_special")
-	} else if pubType == PUB_KIRJASTO {
-		incrementIndex("pub_from", "repub_from", "pub_special", "pub_kronikka")
-	}
-
 	if index < len(titles) {
-		return titles[index], nil
+		return strings.TrimSpace(titles[index]), nil
 	}
-	return titles[0], nil
+	return strings.TrimSpace(titles[0]), nil
 }
 
 func (i *importer) loadSpecialPublication(storyID id, r row) error {
-	val := strings.TrimSpace(r.getValue("pub_special"))
-	if len(val) == 0 {
-		return nil
-	}
+	for _, val := range strings.Split(r.getValue("pub_special"), ";") {
+		val = strings.TrimSpace(val)
+		if len(val) == 0 {
+			continue
+		}
 
-	pubType := PUB_MUU
-	if strings.Contains(strings.ToLower(val), "suuralbumi") {
-		pubType = PUB_SUUR
-	} else if strings.Contains(strings.ToLower(val), "maxi-tex") {
-		pubType = PUB_MAXI
-	}
+		pubType := PUB_MUU
+		lower := strings.ToLower(val)
+		if strings.Contains(lower, "suuralbumi") {
+			pubType = PUB_SUUR
+		} else if strings.Contains(lower, "maxi-tex") {
+			pubType = PUB_MAXI
+		}
 
-	pub := &db.Publication{
-		Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
-		Type:  pubType,
-		Issue: val,
-	}
+		pub := &db.Publication{
+			Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
+			Type:  pubType,
+			Issue: val,
+		}
 
-	title, err := i.parseNonBaseTitle(pubType, r)
-	if err != nil {
-		return err
-	}
+		title, err := i.parseNonBaseTitle(pubType, r)
+		if err != nil {
+			return err
+		}
 
-	i.ensureStoryPublication(storyID, pub, title)
+		i.ensureStoryPublication(storyID, pub, title)
+	}
 
 	return nil
 }
 
 func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
-	val := strings.TrimSpace(r.getValue("italy_pub_special"))
-	if len(val) == 0 {
-		return nil
-	}
-
-	pubType := italianSpecialPublicationType(val)
-	pub := &db.Publication{
-		Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
-		Type:  pubType,
-		Issue: val,
-	}
-
 	titles := strings.Split(r.getValue("italy_story_title"), ";")
-	if len(titles) == 0 {
-		return fmt.Errorf("title is missing")
+	title := ""
+	if len(titles) > 0 {
+		title = strings.TrimSpace(titles[0])
 	}
-	title := strings.TrimSpace(titles[0])
 	if len(titles) >= 2 {
 		title = strings.TrimSpace(titles[1])
 	}
 
-	i.ensureStoryPublication(storyID, pub, title)
+	for _, val := range strings.Split(r.getValue("italy_pub_special"), ";") {
+		val = strings.TrimSpace(val)
+		if len(val) == 0 {
+			continue
+		}
+
+		pubType := italianSpecialPublicationType(val)
+		pub := &db.Publication{
+			Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
+			Type:  pubType,
+			Issue: val,
+		}
+
+		i.ensureStoryPublication(storyID, pub, title)
+	}
 
 	return nil
 }
@@ -342,7 +361,7 @@ func (i *importer) loadKirjasto(storyID id, r row) error {
 		Type:  PUB_KIRJASTO,
 		Issue: val,
 	}
-	title, err := i.parseNonBaseTitle(PUB_KRONIKKA, r)
+	title, err := i.parseNonBaseTitle(PUB_KIRJASTO, r)
 	if err != nil {
 		return err
 	}
@@ -358,6 +377,116 @@ func (i *importer) parseIssueNum(val string) (int, error) {
 	parts = strings.Split(val, "/")
 	val = parts[0]
 	return strconv.Atoi(strings.TrimSpace(val))
+}
+
+// detectWrap returns whether toVal indicates a year-boundary wrap. Wrap is
+// detected either from `to < from` (legacy: "1" after "12" implies 1 of next
+// year) or from an explicit "/yy" suffix on toVal (handles the case where the
+// integer range alone would look in-year, e.g. "1" after "1" with /09).
+// A "/yy" that resolves to a year other than outerYear or outerYear+1 is
+// rejected — the importer does not support multi-year wraps.
+func detectWrap(toVal string, from, to, outerYear int) (bool, error) {
+	raw := strings.TrimSpace(strings.Split(toVal, "(")[0])
+	parts := strings.Split(raw, "/")
+	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+		return to < from, nil
+	}
+	yearStr := strings.TrimSpace(parts[1])
+	parsed, err := strconv.Atoi(yearStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid wrap year %q in %q: %w", yearStr, toVal, err)
+	}
+	matches := func(target int) bool {
+		if parsed == target {
+			return true
+		}
+		return len(yearStr) <= 2 && parsed == target%100
+	}
+	if matches(outerYear + 1) {
+		return true, nil
+	}
+	if matches(outerYear) {
+		return false, nil
+	}
+	return false, fmt.Errorf("publication wrap year mismatch: %q implies year %d, but outer year is %d", toVal, parsed, outerYear)
+}
+
+// applyExclusion removes issues matching an "(ei X-Y[/yy])" annotation in
+// toVal. If no annotation is present the input slice is returned unchanged.
+func applyExclusion(issues []map[string]int, toVal string, outerYear int) ([]map[string]int, error) {
+	exFrom, exTo, exYear, has, err := parseExclusion(toVal, outerYear)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return issues, nil
+	}
+	filtered := make([]map[string]int, 0, len(issues))
+	for _, iss := range issues {
+		if iss["year"] == exYear && iss["num"] >= exFrom && iss["num"] <= exTo {
+			continue
+		}
+		filtered = append(filtered, iss)
+	}
+	return filtered, nil
+}
+
+// parseExclusion extracts an "(ei X-Y)" or "(ei X-Y/yy)" annotation. Returns
+// has=false when no such annotation exists. When the annotation has no /yy
+// suffix the exclusion year defaults to outerYear.
+func parseExclusion(toVal string, outerYear int) (exFrom, exTo, exYear int, has bool, err error) {
+	open := strings.Index(toVal, "(")
+	if open == -1 {
+		return 0, 0, 0, false, nil
+	}
+	rest := toVal[open+1:]
+	close := strings.Index(rest, ")")
+	if close == -1 {
+		return 0, 0, 0, false, nil
+	}
+	annot := strings.TrimSpace(rest[:close])
+	if !strings.HasPrefix(strings.ToLower(annot), "ei ") {
+		return 0, 0, 0, false, nil
+	}
+	body := strings.TrimSpace(annot[3:])
+
+	rangePart := body
+	exYear = outerYear
+	if slash := strings.Index(body, "/"); slash != -1 {
+		rangePart = strings.TrimSpace(body[:slash])
+		yStr := strings.TrimSpace(body[slash+1:])
+		if yStr != "" {
+			y, err := strconv.Atoi(yStr)
+			if err != nil {
+				return 0, 0, 0, false, fmt.Errorf("invalid ei year %q in %q: %w", yStr, toVal, err)
+			}
+			if len(yStr) <= 2 {
+				// Anchor a 2-digit year near outerYear (±50yr window).
+				century := (outerYear / 100) * 100
+				y = century + y
+				if y < outerYear-50 {
+					y += 100
+				} else if y > outerYear+50 {
+					y -= 100
+				}
+			}
+			exYear = y
+		}
+	}
+
+	bounds := strings.Split(rangePart, "-")
+	if len(bounds) != 2 {
+		return 0, 0, 0, false, fmt.Errorf("invalid ei range %q in %q", rangePart, toVal)
+	}
+	exFrom, err = strconv.Atoi(strings.TrimSpace(bounds[0]))
+	if err != nil {
+		return 0, 0, 0, false, fmt.Errorf("invalid ei range start %q in %q: %w", bounds[0], toVal, err)
+	}
+	exTo, err = strconv.Atoi(strings.TrimSpace(bounds[1]))
+	if err != nil {
+		return 0, 0, 0, false, fmt.Errorf("invalid ei range end %q in %q: %w", bounds[1], toVal, err)
+	}
+	return exFrom, exTo, exYear, true, nil
 }
 
 func (i *importer) hasPublicationWithHash(hash string) bool {
@@ -455,14 +584,14 @@ func italianStyleIssues(from, to, year int) []map[string]int {
 	return out
 }
 
-func getIssuesBetween(from int, to int, year int) ([]map[string]int, error) {
+func getIssuesBetween(from int, to int, year int, wrap bool) ([]map[string]int, error) {
 	annualCount := getPublishedAnnualCount(year)
 	if annualCount <= 0 {
 		return nil, fmt.Errorf("no known annual publication count for year %d", year)
 	}
 
 	upTo := to
-	if to < from {
+	if wrap {
 		upTo = annualCount + to
 	}
 
@@ -472,7 +601,7 @@ func getIssuesBetween(from int, to int, year int) ([]map[string]int, error) {
 		num := i
 		if i > annualCount {
 			y = year + 1
-			num = i % annualCount
+			num = ((i - 1) % annualCount) + 1
 		}
 		issues = append(issues, map[string]int{
 			"year": y,
