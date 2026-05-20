@@ -296,3 +296,108 @@ func TestLoadItalianBasePublication_InvalidRangeErrors(t *testing.T) {
 		t.Fatalf("expected error for italian range to<from")
 	}
 }
+
+// Bug A: 1979 wrap-around must use annualCount=13, not 12.
+// Row Vuosi=1979, Alkaen=13, Päättyen=2/80 must emit issue 13/1979,
+// 1/1980, 2/1980 — previously issue 13/1979 was silently dropped.
+func TestLoadBasePublication_1979WrapUsesCorrectCadence(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-1979"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"story_title": "Tarina 1979",
+		"pub_year":    "1979",
+		"pub_from":    "13",
+		"pub_to":      "2/80",
+	})
+
+	if err := i.loadBasePublication(story.ID, r); err != nil {
+		t.Fatalf("loadBasePublication failed: %v", err)
+	}
+
+	for _, want := range []struct {
+		year  int
+		issue string
+	}{{1979, "13"}, {1980, "1"}, {1980, "2"}} {
+		if findPublication(i, PUB_PERUS, want.year, want.issue) == nil {
+			t.Errorf("expected publication (perus, %d, %q)", want.year, want.issue)
+		}
+	}
+}
+
+// Bug A: 1980+ wrap-around must use annualCount=16, not 12.
+// Row Vuosi=1980, Alkaen=16, Päättyen=2/81 previously produced NO publications
+// (loop range was 16..14 — empty). After the fix it must emit 16/1980, 1/1981, 2/1981.
+func TestLoadBasePublication_1980WrapUsesCorrectCadence(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-1980"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"story_title": "Tarina 1980",
+		"pub_year":    "1980",
+		"pub_from":    "16",
+		"pub_to":      "2/81",
+	})
+
+	if err := i.loadBasePublication(story.ID, r); err != nil {
+		t.Fatalf("loadBasePublication failed: %v", err)
+	}
+
+	for _, want := range []struct {
+		year  int
+		issue string
+	}{{1980, "16"}, {1981, "1"}, {1981, "2"}} {
+		if findPublication(i, PUB_PERUS, want.year, want.issue) == nil {
+			t.Errorf("expected publication (perus, %d, %q)", want.year, want.issue)
+		}
+	}
+}
+
+// Bug A: 1985 mid-year-to-next-year must emit every issue in between,
+// not just the wrap endpoints. Cadence is 16, so Alkaen=12 to Päättyen=1/86
+// must produce issues 12..16/1985 + 1/1986.
+func TestLoadBasePublication_1985WrapEmitsAllIntermediateIssues(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-1985"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"story_title": "Tarina 1985",
+		"pub_year":    "1985",
+		"pub_from":    "12",
+		"pub_to":      "1/86",
+	})
+
+	if err := i.loadBasePublication(story.ID, r); err != nil {
+		t.Fatalf("loadBasePublication failed: %v", err)
+	}
+
+	for _, want := range []struct {
+		year  int
+		issue string
+	}{{1985, "12"}, {1985, "13"}, {1985, "14"}, {1985, "15"}, {1985, "16"}, {1986, "1"}} {
+		if findPublication(i, PUB_PERUS, want.year, want.issue) == nil {
+			t.Errorf("expected publication (perus, %d, %q)", want.year, want.issue)
+		}
+	}
+}
+
+// Bug A: unknown cadence (no branch in getPublishedAnnualCount) must surface
+// as a clear error rather than silently producing issue 0 via i % -1.
+func TestLoadBasePublication_UnknownCadenceErrors(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-unknown"})
+
+	// Year 1968 has no cadence branch; importer must refuse rather than
+	// silently produce garbage.
+	r := newPubRow(i, 0, map[string]string{
+		"story_title": "Tarina 1968",
+		"pub_year":    "1968",
+		"pub_from":    "5",
+		"pub_to":      "6",
+	})
+
+	err := i.loadBasePublication(story.ID, r)
+	if err == nil {
+		t.Fatalf("expected error for unknown annual cadence")
+	}
+}

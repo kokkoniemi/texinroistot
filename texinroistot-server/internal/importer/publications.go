@@ -157,7 +157,10 @@ func (i *importer) handleBasePublications(
 
 	var issues []map[string]int
 	if wrapAnnually {
-		issues = getIssuesBetween(from, to, year)
+		issues, err = getIssuesBetween(from, to, year)
+		if err != nil {
+			return err
+		}
 	} else {
 		if to < from {
 			return fmt.Errorf("italian publication range invalid: from=%d > to=%d", from, to)
@@ -428,7 +431,7 @@ func getPublishedAnnualCount(year int) int {
 	if year >= 1955 && year <= 1964 {
 		return 26
 	}
-	if year >= 1971 || year <= 1978 {
+	if year >= 1971 && year <= 1978 {
 		return 12
 	}
 	if year == 1979 {
@@ -452,15 +455,18 @@ func italianStyleIssues(from, to, year int) []map[string]int {
 	return out
 }
 
-func getIssuesBetween(from int, to int, year int) []map[string]int {
-	issues := []map[string]int{}
-
+func getIssuesBetween(from int, to int, year int) ([]map[string]int, error) {
 	annualCount := getPublishedAnnualCount(year)
+	if annualCount <= 0 {
+		return nil, fmt.Errorf("no known annual publication count for year %d", year)
+	}
+
 	upTo := to
 	if to < from {
 		upTo = annualCount + to
 	}
 
+	issues := []map[string]int{}
 	for i := from; i <= upTo; i++ {
 		y := year
 		num := i
@@ -474,5 +480,5 @@ func getIssuesBetween(from int, to int, year int) []map[string]int {
 		})
 	}
 
-	return issues
+	return issues, nil
 }
