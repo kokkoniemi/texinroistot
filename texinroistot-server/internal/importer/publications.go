@@ -88,6 +88,22 @@ func (i *importer) getStoryPublications(storyID id) []*importerStoryPublication 
 	return filtered
 }
 
+// ensureStoryPublication ensures pub exists and that storyID is linked to it.
+// If a publication with the same hash already exists, it is reused; either way
+// the story-publication link is created when missing.
+func (i *importer) ensureStoryPublication(storyID id, pub *db.Publication, title string) {
+	idx := i.getPublicationIndexWithHash(pub.Hash)
+	var pubID id
+	if idx == -1 {
+		pubID = i.addPublication(pub).ID
+	} else {
+		pubID = i.publications[idx].ID
+	}
+	if !i.hasStoryPublication(storyID, pubID) {
+		i.addStoryPublication(storyID, pubID, title)
+	}
+}
+
 func (i *importer) handleBasePublications(
 	storyID id,
 	r row,
@@ -97,6 +113,7 @@ func (i *importer) handleBasePublications(
 	yearCol string,
 	fromCol string,
 	toCol string,
+	wrapAnnually bool,
 ) error {
 	yearVal := r.getValue(yearCol)
 	fromVal := r.getValue(fromCol)
@@ -138,19 +155,24 @@ func (i *importer) handleBasePublications(
 		title = titles[titleIndex]
 	}
 
-	for _, issue := range getIssuesBetween(from, to, year) {
+	var issues []map[string]int
+	if wrapAnnually {
+		issues = getIssuesBetween(from, to, year)
+	} else {
+		if to < from {
+			return fmt.Errorf("italian publication range invalid: from=%d > to=%d", from, to)
+		}
+		issues = italianStyleIssues(from, to, year)
+	}
+
+	for _, issue := range issues {
 		pub := &db.Publication{
 			Hash:  crypt.Hash(fmt.Sprintf("%s%v%v", pubType, issue["year"], issue["num"])),
 			Type:  pubType,
-			Year:  year,
+			Year:  issue["year"],
 			Issue: fmt.Sprintf("%v", issue["num"]),
 		}
-		if !i.hasPublicationWithHash(pub.Hash) {
-			importerPublication := i.addPublication(pub)
-			if !i.hasStoryPublication(storyID, importerPublication.ID) {
-				i.addStoryPublication(storyID, importerPublication.ID, title)
-			}
-		}
+		i.ensureStoryPublication(storyID, pub, title)
 	}
 
 	return nil
@@ -159,19 +181,19 @@ func (i *importer) handleBasePublications(
 func (i *importer) loadBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_PERUS, "story_title", 0, "pub_year", "pub_from",
-		"pub_to")
+		"pub_to", true)
 }
 
 func (i *importer) loadBaseRePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_PERUS, "story_title", 1, "repub_year", "repub_from",
-		"repub_to")
+		"repub_to", true)
 }
 
 func (i *importer) loadItalianBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_IT_PERUS, "italy_story_title", 0, "italy_year",
-		"italy_pub_from", "italy_pub_to")
+		"italy_pub_from", "italy_pub_to", false)
 }
 
 // parseNonBaseTitle parses the title for publications other than PUB_PERUS, PUB_IT_PERUS, PUB_IT_ERIK
@@ -229,12 +251,7 @@ func (i *importer) loadSpecialPublication(storyID id, r row) error {
 		return err
 	}
 
-	if !i.hasPublicationWithHash(pub.Hash) {
-		importerPublication := i.addPublication(pub)
-		if !i.hasStoryPublication(storyID, importerPublication.ID) {
-			i.addStoryPublication(storyID, importerPublication.ID, title)
-		}
-	}
+	i.ensureStoryPublication(storyID, pub, title)
 
 	return nil
 }
@@ -261,12 +278,7 @@ func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
 		title = strings.TrimSpace(titles[1])
 	}
 
-	if !i.hasPublicationWithHash(pub.Hash) {
-		importerPublication := i.addPublication(pub)
-		if !i.hasStoryPublication(storyID, importerPublication.ID) {
-			i.addStoryPublication(storyID, importerPublication.ID, title)
-		}
-	}
+	i.ensureStoryPublication(storyID, pub, title)
 
 	return nil
 }
@@ -311,12 +323,7 @@ func (i *importer) loadKronikka(storyID id, r row) error {
 		return err
 	}
 
-	if !i.hasPublicationWithHash(pub.Hash) {
-		importerPublication := i.addPublication(pub)
-		if !i.hasStoryPublication(storyID, importerPublication.ID) {
-			i.addStoryPublication(storyID, importerPublication.ID, title)
-		}
-	}
+	i.ensureStoryPublication(storyID, pub, title)
 
 	return nil
 }
@@ -337,12 +344,7 @@ func (i *importer) loadKirjasto(storyID id, r row) error {
 		return err
 	}
 
-	if !i.hasPublicationWithHash(pub.Hash) {
-		importerPublication := i.addPublication(pub)
-		if !i.hasStoryPublication(storyID, importerPublication.ID) {
-			i.addStoryPublication(storyID, importerPublication.ID, title)
-		}
-	}
+	i.ensureStoryPublication(storyID, pub, title)
 
 	return nil
 }
@@ -437,6 +439,17 @@ func getPublishedAnnualCount(year int) int {
 	}
 	return -1
 
+}
+
+// italianStyleIssues iterates from..to inclusive without wrapping across years.
+// Italian Tex numbers are a single ever-growing series; the year only records
+// when the issue was printed.
+func italianStyleIssues(from, to, year int) []map[string]int {
+	out := make([]map[string]int, 0, to-from+1)
+	for n := from; n <= to; n++ {
+		out = append(out, map[string]int{"year": year, "num": n})
+	}
+	return out
 }
 
 func getIssuesBetween(from int, to int, year int) []map[string]int {
