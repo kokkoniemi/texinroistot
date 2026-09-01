@@ -4,7 +4,6 @@ TODO: tarkista filtterit. Suomen perussarjassa ei näytä esim. kuolma tulee tai
 TODO: Salanimi Roistot-sivun Järjestys-filtteriin.
 TODO: Aakkosten mukainen sivutus
 TODO: Migraatiot. Miten tietokantamuutokset ajetaan sisään helpommin?
-TODO: Ohjelmaversio ei toimi. Sen voisi ottaa IMAGE_TAG-muuttujasta ja paikallisesti syöttää aikaleiman
 
 TODO: Svelte 5 Migration
 The app installs Svelte 5 (`^5.53.7`) but runs entirely in legacy Svelte 4 mode. Migration involves:
