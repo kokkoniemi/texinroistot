@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Read(//**/*.env)",
+      "Read(//**/*.env.*)",
+      "Read(//**/*.pem)",
+      "Read(//**/*.key)",
+      "Read(//**/*.p12)",
+      "Read(//**/*.pfx)",
+      "Read(//**/id_rsa*)",
+      "Read(//**/id_ed25519*)",
+      "Read(//**/id_ecdsa*)",
+      "Read(//**/id_dsa*)",
+      "Read(//**/.ssh/**)",
+      "Read(//**/wireguard/**)",
+      "Read(//**/wg*.conf)",
+      "Read(//**/*.ovpn)",
+      "Read(//**/secrets/**)",
+      "Read(//**/*.token)",
+      "Read(//**/*.tokens)",
+      "Read(//**/tokens.json)",
+      "Read(//**/credentials.json)",
+      "Read(//**/*.dump)",
+      "Read(//**/*.dump.*)",
+      "Read(//**/*.backup)",
+      "Read(//**/*.backup.*)",
+      "Read(//**/*.sql.gz)",
+      "Read(//**/*.sql.bz2)",
+      "Read(//**/*.sql.xz)",
+      "Read(//**/*.sql.zst)",
+      "Read(//**/*dump*.sql)",
+      "Read(//**/backup*.sql)",
+      "Read(//**/backups/**)",
+      "Read(//**/dumps/**)",
+      "Read(//**/production-data/**)"
+    ]
+  }
+}

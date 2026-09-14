@@ -1,0 +1,8 @@
+FROM docker.io/migrate/migrate:v4.20.1
+
+COPY internal/db/migrations /migrations
+
+USER 65534:65534
+
+ENTRYPOINT ["migrate", "-path", "/migrations"]
+CMD ["-help"]

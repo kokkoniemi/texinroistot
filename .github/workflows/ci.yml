@@ -6,7 +6,36 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  migrations:
+    name: PostgreSQL 17 Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test migration history guard
+        run: python3 -B -m unittest discover -s scripts -p 'test_*.py'
+      - name: Check append-only migration history
+        env:
+          MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ "${MIGRATION_BASE_REF}" == "0000000000000000000000000000000000000000" ]]; then
+            MIGRATION_BASE_REF="$(git hash-object -w -t tree /dev/null)"
+          fi
+          python3 scripts/check_migration_history.py --base-ref "${MIGRATION_BASE_REF}"
+      - name: Validate up/down/up and schema snapshot
+        run: bash scripts/check_migrations.sh
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: texinroistot-server/go.mod
+      - name: Build backend and importer
+        working-directory: texinroistot-server
+        run: go build ./...
+
   backend:
     name: Backend Test
     runs-on: ubuntu-latest

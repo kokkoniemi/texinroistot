@@ -1,0 +1,6 @@
+**
+!Dockerfile.migrator
+!internal/
+!internal/db/
+!internal/db/migrations/
+!internal/db/migrations/*.sql

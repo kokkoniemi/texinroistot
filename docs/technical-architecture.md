@@ -60,7 +60,7 @@ Backend base URL for proxy is resolved at runtime via `BACKEND_HOST` (`$env/dyna
 ## Database
 
 - Engine: PostgreSQL
-- Schema file: `texinroistot-server/internal/db/schema.sql`
+- Schema source: `texinroistot-server/internal/db/migrations/`; reviewed snapshot: `texinroistot-server/internal/db/schema.sql`
 - Key tables:
   - `versions`
   - `villains`, `villains_in_stories`

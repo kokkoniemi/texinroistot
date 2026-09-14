@@ -17,6 +17,16 @@ services:
       timeout: "5s"
       retries: 10
 
+  migrate:
+    build:
+      context: ./texinroistot-server
+      dockerfile: Dockerfile.migrator
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["-database", "postgres://tex:willer@db:5432/tex?sslmode=disable", "up"]
+    restart: "no"
+
   backend:
     build:
       dockerfile: Dockerfile.dev.server
@@ -24,6 +34,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - "./texinroistot-server/.env"
     volumes:
@@ -61,6 +73,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - "./texinroistot-server/.env"
     volumes:

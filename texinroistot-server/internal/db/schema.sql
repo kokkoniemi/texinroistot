@@ -1,4 +1,5 @@
--- This script documents the database structure. It can also be used to create the tables in an empty database 
+-- Reviewed schema snapshot. Migrations in internal/db/migrations/ are the source of truth.
+-- Bootstrap with scripts/init_schema.sh; this snapshot is executed only for disposable schema-parity checks.
 
 -- AUTHORS:
 
