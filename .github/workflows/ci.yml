@@ -5,6 +5,12 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-release-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -14,22 +20,26 @@ jobs:
     name: PostgreSQL 17 Migrations
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
-      - name: Test migration history guard
+          persist-credentials: false
+      - name: Test migration and release guards
         run: python3 -B -m unittest discover -s scripts -p 'test_*.py'
       - name: Check append-only migration history
         env:
           MIGRATION_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
+          if [[ -z "${MIGRATION_BASE_REF}" ]]; then
+            MIGRATION_BASE_REF="$(git rev-parse --verify HEAD^ 2>/dev/null || git hash-object -w -t tree /dev/null)"
+          fi
           if [[ "${MIGRATION_BASE_REF}" == "0000000000000000000000000000000000000000" ]]; then
             MIGRATION_BASE_REF="$(git hash-object -w -t tree /dev/null)"
           fi
           python3 scripts/check_migration_history.py --base-ref "${MIGRATION_BASE_REF}"
       - name: Validate up/down/up and schema snapshot
         run: bash scripts/check_migrations.sh
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
           go-version-file: texinroistot-server/go.mod
       - name: Build backend and importer
@@ -43,8 +53,10 @@ jobs:
       run:
         working-directory: texinroistot-server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
         with:
           go-version-file: texinroistot-server/go.mod
       - run: go test ./...
@@ -57,8 +69,10 @@ jobs:
       run:
         working-directory: texinroistot-ui
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: npm
@@ -67,3 +81,14 @@ jobs:
       - run: npm run check
       - run: npm run lint
       - run: npm run build
+
+  release:
+    needs: [migrations, backend, frontend]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/images.yml
+    secrets:
+      GITLAB_TRIGGER_URL: ${{ secrets.GITLAB_TRIGGER_URL }}
+      GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}

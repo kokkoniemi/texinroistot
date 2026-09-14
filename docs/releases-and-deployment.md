@@ -1,0 +1,61 @@
+# Release and deployment boundary
+
+This public repository owns application source, migrations, tests, and image builds. The private infrastructure repository owns deployment bundles, host configuration, operational plans, deployment jobs, and their logs. Do not add live deployment files or host details here. Git ignore rules prevent accidental additions, but do not make tracked files private or erase published history.
+
+## Automatic release flow
+
+`ci.yml` is the only push entry point. Pull requests run checks only; pushes to `main` and manual CI runs on `main` run this sequence:
+
+1. A push to `main` passes application and migration checks.
+2. The reusable `images.yml` workflow selects the next strict SemVer patch tag, or reuses the tag already pointing to the tested commit.
+3. GitHub publishes backend, frontend, importer, and migrator images with matching `sha-<full SHA>` and `vX.Y.Z` tags, verifies their revision labels and digests, then creates the Git tag and GitHub Release.
+4. If explicitly enabled, a final GitHub job invokes `scripts/trigger_deployment.py` with the release tag and source commit.
+5. GitLab runs the private rollout pipeline, validating the requested release before deployment.
+
+The release path is implemented; no remote publication or deployment is performed by editing these files. Merging this workflow to `main` enables release publication. Deployment handoff remains off unless the operator sets the GitHub repository variable `ENABLE_GITLAB_HANDOFF=true`. The private pipeline has its own separate enablement gate; keep both off until rehearsal and the database transition succeed.
+
+Whole CI runs share a branch-specific concurrency group with `cancel-in-progress: false` and `queue: max`. GitHub permits up to 100 pending runs; overflow is canceled. Queue order follows when runs start waiting, not necessarily commit order. Version selection rejects untagged commits older than the latest release, and old release retries cannot trigger automatic rollback. See [GitHub concurrency semantics](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+
+There is no version commit, independent tag-triggered build, or mutable `latest`, `main`, major, or minor tag publication. Use full release tags. Existing convenience tags from the previous workflow are no longer updated.
+
+## Image and retry safety
+
+`scripts/release.py` uses numeric SemVer ordering, beginning at `v0.0.1` when there are no strict release tags. Annotated and lightweight tags are supported. More than one release tag on the same commit requires operator review. Tags must be protected against manual moves/deletion; image write access must be limited to trusted publishers. The workflow refuses overwrites, but does not make GHCR tags immutable against other writers.
+
+Each build first pushes an untagged, content-addressed candidate. This also creates a new image package before checking named tags; authentication failures are never interpreted as proof that an image is absent. Only a confirmed missing tag can be created. Both named tags must resolve to the same digest and carry the tested commit's revision label. Builds target `linux/amd64`; provenance attestations are deferred to the hardening phase. See [Docker's image exporter](https://docs.docker.com/build/exporters/image-registry/).
+
+Retries can rebuild candidates, but retain existing source/release digests even if a base image has changed. Image jobs publish only source-SHA tags. A separate promotion job preflights all four source and version tags before assigning any version tag, so a partial earlier release cannot be mixed with a later commit. A partial promotion is completed from its already-published source digests. All four components are verified again before GitHub tag/release creation. Generated release notes include the source SHA and four image digests.
+
+Recovery rules:
+
+- Failed checks publish nothing. Failed image jobs may leave partial image tags or untagged candidates, but create no GitHub Release and perform no handoff.
+- Retry the failed run for the same SHA to finish a partial release. Do not delete or overwrite tags. A later SHA encountering that partial version fails closed; finish the original run first, then rerun the later workflow in full to recalculate its version.
+- If only GitHub Release creation fails after the Git tag is created, retry reuses the tag and completes the release.
+- Rerunning an already-published release does not allocate another version. A superseded release cannot trigger handoff. Application rollback remains an explicit operation in the private repository, keeping migrations forward-only.
+- If handoff times out, check private GitLab status before retrying: the request may have been accepted. A repeated request can create another pipeline; the trigger API does not provide exactly-once delivery.
+
+## Operator setup
+
+The operator configures `GITLAB_TRIGGER_URL` and a dedicated `GITLAB_TRIGGER_TOKEN` as GitHub Actions secrets. The URL must be an HTTPS GitLab pipeline-trigger endpoint for the private project. The helper sends validated `release_tag` and `source_sha` pipeline inputs to the private repository's `main` branch. It rejects redirects and never prints the token, endpoint, or response body. Trigger acceptance is not deployment success; the final outcome is recorded in private GitLab jobs.
+
+Only the trusted post-release `main` job may use the trigger credential. Do not invoke the helper in pull-request jobs. SSH/VPN credentials and host settings stay outside this repository and its Actions jobs. Operator configuration does not require an agent to inspect existing credentials.
+
+Quality jobs have read-only repository permissions. Image jobs add package writes; only the release-creation job gets repository writes, and its package access is read-only. The handoff job has repository read access only. The reusable-workflow caller grants the maximum needed permissions, which its individual jobs reduce. Checkout does not persist credentials.
+
+Ensure repository rules allow the scoped workflow token to create release tags and releases, while preventing other unreviewed tag changes. New GHCR packages may initially be private: the operator must review visibility and package access for all four components, including the new migrator. Host-side access is configured privately, not by this workflow.
+
+Third-party actions are pinned to verified commits without upgrading the existing major versions: checkout v4, setup-go v5, setup-node v4, setup-buildx v3, and login v3. `.github/dependabot.yml` proposes weekly action updates for review; do not auto-merge privileged workflow changes.
+
+The receiving GitLab pipeline must validate inputs, restrict execution to its protected deployment branch, serialize rollouts, and verify that image source labels match the requested source commit. Its rollout logic must not invoke infrastructure apply commands. Keep deployment disabled until a disposable-host rehearsal and the database transition have succeeded.
+
+## Local validation
+
+Validate release allocation, immutable-tag guards, partial failures, stale retries, and the handoff helper without network access or real credentials:
+
+```bash
+python3 -B -m unittest discover -s scripts -p 'test_*.py'
+```
+
+These tests use temporary Git repositories and mocked registry/GitHub/GitLab operations. They do not prove live registry permissions or end-to-end CI execution. The first observed release must confirm all four tags/digests and notes while handoff remains disabled.
+
+References: [GitLab pipeline triggers and validated inputs](https://docs.gitlab.com/ci/triggers/), [GitHub reusable workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows).

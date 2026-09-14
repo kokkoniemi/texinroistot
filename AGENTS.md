@@ -56,7 +56,8 @@
 - Do not add new dependencies unless necessary for the task.
 
 ## Release and Deployment
-- Never run production deployments, OpenTofu, or infrastructure apply commands without explicit operator authorization. A plan or code change does not authorize production execution, secret access, or WireGuard changes.
+- The application is public; deployment bundles, operational plans, host details, and deployment jobs/logs belong in the private infrastructure repository. Only a development deployment currently exists.
+- Never run live deployments, OpenTofu, or infrastructure apply commands without explicit operator authorization. A plan or code change does not authorize live execution, secret access, or VPN changes.
 - Release workflow changes require least-privilege permissions, immutable release image tags, concurrency control, and a documented rollback path.
 - Deployment scripts must support a local dry run and fail closed on preflight, backup, migration, or health-check errors. Validate dry-run behavior and failure paths on disposable targets before production use.
 - Backup and migration must succeed before replacing application containers. On failed post-deploy health checks, restore the previous application image tag while keeping the database migrated forward.

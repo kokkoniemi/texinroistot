@@ -1,210 +1,148 @@
-name: Build And Publish Images
+name: Publish Release
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
+  workflow_call:
+    secrets:
+      GITLAB_TRIGGER_URL:
+        required: false
+      GITLAB_TRIGGER_TOKEN:
+        required: false
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  build:
-    name: Build And Push Images
-    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/') }}
+  plan:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select or reuse patch release
+        id: release
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/release.py plan --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
 
-      - name: Derive image names
-        id: vars
-        run: |
-          OWNER_LC="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          REPO_LC="$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')"
-          echo "backend=ghcr.io/${OWNER_LC}/${REPO_LC}-backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=ghcr.io/${OWNER_LC}/${REPO_LC}-frontend" >> "$GITHUB_OUTPUT"
-          echo "importer=ghcr.io/${OWNER_LC}/${REPO_LC}-importer" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login To GHCR
-        uses: docker/login-action@v3
+  images:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend, importer, migrator]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish or verify immutable source image
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          COMPONENT: ${{ matrix.component }}
+        run: >-
+          python3 scripts/release.py image --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
+          --component "$COMPONENT"
 
-      - name: Backend image metadata
-        id: backend-meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.vars.outputs.backend }}
-          flavor: |
-            latest=false
-          tags: |
-            type=ref,event=branch
-            type=sha,format=long,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build And Push Backend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./texinroistot-server
-          file: ./texinroistot-server/Dockerfile.prod
-          push: true
-          tags: ${{ steps.backend-meta.outputs.tags }}
-          labels: ${{ steps.backend-meta.outputs.labels }}
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,mode=max,scope=backend
-
-      - name: Frontend image metadata
-        id: frontend-meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.vars.outputs.frontend }}
-          flavor: |
-            latest=false
-          tags: |
-            type=ref,event=branch
-            type=sha,format=long,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build And Push Frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./texinroistot-ui
-          file: ./texinroistot-ui/Dockerfile.prod
-          push: true
-          tags: ${{ steps.frontend-meta.outputs.tags }}
-          labels: ${{ steps.frontend-meta.outputs.labels }}
-          cache-from: type=gha,scope=frontend
-          cache-to: type=gha,mode=max,scope=frontend
-
-      - name: Importer image metadata
-        id: importer-meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.vars.outputs.importer }}
-          flavor: |
-            latest=false
-          tags: |
-            type=ref,event=branch
-            type=sha,format=long,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build And Push Importer
-        uses: docker/build-push-action@v6
-        with:
-          context: ./texinroistot-server
-          file: ./texinroistot-server/Dockerfile.importer
-          push: true
-          tags: ${{ steps.importer-meta.outputs.tags }}
-          labels: ${{ steps.importer-meta.outputs.labels }}
-          cache-from: type=gha,scope=importer
-          cache-to: type=gha,mode=max,scope=importer
-
-  retag-release:
-    name: Retag Existing Images For Release
-    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+  promote:
+    needs: [plan, images]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Derive image names and release tags
-        id: vars
-        run: |
-          OWNER_LC="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          REPO_LC="$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')"
-          RELEASE_TAG="${GITHUB_REF_NAME}"          # v1.2.3
-          RELEASE_VERSION="${RELEASE_TAG#v}"        # 1.2.3
-          RELEASE_MAJOR="$(echo "${RELEASE_VERSION}" | cut -d. -f1)"
-          RELEASE_MINOR="$(echo "${RELEASE_VERSION}" | cut -d. -f1-2)"
-          SOURCE_SHA_TAG="sha-${GITHUB_SHA}"
-
-          echo "backend=ghcr.io/${OWNER_LC}/${REPO_LC}-backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=ghcr.io/${OWNER_LC}/${REPO_LC}-frontend" >> "$GITHUB_OUTPUT"
-          echo "importer=ghcr.io/${OWNER_LC}/${REPO_LC}-importer" >> "$GITHUB_OUTPUT"
-          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "release_major=${RELEASE_MAJOR}" >> "$GITHUB_OUTPUT"
-          echo "release_minor=${RELEASE_MINOR}" >> "$GITHUB_OUTPUT"
-          echo "source_sha_tag=${SOURCE_SHA_TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login To GHCR
-        uses: docker/login-action@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Preflight all four images before promoting any release tag
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
+        run: >-
+          python3 scripts/release.py promote --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
+          --release-tag "$RELEASE_TAG"
 
-      - name: Retag Backend
-        run: |
-          IMAGE="${{ steps.vars.outputs.backend }}"
-          SOURCE_REF="${IMAGE}:${{ steps.vars.outputs.source_sha_tag }}"
+  release:
+    needs: [plan, promote]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    outputs:
+      handoff: ${{ steps.release.outputs.handoff }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify all images and create GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
+        run: >-
+          python3 scripts/release.py publish --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
+          --release-tag "$RELEASE_TAG"
 
-          for attempt in $(seq 1 30); do
-            if docker buildx imagetools inspect "${SOURCE_REF}" >/dev/null 2>&1; then
-              break
-            fi
-            if [ "$attempt" -eq 30 ]; then
-              echo "Source image not found: ${SOURCE_REF}"
-              exit 1
-            fi
-            echo "Waiting for source image ${SOURCE_REF} (attempt ${attempt}/30)..."
-            sleep 10
-          done
-
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_tag }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_version }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_minor }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_major }}" "${SOURCE_REF}"
-
-      - name: Retag Frontend
-        run: |
-          IMAGE="${{ steps.vars.outputs.frontend }}"
-          SOURCE_REF="${IMAGE}:${{ steps.vars.outputs.source_sha_tag }}"
-
-          for attempt in $(seq 1 30); do
-            if docker buildx imagetools inspect "${SOURCE_REF}" >/dev/null 2>&1; then
-              break
-            fi
-            if [ "$attempt" -eq 30 ]; then
-              echo "Source image not found: ${SOURCE_REF}"
-              exit 1
-            fi
-            echo "Waiting for source image ${SOURCE_REF} (attempt ${attempt}/30)..."
-            sleep 10
-          done
-
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_tag }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_version }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_minor }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_major }}" "${SOURCE_REF}"
-
-      - name: Retag Importer
-        run: |
-          IMAGE="${{ steps.vars.outputs.importer }}"
-          SOURCE_REF="${IMAGE}:${{ steps.vars.outputs.source_sha_tag }}"
-
-          for attempt in $(seq 1 30); do
-            if docker buildx imagetools inspect "${SOURCE_REF}" >/dev/null 2>&1; then
-              break
-            fi
-            if [ "$attempt" -eq 30 ]; then
-              echo "Source image not found: ${SOURCE_REF}"
-              exit 1
-            fi
-            echo "Waiting for source image ${SOURCE_REF} (attempt ${attempt}/30)..."
-            sleep 10
-          done
-
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_tag }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_version }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_minor }}" "${SOURCE_REF}"
-          docker buildx imagetools create --tag "${IMAGE}:${{ steps.vars.outputs.release_major }}" "${SOURCE_REF}"
+  handoff:
+    needs: [plan, release]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.release.outputs.handoff == 'true' && vars.ENABLE_GITLAB_HANDOFF == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Refuse handoff of a superseded release on retry
+        id: current
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
+        run: >-
+          python3 scripts/release.py handoff-check --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
+          --release-tag "$RELEASE_TAG"
+      - name: Request private deployment
+        if: steps.current.outputs.handoff == 'true'
+        env:
+          GITLAB_TRIGGER_URL: ${{ secrets.GITLAB_TRIGGER_URL }}
+          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+          RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: python3 scripts/trigger_deployment.py --release-tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA"

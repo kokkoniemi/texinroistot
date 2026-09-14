@@ -15,7 +15,7 @@ Validate agent setup from a clean clone without runtime files:
 3. In Gemini CLI, use `/memory show` to verify the imported `AGENTS.md`. Restart after changing `.geminiignore`.
 4. Confirm each agent identifies Go tests/race/build, Svelte check/lint/build, disposable migration validation, and deployment dry-run/failure checks. Test exclusions using synthetic files only; never probe with real secrets.
 
-Migration checks are available below. Production deployment scripts and their checks remain pending until the deployment phase lands.
+Migration checks are available below. Live deployment scripts, operational plans, and deployment checks are maintained in the private infrastructure repository; see [Release and deployment boundary](releases-and-deployment.md).
 
 Native configuration references: [Codex instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [Claude imports](https://code.claude.com/docs/en/memory#agentsmd), [Claude permissions](https://code.claude.com/docs/en/permissions#read-and-edit), [Gemini imports](https://google-gemini.github.io/gemini-cli/docs/cli/gemini-md.html), and [Gemini ignore patterns](https://google-gemini.github.io/gemini-cli/docs/cli/gemini-ignore.html).
 
@@ -39,7 +39,7 @@ Services:
 
 The pinned `golang-migrate` v4.20.1 image applies all forward migrations from `texinroistot-server/internal/db/migrations/`. Repeating bootstrap is a no-op when current. Compose waits for database health and successful migration completion before starting the backend or importer. Rebuild the migrator when adding SQL; the bootstrap script does this automatically.
 
-Existing databases created from the old `schema.sql` are not automatically adopted or erased. Migration 1 fails on their existing objects and records dirty state. Use a fresh database for this transition; do not use `force` to hide a failed migration. The approved one-time production rebuild and Excel reimport are a separate operator step in the migration/deployment plan.
+Existing databases created from the old `schema.sql` are not automatically adopted or erased. Migration 1 fails on their existing objects and records dirty state. Use a fresh database for this transition; do not use `force` to hide a failed migration. The one-time development database rebuild and Excel reimport are a separate operator step in the private deployment plan.
 
 To inspect the local migration version:
 
@@ -69,7 +69,7 @@ The container check needs Docker, Bash, and standard Unix tools. It builds the m
 CONTAINER_ENGINE=podman bash scripts/check_migrations.sh
 ```
 
-`down` is exercised only on this disposable database; production rollback remains forward-only. CI builds the backend and importer after migration validation succeeds. A master Excel reimport and production login/admin smoke test remain part of the separate rebuild procedure.
+`down` is exercised only on this disposable database; live rollback remains forward-only. CI builds the backend and importer after migration validation succeeds. A master Excel reimport and live login/admin smoke test remain part of the separate rebuild procedure.
 
 ## Import latest spreadsheet
 
@@ -123,10 +123,11 @@ npm run build
 
 ## Image publish workflow
 
-GitHub workflow `.github/workflows/images.yml` builds and pushes three GHCR images:
+After application and migration checks pass on `main`, `.github/workflows/ci.yml` calls the reusable `.github/workflows/images.yml` to publish four GHCR images:
 
 - backend
 - frontend
 - importer
+- migrator
 
-The migrator Dockerfile is validated in CI. Publishing it under the same immutable release tag as the other images will be wired in the release-pipeline phase. No infrastructure deployment is performed in this repository.
+All four receive matching source-SHA and immutable release tags before GitHub Release creation. Pull requests run checks only. Private deployment handoff is separately gated and disabled by default; no host-side deployment runs in GitHub. See [release publication, retries, and operator setup](releases-and-deployment.md).

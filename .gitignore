@@ -1,3 +1,5 @@
 .DS_Store
 *.swp
 .env
+/deploy/
+/docs/database-migrations-agents-and-deployment-plan.md
