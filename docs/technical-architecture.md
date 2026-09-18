@@ -91,15 +91,9 @@ All content entities are versioned via `version` foreign keys.
 4. Data is bulk inserted in dependency-safe order.
 5. Activation script marks newest version as only active version.
 
-## Deployment boundary
+## Release images
 
-This repository is an image producer:
-
-- backend image
-- frontend image
-- importer image
-
-Infrastructure composition and rollout is expected in a separate operations repository.
+CI publishes backend, frontend, importer, and migrator images. See [releases and retries](releases-and-deployment.md).
 
 ## Current constraints and notes
 

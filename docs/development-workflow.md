@@ -2,22 +2,7 @@
 
 ## Coding agent instructions
 
-Maintain shared rules in the root `AGENTS.md`. `CLAUDE.md` and `GEMINI.md` import it; keep backend/frontend checks, migration policy, and deployment authorization rules in that canonical file.
-
-Claude file-read exclusions are in `.claude/settings.json`; Gemini exclusions are in `.geminiignore`. These cover common env, key, VPN, token, dump, and production-data paths. They do not identify every possible secret filename or provide an OS-level boundary for arbitrary shell commands. The secret-handling rules in `AGENTS.md` apply to every tool.
-
-Gemini allows placeholder `*.example` and `*.env-example` templates. Claude deny rules have no allow exceptions, so env templates such as `backend.env.example` are also denied; use the existing `.env-example` naming convention for templates Claude needs to read.
-
-Validate agent setup from a clean clone without runtime files:
-
-1. Start Codex at the repository root and ask it to summarize the loaded repository instructions and required checks.
-2. In Claude Code, use `/context` to inspect memory files and `/permissions` to inspect the shared deny rules. Ask it to summarize the imported repository instructions.
-3. In Gemini CLI, use `/memory show` to verify the imported `AGENTS.md`. Restart after changing `.geminiignore`.
-4. Confirm each agent identifies Go tests/race/build, Svelte check/lint/build, disposable migration validation, and deployment dry-run/failure checks. Test exclusions using synthetic files only; never probe with real secrets.
-
-Migration checks are available below. Live deployment scripts, operational plans, and deployment checks are maintained in the private infrastructure repository; see [Release and deployment boundary](releases-and-deployment.md).
-
-Native configuration references: [Codex instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [Claude imports](https://code.claude.com/docs/en/memory#agentsmd), [Claude permissions](https://code.claude.com/docs/en/permissions#read-and-edit), [Gemini imports](https://google-gemini.github.io/gemini-cli/docs/cli/gemini-md.html), and [Gemini ignore patterns](https://google-gemini.github.io/gemini-cli/docs/cli/gemini-ignore.html).
+Follow [AGENTS.md](../AGENTS.md) for repository rules, safety constraints, and required checks.
 
 ## Local stack (Docker Compose)
 
@@ -39,7 +24,7 @@ Services:
 
 The pinned `golang-migrate` v4.20.1 image applies all forward migrations from `texinroistot-server/internal/db/migrations/`. Repeating bootstrap is a no-op when current. Compose waits for database health and successful migration completion before starting the backend or importer. Rebuild the migrator when adding SQL; the bootstrap script does this automatically.
 
-Existing databases created from the old `schema.sql` are not automatically adopted or erased. Migration 1 fails on their existing objects and records dirty state. Use a fresh database for this transition; do not use `force` to hide a failed migration. The one-time development database rebuild and Excel reimport are a separate operator step in the private deployment plan.
+Existing databases created from the old `schema.sql` are not automatically adopted or erased. Migration 1 fails on their existing objects and records dirty state. Use a fresh local database for migration testing; do not use `force` to hide a failed migration.
 
 To inspect the local migration version:
 
@@ -69,7 +54,7 @@ The container check needs Docker, Bash, and standard Unix tools. It builds the m
 CONTAINER_ENGINE=podman bash scripts/check_migrations.sh
 ```
 
-`down` is exercised only on this disposable database; live rollback remains forward-only. CI builds the backend and importer after migration validation succeeds. A master Excel reimport and live login/admin smoke test remain part of the separate rebuild procedure.
+`down` is exercised only on this disposable database. CI builds the backend and importer after migration validation succeeds.
 
 ## Import latest spreadsheet
 
@@ -130,4 +115,4 @@ After application and migration checks pass on `main`, `.github/workflows/ci.yml
 - importer
 - migrator
 
-All four receive matching source-SHA and immutable release tags before GitHub Release creation. Pull requests run checks only. Deployment independently consumes completed releases; GitHub and GitLab CI do not connect to the application host. See [release publication, retries, and operator setup](releases-and-deployment.md).
+All four receive matching source-SHA and immutable release tags before GitHub Release creation. Pull requests run checks only. See [releases and retries](releases-and-deployment.md).

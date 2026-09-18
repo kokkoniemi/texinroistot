@@ -40,7 +40,7 @@ The repository contains:
 
 ### 2. Configure backend env
 
-Create `/texinroistot-server/.env` (example values are shown in `configuration.md`).
+Create `texinroistot-server/.env` using the [configuration reference](docs/configuration.md).
 
 ### 3. Start local stack
 
@@ -54,7 +54,9 @@ This starts:
 - Backend at `localhost:6969`
 - Frontend dev server at `localhost:5173`
 
-### 4. Initialize schema (first time)
+### 4. Apply database migrations
+
+Compose applies migrations before starting the backend. To rebuild and run the migrator separately:
 
 ```bash
 ./scripts/init_schema.sh
@@ -68,7 +70,7 @@ This starts:
 
 Both commands use Docker Compose services:
 
-- schema init runs `psql` inside the `db` container
+- schema init builds and runs the `migrate` service
 - data import runs the dedicated `import` image/container
 
 Importer reads:
@@ -84,35 +86,15 @@ Workflow: `.github/workflows/ci.yml`
 
 - backend: `go test ./...` and `go build ./...`
 - frontend: `npm ci`, `npm run check`, `npm run lint`, `npm run build`
+- migrations: append-only history, disposable PostgreSQL checks, and schema snapshot comparison
 
-### Production image publishing (GHCR)
+### Image publishing (GHCR)
 
 Workflow: `.github/workflows/images.yml`
 
-This repository publishes production-ready images only.
-Hosting infrastructure (Compose/Kubernetes/reverse proxy/Terraform) should live in a separate repository.
+After checks pass on `main`, CI publishes backend, frontend, importer, and migrator images with `sha-<full-commit-sha>` and `vX.Y.Z` tags, then creates a GitHub Release. Pull requests run checks only. There are no branch, `latest`, or semver-alias image tags published by this workflow.
 
-Images:
-
-- `ghcr.io/<owner>/<repo>-backend`
-- `ghcr.io/<owner>/<repo>-frontend`
-- `ghcr.io/<owner>/<repo>-importer`
-
-Tags include:
-
-- `latest` (default branch)
-- branch refs (for branch builds)
-- commit SHA (`sha-<full-commit-sha>`)
-- release tags (`vX.Y.Z`) and semver aliases (`X`, `X.Y`, `X.Y.Z`)
-
-Release tag behavior:
-
-- `main`/branch workflows build images once and push `sha-<commit>` tags
-- `v*` tag workflows retag those existing sha images (no rebuild), so release tags and sha tags share digest
-
-Required repository setting:
-
-- GitHub Actions `GITHUB_TOKEN` must have package write permissions (`packages: write`).
+See [releases and retries](docs/releases-and-deployment.md).
 
 ## Unpublished mode gate (frontend)
 

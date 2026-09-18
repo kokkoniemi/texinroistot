@@ -109,7 +109,7 @@ Story-publication titles are stored in `stories_in_publications.title`.
 
 ### Via docker-compose helpers (recommended locally)
 
-Initialize schema (first time):
+Apply database migrations:
 
 ```bash
 ./scripts/init_schema.sh
@@ -121,7 +121,7 @@ Initialize schema (first time):
 
 These scripts use:
 
-- `docker compose exec -T db psql -U tex -d tex ... < schema.sql`
+- `docker compose run --build --rm -T migrate`
 - `docker compose --profile tools run --rm -T import`
 - `docker compose exec -T db psql -U tex -d tex -c "UPDATE versions ..."`
 

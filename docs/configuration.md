@@ -86,17 +86,4 @@ Adjust these values for your local workflow as needed.
 
 ## CI/CD settings
 
-### GitHub Actions workflow permissions
-
-Image publish workflow requires:
-
-- job permission: `packages: write`
-- repository Actions setting: `GITHUB_TOKEN` with read/write permissions
-
-### GHCR image names
-
-Derived in `.github/workflows/images.yml` as:
-
-- `ghcr.io/<owner>/<repo>-backend`
-- `ghcr.io/<owner>/<repo>-frontend`
-- `ghcr.io/<owner>/<repo>-importer`
+See [releases and retries](releases-and-deployment.md) for image names, tags, and workflow permissions.

@@ -6,4 +6,4 @@
 - [Configuration reference](configuration.md)
 - [Data import and versioning](data-import-and-versioning.md)
 - [Development workflow](development-workflow.md)
-- [Release and deployment boundary](releases-and-deployment.md)
+- [Releases and retries](releases-and-deployment.md)
