@@ -1,4 +1,5 @@
-import { redirect, type Handle } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
+import type { Handle } from '@sveltejs/kit';
 import {
 	hasUnpublishedAccess,
 	isUnpublishedModeEnabled,
@@ -24,6 +25,9 @@ function targetWithQuery(url: URL): string {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+	const versionHeaders = { 'X-App-Version': env.IMAGE_TAG?.trim() || 'unknown' };
+	event.setHeaders(versionHeaders);
+
 	if (!isUnpublishedModeEnabled()) {
 		return resolve(event);
 	}
@@ -44,11 +48,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (event.url.pathname.startsWith('/api/')) {
 		return new Response(JSON.stringify({ error: 'Site is unpublished' }), {
 			status: 401,
-			headers: { 'content-type': 'application/json' }
+			headers: { ...versionHeaders, 'content-type': 'application/json' }
 		});
 	}
 
 	const next = targetWithQuery(event.url);
 	const nextParam = encodeURIComponent(next);
-	throw redirect(303, `${UNPUBLISHED_ROUTE}?next=${nextParam}`);
+	return new Response(null, {
+		status: 303,
+		headers: { ...versionHeaders, location: `${UNPUBLISHED_ROUTE}?next=${nextParam}` }
+	});
 };
