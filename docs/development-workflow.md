@@ -130,4 +130,4 @@ After application and migration checks pass on `main`, `.github/workflows/ci.yml
 - importer
 - migrator
 
-All four receive matching source-SHA and immutable release tags before GitHub Release creation. Pull requests run checks only. Private deployment handoff is separately gated and disabled by default; no host-side deployment runs in GitHub. See [release publication, retries, and operator setup](releases-and-deployment.md).
+All four receive matching source-SHA and immutable release tags before GitHub Release creation. Pull requests run checks only. Deployment independently consumes completed releases; GitHub and GitLab CI do not connect to the application host. See [release publication, retries, and operator setup](releases-and-deployment.md).

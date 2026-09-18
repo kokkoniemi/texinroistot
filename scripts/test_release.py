@@ -76,14 +76,11 @@ class VersionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.select_release(self.first)
 
-    def test_old_release_retry_cannot_trigger_a_rollback(self):
+    def test_old_release_retry_reuses_original_version(self):
         self.tag("v0.0.8")
-        latest = self.commit()
+        self.commit()
         self.tag("v0.0.9")
         self.assertEqual(release.select_release(self.first), "v0.0.8")
-        self.assertFalse(release.handoff_eligible("v0.0.8", self.first))
-        self.assertFalse(release.handoff_eligible("v0.0.9", self.first))
-        self.assertTrue(release.handoff_eligible("v0.0.9", latest))
 
     def test_reservation_requires_a_tag_for_the_exact_commit(self):
         with self.assertRaises(release.ReleaseError):
@@ -351,20 +348,21 @@ class ReleaseTests(unittest.TestCase):
                 patch("release.release_tags", return_value=["v0.0.8", "v0.0.9"]), \
                 patch("release.inspect_image", side_effect=inspect), \
                 patch("release.github_api", side_effect=api) as operations:
-            self.assertTrue(release.publish_release(REPOSITORY, "v0.0.9", SOURCE))
+            release.publish_release(REPOSITORY, "v0.0.9", SOURCE)
         self.assertFalse(any(call.args[1] == "git/refs" for call in operations.call_args_list))
         payload = operations.call_args.args[2]
         for component in release.COMPONENTS:
             self.assertIn(f"ghcr.io/{REPOSITORY}-{component}@{DIGEST}", payload["body"])
         self.assertFalse(payload["draft"])
         self.assertEqual(payload["target_commitish"], SOURCE)
+        self.assertEqual(payload["make_latest"], "true")
 
     def test_completed_release_retry_performs_no_github_writes(self):
         with patch("release.select_release", return_value="v0.0.9"), \
                 patch("release.release_tags", return_value=["v0.0.8", "v0.0.9"]), \
                 patch("release.inspect_image", return_value=DIGEST), \
                 patch("release.github_api", return_value={"tag_name": "v0.0.9", "draft": False, "prerelease": False}) as api:
-            self.assertTrue(release.publish_release(REPOSITORY, "v0.0.9", SOURCE))
+            release.publish_release(REPOSITORY, "v0.0.9", SOURCE)
         api.assert_called_once_with(REPOSITORY, "releases/tags/v0.0.9", missing_ok=True)
 
     def test_notes_skip_reserved_tags_without_completed_releases(self):
@@ -379,16 +377,57 @@ class ReleaseTests(unittest.TestCase):
         with patch("release.release_tags", return_value=["v0.0.12", "v0.0.13", "v0.0.14"]), \
                 patch("release.inspect_image", return_value=DIGEST), \
                 patch("release.github_api", side_effect=api) as operations:
-            self.assertTrue(release.publish_release(REPOSITORY, "v0.0.14", SOURCE))
+            release.publish_release(REPOSITORY, "v0.0.14", SOURCE)
         operations.assert_any_call(REPOSITORY, "releases/tags/v0.0.13", missing_ok=True)
         operations.assert_any_call(REPOSITORY, "releases/tags/v0.0.12", missing_ok=True)
 
-    def test_old_release_retry_is_not_handoff_eligible(self):
+    def test_old_completed_release_retry_performs_no_github_writes(self):
         with patch("release.select_release", return_value="v0.0.8"), \
                 patch("release.release_tags", return_value=["v0.0.8", "v0.0.9"]), \
                 patch("release.inspect_image", return_value=DIGEST), \
-                patch("release.github_api", return_value={"tag_name": "v0.0.8", "draft": False, "prerelease": False}):
-            self.assertFalse(release.publish_release(REPOSITORY, "v0.0.8", SOURCE))
+                patch("release.github_api", return_value={"tag_name": "v0.0.8", "draft": False, "prerelease": False}) as api:
+            release.publish_release(REPOSITORY, "v0.0.8", SOURCE)
+        api.assert_called_once_with(REPOSITORY, "releases/tags/v0.0.8", missing_ok=True)
+
+    def test_finishing_old_release_does_not_replace_latest(self):
+        def api(repository, path, payload=None, **kwargs):
+            if path == "releases/generate-notes":
+                return {"body": "Synthetic release notes"}
+            return None
+
+        with patch("release.release_tags", return_value=["v0.0.8", "v0.0.9"]), \
+                patch("release.inspect_image", return_value=DIGEST), \
+                patch("release.github_api", side_effect=api) as operations:
+            release.publish_release(REPOSITORY, "v0.0.8", SOURCE)
+        self.assertEqual(operations.call_args.args[1], "releases")
+        self.assertEqual(operations.call_args.args[2]["make_latest"], "false")
+
+    def test_github_api_uses_redirect_protection(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "synthetic"}, clear=True), \
+                patch("release.request.build_opener") as opener:
+            opener.return_value.open.return_value = io.StringIO('{}')
+            self.assertEqual(release.github_api(REPOSITORY, "releases"), {})
+        self.assertIsInstance(opener.call_args.args[0], release.NoRedirect)
+
+    def test_refuses_redirect_and_closes_response(self):
+        for status in (301, 302, 303, 307, 308):
+            response = io.BytesIO(b"synthetic")
+            operation = release.request.Request("https://api.github.com/synthetic")
+            with self.subTest(status=status), self.assertRaises(error.URLError):
+                release.NoRedirect().redirect_request(
+                    operation, response, status, "redirect", {}, "https://other.invalid")
+            self.assertTrue(response.closed)
+
+    def test_publish_cli_reports_release_tag(self):
+        output = io.StringIO()
+        with patch("sys.argv", ["release", "publish", "--repository", REPOSITORY,
+                                "--source-sha", SOURCE, "--release-tag", "v0.0.9"]), \
+                patch.dict(os.environ, {}, clear=True), \
+                patch("release.run", return_value=subprocess.CompletedProcess([], 0, SOURCE, "")), \
+                patch("release.publish_release") as publish, contextlib.redirect_stdout(output):
+            self.assertEqual(release.main(), 0)
+        publish.assert_called_once_with(REPOSITORY, "v0.0.9", SOURCE)
+        self.assertEqual(output.getvalue(), "release_tag=v0.0.9\n")
 
     def test_changed_allocation_fails_before_registry_or_github_operations(self):
         self.reservation.side_effect = release.ReleaseError("Reservation belongs to another commit")

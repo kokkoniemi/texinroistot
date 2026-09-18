@@ -11,9 +11,6 @@ import sys
 import tempfile
 from urllib import error, request
 
-from trigger_deployment import NoRedirect
-
-
 TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 SHA = re.compile(r"[a-f0-9]{40}")
 DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
@@ -27,6 +24,13 @@ COMPONENTS = {
 
 class ReleaseError(ValueError):
     pass
+
+
+class NoRedirect(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if fp is not None:
+            fp.close()
+        raise error.URLError("Redirect refused")
 
 
 def github_failure_detail(failure):
@@ -272,17 +276,11 @@ def publish_release(repository, release_tag, source_sha):
             "body": body, "draft": False, "prerelease": False,
             "make_latest": "true" if not tags or version(release_tag) >= version(tags[-1]) else "false",
         })
-    return not tags or version(release_tag) >= version(tags[-1])
-
-
-def handoff_eligible(release_tag, source_sha):
-    tags = release_tags()
-    return bool(tags) and tags[-1] == release_tag and tag_commit(release_tag) == source_sha
 
 
 def main():
     parser = argparse.ArgumentParser(description="Publish immutable application releases from trusted CI")
-    parser.add_argument("operation", choices=["plan", "image", "reserve", "promote", "publish", "handoff-check"])
+    parser.add_argument("operation", choices=["plan", "image", "reserve", "promote", "publish"])
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--release-tag")
@@ -308,10 +306,8 @@ def main():
             promote_images(args.repository, args.release_tag, args.source_sha)
             output = f"release_tag={args.release_tag}"
         elif args.operation == "publish":
-            eligible = publish_release(args.repository, args.release_tag, args.source_sha)
-            output = f"handoff={str(eligible).lower()}"
-        else:
-            output = f"handoff={str(handoff_eligible(args.release_tag, args.source_sha)).lower()}"
+            publish_release(args.repository, args.release_tag, args.source_sha)
+            output = f"release_tag={args.release_tag}"
         if os.environ.get("GITHUB_OUTPUT"):
             with Path(os.environ["GITHUB_OUTPUT"]).open("a") as destination:
                 destination.write(output + "\n")

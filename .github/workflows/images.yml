@@ -2,11 +2,6 @@ name: Publish Release
 
 on:
   workflow_call:
-    secrets:
-      GITLAB_TRIGGER_URL:
-        required: false
-      GITLAB_TRIGGER_TOKEN:
-        required: false
 
 permissions:
   contents: read
@@ -103,8 +98,6 @@ jobs:
     permissions:
       contents: write
       packages: read
-    outputs:
-      handoff: ${{ steps.release.outputs.handoff }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -117,7 +110,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify all images and create GitHub Release
-        id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_SHA: ${{ github.sha }}
@@ -126,35 +118,3 @@ jobs:
         run: >-
           python3 scripts/release.py publish --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
           --release-tag "$RELEASE_TAG"
-
-  handoff:
-    needs: [plan, release]
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      needs.release.outputs.handoff == 'true' && vars.ENABLE_GITLAB_HANDOFF == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Refuse handoff of a superseded release on retry
-        id: current
-        env:
-          SOURCE_SHA: ${{ github.sha }}
-          REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
-        run: >-
-          python3 scripts/release.py handoff-check --source-sha "$SOURCE_SHA" --repository "$REPOSITORY"
-          --release-tag "$RELEASE_TAG"
-      - name: Request private deployment
-        if: steps.current.outputs.handoff == 'true'
-        env:
-          GITLAB_TRIGGER_URL: ${{ secrets.GITLAB_TRIGGER_URL }}
-          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
-          RELEASE_TAG: ${{ needs.plan.outputs.release_tag }}
-          SOURCE_SHA: ${{ github.sha }}
-        run: python3 scripts/trigger_deployment.py --release-tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA"
