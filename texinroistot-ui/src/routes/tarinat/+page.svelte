@@ -3,12 +3,12 @@
 	import {
 		authorList,
 		buildPageHref,
-		joinValues,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
 		publicationSummaryFromPublications,
 		italianOriginalPublication,
 		storyVillainForStory,
+		storyVillainHref,
 		storyVillainTitle
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
@@ -33,7 +33,7 @@
 		{ value: 'perus_fi', label: 'Suomen perussarja' },
 		{ value: 'perus_it', label: 'Italian perussarja' },
 		{ value: 'suur', label: 'Suuralbumit' },
-		{ value: 'maxi', label: 'Maxi-Tex' },
+		{ value: 'maxi', label: 'Maxi Tex' },
 		{ value: 'kirjasto', label: 'Kirjasto' },
 		{ value: 'kronikka', label: 'Kronikka' },
 		{ value: 'serie_extra', label: 'Serie extra' },
@@ -260,16 +260,10 @@
 								<div class="story-villains-list">
 									{#each storyVillains(storyHash) as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, storyHash)}
-										{@const baseTitle = storyVillainTitle(villain, storyHash)}
-										{@const displayName = joinValues(appearance?.otherNames, '').trim()}
-										{@const cardTitle =
-											displayName && baseTitle === 'Nimetön roisto'
-												? displayName
-												: displayName
-													? `${baseTitle}, ${displayName}`
-													: baseTitle}
+										{@const cardTitle = storyVillainTitle(villain, storyHash)}
 										<VillainCard
 											title={cardTitle}
+											otherStoriesHref={storyVillainHref(villain)}
 											roles={appearance?.roles}
 											destiny={appearance?.destiny}
 											codeNames={appearance?.codeNames}

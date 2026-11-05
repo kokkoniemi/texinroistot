@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
 		buildPageHref,
@@ -13,6 +14,7 @@
 	import type { Story, StoryVillain, Villain } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import ItalicText from '$lib/components/ItalicText.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import type { PageData } from './$types';
 
@@ -54,6 +56,11 @@
 	let pageTokens: PaginationToken[] = [];
 	let selectedSort = defaultSortOption;
 	let selectedStory: Story | null = null;
+
+	// Following a villain link in the story popup stays on this page, so close the popup.
+	afterNavigate(() => {
+		selectedStory = null;
+	});
 
 	$: villains = data.villains ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
@@ -202,25 +209,35 @@
 				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
 				{@const codeNames = appearanceCodeNames(appearance)}
 				{@const nicknameTitle = title.nicknames.map((nickname) => `"${nickname}"`).join(', ')}
-				{@const villainCardTitle = [title.baseName, nicknameTitle, displayName]
+				{@const villainCardTitle = [title.baseName, displayName, nicknameTitle]
 					.filter(Boolean)
 					.join(', ')}
-				{@const hasCodeNames = codeNames.length > 0}
 				<article class="villain-card">
+					<!-- Code names are shown in the heading only when the villain has no other name. -->
 					<h3>
-						{#if villainCardTitle}{villainCardTitle}{/if}{#if hasCodeNames}{villainCardTitle
-								? ', '
-								: ''}{#each codeNames as codeName, index (codeName)}{#if index > 0},
-								{/if}<em>{codeName}</em>{/each}{:else if !villainCardTitle}Nimetön roisto{/if}
+						{#if villainCardTitle}{villainCardTitle}{:else if codeNames.length > 0}{#each codeNames as codeName, index (codeName)}{index >
+								0
+									? '; '
+									: ''}<em>{codeName}</em>{/each}{:else}Nimetön roisto{/if}
 					</h3>
-					{#if hasValues(appearance?.roles)}
-						<p><strong>Rooli:</strong> {joinValues(appearance?.roles, '-', '; ')}</p>
-					{/if}
-					{#if hasValues(appearance?.destiny)}
-						<p><strong>Kohtalo:</strong> {joinValues(appearance?.destiny, '-', '; ')}</p>
-					{/if}
-					{#if hasValues(appearance?.codeNames)}
-						<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames)}</p>
+					<!-- Role, destiny and code name are story-specific, so they are only shown for
+					     villains appearing in a single story. -->
+					{#if stories.length <= 1}
+						{#if hasValues(appearance?.roles)}
+							<p>
+								<strong>Rooli:</strong>
+								<ItalicText text={joinValues(appearance?.roles, '-', '; ')} />
+							</p>
+						{/if}
+						{#if hasValues(appearance?.destiny)}
+							<p>
+								<strong>Kohtalo:</strong>
+								<ItalicText text={joinValues(appearance?.destiny, '-', '; ')} />
+							</p>
+						{/if}
+						{#if hasValues(appearance?.codeNames)}
+							<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames, '-', '; ')}</p>
+						{/if}
 					{/if}
 					<p>
 						<strong>Tarinat:</strong>

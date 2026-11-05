@@ -2,9 +2,9 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import {
 		authorList,
-		joinValues,
 		italianOriginalPublication,
 		storyVillainForStory,
+		storyVillainHref,
 		storyVillainTitle
 	} from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
@@ -131,16 +131,10 @@
 						<div class="story-villains-list">
 							{#each villains as villain (villain.hash)}
 								{@const appearance = storyVillainForStory(villain, storyHash)}
-								{@const baseTitle = storyVillainTitle(villain, storyHash)}
-								{@const displayName = joinValues(appearance?.otherNames, '').trim()}
-								{@const cardTitle =
-									displayName && baseTitle === 'Nimetön roisto'
-										? displayName
-										: displayName
-											? `${baseTitle}, ${displayName}`
-											: baseTitle}
+								{@const cardTitle = storyVillainTitle(villain, storyHash)}
 								<VillainCard
 									title={cardTitle}
+									otherStoriesHref={storyVillainHref(villain)}
 									roles={appearance?.roles}
 									destiny={appearance?.destiny}
 									codeNames={appearance?.codeNames}
