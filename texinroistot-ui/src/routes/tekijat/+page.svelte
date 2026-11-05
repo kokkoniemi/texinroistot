@@ -249,6 +249,7 @@
 			title={storyTitle(selectedStory)}
 			publicationSummary={publicationSummary(selectedStory)}
 			on:close={() => (selectedStory = null)}
+			on:selectStory={(e) => (selectedStory = e.detail)}
 		/>
 	{/if}
 

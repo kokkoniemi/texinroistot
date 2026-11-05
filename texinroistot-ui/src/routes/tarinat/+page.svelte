@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
 		authorList,
@@ -6,15 +7,19 @@
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
 		publicationSummaryFromPublications,
+		scrollToListItem,
 		italianOriginalPublication,
 		storyVillainForStory,
-		storyVillainHref,
+		otherStoriesVillainHash,
 		storyVillainTitle
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
+	import AuthorLinks from '$lib/components/AuthorLinks.svelte';
+	import LetterBar from '$lib/components/LetterBar.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import StoryTitle from '$lib/components/StoryTitle.svelte';
 	import VillainCard from '$lib/components/VillainCard.svelte';
 	import type { PageData } from './$types';
@@ -57,6 +62,12 @@
 	let hasPrev = false;
 	let hasNext = false;
 	let expandedStoryHashes: Record<string, boolean> = {};
+	// Story chosen from an author popup (Kertoi/Piirsi), shown in a story popup.
+	let selectedStory: Story | null = null;
+	let storyList: HTMLElement | undefined;
+
+	// After a letter jump, bring the letter's first story to the top.
+	afterNavigate(() => scrollToListItem(storyList, meta.letterIndex));
 	let loadingStoryHashes: Record<string, boolean> = {};
 	let errorByStoryHash: Record<string, string> = {};
 	let villainsByStoryHash: Record<string, Villain[]> = {};
@@ -139,6 +150,17 @@
 			year: filters.year > 0 ? filters.year : undefined
 		});
 	}
+
+	function letterHref(letter: string): string {
+		return buildPageHref('/tarinat', {
+			publication: filters.publication,
+			sort: filters.sort,
+			pageSize: meta.pageSize,
+			q: filters.q || undefined,
+			year: filters.year > 0 ? filters.year : undefined,
+			letter
+		});
+	}
 </script>
 
 <svelte:head>
@@ -211,17 +233,35 @@
 		<input type="hidden" name="pageSize" value={meta.pageSize} />
 	</FilterForm>
 
+	{#if meta.letters?.length}
+		<LetterBar letters={meta.letters} {letterHref} isLoading={isFilterLoading} />
+	{/if}
+
 	{#if stories.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
-		<div class="story-list">
+		<div class="story-list" bind:this={storyList}>
 			{#each stories as story (story.hash)}
 				{@const storyHash = story.hash.trim()}
 				{@const italianOriginal = italianOriginalPublication(story)}
 				<article class="story-card">
 					<h3><StoryTitle title={storyTitle(story)} /></h3>
-					<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
-					<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
+					<p>
+						<strong>Kertoi:</strong>
+						<AuthorLinks
+							authors={story.writtenBy}
+							type="writer"
+							on:selectStory={(e) => (selectedStory = e.detail)}
+						/>
+					</p>
+					<p>
+						<strong>Piirsi:</strong>
+						<AuthorLinks
+							authors={story.drawnBy}
+							type="drawer"
+							on:selectStory={(e) => (selectedStory = e.detail)}
+						/>
+					</p>
 					<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
 					{#if italianOriginal}
 						<p>
@@ -263,10 +303,11 @@
 										{@const cardTitle = storyVillainTitle(villain, storyHash)}
 										<VillainCard
 											title={cardTitle}
-											otherStoriesHref={storyVillainHref(villain)}
+											otherStoriesVillainHash={otherStoriesVillainHash(villain)}
 											roles={appearance?.roles}
 											destiny={appearance?.destiny}
 											codeNames={appearance?.codeNames}
+											on:selectStory={(e) => (selectedStory = e.detail)}
 										/>
 									{/each}
 								</div>
@@ -279,6 +320,16 @@
 	{/if}
 
 	<Pagination {meta} {pageTokens} {hasPrev} {hasNext} isLoading={isFilterLoading} {pageHref} />
+
+	{#if selectedStory}
+		<StoryPopup
+			story={selectedStory}
+			title={storyTitle(selectedStory)}
+			publicationSummary={publicationSummary(selectedStory)}
+			on:close={() => (selectedStory = null)}
+			on:selectStory={(e) => (selectedStory = e.detail)}
+		/>
+	{/if}
 </section>
 
 <style>

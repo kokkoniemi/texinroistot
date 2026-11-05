@@ -8,13 +8,15 @@
 		joinValues,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
-		publicationSummaryFromPublications
+		publicationSummaryFromPublications,
+		scrollToListItem
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
 	import type { Story, StoryVillain, Villain } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import ItalicText from '$lib/components/ItalicText.svelte';
+	import LetterBar from '$lib/components/LetterBar.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import type { PageData } from './$types';
 
@@ -56,10 +58,12 @@
 	let pageTokens: PaginationToken[] = [];
 	let selectedSort = defaultSortOption;
 	let selectedStory: Story | null = null;
+	let villainList: HTMLElement | undefined;
 
-	// Following a villain link in the story popup stays on this page, so close the popup.
 	afterNavigate(() => {
 		selectedStory = null;
+		// After a letter jump, bring the letter's first villain to the top.
+		scrollToListItem(villainList, meta.letterIndex);
 	});
 
 	$: villains = data.villains ?? [];
@@ -148,6 +152,16 @@
 			q: filters.q || undefined
 		});
 	}
+
+	function letterHref(letter: string): string {
+		return buildPageHref('/roistot', {
+			publication: filters.publication,
+			sort: selectedSort,
+			pageSize: meta.pageSize,
+			q: filters.q || undefined,
+			letter
+		});
+	}
 </script>
 
 <svelte:head>
@@ -198,10 +212,40 @@
 		<input type="hidden" name="pageSize" value={meta.pageSize} />
 	</FilterForm>
 
+	<details class="sort-info">
+		<summary>Tietoa järjestyksistä</summary>
+		<ul>
+			<li>
+				Etunimen mukaan järjestäessä näytetään kaikki ne, joiden etunimi on mainittu tarinassa tai
+				joita kutsutaan lempinimellä, jota käytetään kuin etunimeä.
+			</li>
+			<li>
+				Sukunimen mukaan järjestäessä näytetään kaikki ne, joiden sukunimi tai oletettu sukunimi on
+				mainittu tarinassa.
+			</li>
+			<li>
+				Lempinimen mukaan järjestäessä näytetään kaikki ne, joiden lempi- tai liikanimi on mainittu
+				tarinassa.
+			</li>
+			<li>
+				Etnisen nimen mukaan järjestäessä näytetään ne roistot, joiden nimi ei taivu perinteiseen
+				etunimi-sukunimi-muotoon. Tällaisia nimiä ovat esim. intiaanien ja kiinalaisten nimet.
+			</li>
+			<li>
+				Arvo tarkoittaa tässä listauksessa ennen varsinaista nimeä käytettyä ”titteliä”, kuten
+				sheriffi, kapteeni ym.
+			</li>
+		</ul>
+	</details>
+
+	{#if meta.letters?.length}
+		<LetterBar letters={meta.letters} {letterHref} isLoading={isFilterLoading} />
+	{/if}
+
 	{#if villains.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
-		<div class="villain-list">
+		<div class="villain-list" bind:this={villainList}>
 			{#each villains as villain (villain.hash)}
 				{@const appearance = primaryAppearance(villain)}
 				{@const stories = villainStories(villain)}
@@ -240,7 +284,7 @@
 						{/if}
 					{/if}
 					<p>
-						<strong>Tarinat:</strong>
+						<strong>{stories.length === 1 ? 'Tarina' : 'Tarinat'}:</strong>
 						{#if stories.length > 0}
 							{#each stories as story, index (story.hash)}
 								{#if index > 0},
@@ -264,6 +308,7 @@
 			title={storyCardTitle(selectedStory)}
 			publicationSummary={publicationSummary(selectedStory)}
 			on:close={() => (selectedStory = null)}
+			on:selectStory={(e) => (selectedStory = e.detail)}
 		/>
 	{/if}
 
@@ -273,6 +318,25 @@
 <style>
 	.roistot-page {
 		margin: 1rem 1.5rem 0;
+	}
+
+	.sort-info {
+		margin: 0.75rem 0;
+		border: 1px solid black;
+		background: #fff;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.sort-info summary {
+		cursor: pointer;
+		font-weight: 700;
+	}
+
+	.sort-info ul {
+		margin: 0.5rem 0 0.25rem;
+		padding-left: 1.2rem;
+		display: grid;
+		gap: 0.35rem;
 	}
 
 	.field {
