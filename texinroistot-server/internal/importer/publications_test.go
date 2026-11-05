@@ -806,3 +806,52 @@ func TestLoadBasePublication_1954WrapUses26Issues(t *testing.T) {
 		}
 	}
 }
+
+// The sheet writes Maxi Tex with a space ("Maxi Tex 11 (2006)"); both that
+// and the hyphenated form must be classified as maxi, not muu_erikois.
+func TestLoadSpecialPublication_MaxiTexWithSpaceOrHyphen(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-fetissi"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"story_title": "Fetissin arvoitus",
+		"pub_special": "Maxi Tex 11 (2006); Maxi-Tex 12 (2007)",
+	})
+
+	if err := i.loadSpecialPublication(story.ID, r); err != nil {
+		t.Fatalf("loadSpecialPublication failed: %v", err)
+	}
+
+	for _, issue := range []string{"Maxi Tex 11 (2006)", "Maxi-Tex 12 (2007)"} {
+		if findPublicationByIssue(i, PUB_MAXI, issue) == nil {
+			t.Errorf("expected publication (maxi, %q)", issue)
+		}
+		if findPublicationByIssue(i, PUB_MUU, issue) != nil {
+			t.Errorf("did not expect publication (muu_erikois, %q)", issue)
+		}
+	}
+}
+
+// Italian special publications take their year from the Italian year column.
+func TestLoadItalianSpecialPublication_UsesItalianYear(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-alaska"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"italy_story_title": "Alaska!",
+		"italy_year":        "2013",
+		"italy_pub_special": "Maxi Tex 16",
+	})
+
+	if err := i.loadItalianSpecialPublication(story.ID, r); err != nil {
+		t.Fatalf("loadItalianSpecialPublication failed: %v", err)
+	}
+
+	pub := findPublicationByIssue(i, PUB_IT_MINI_TEXONE_MAXI_TEX, "Maxi Tex 16")
+	if pub == nil {
+		t.Fatalf("expected publication (italia_mini_texone_maxi_tex, %q)", "Maxi Tex 16")
+	}
+	if pub.item.Year != 2013 {
+		t.Errorf("expected year 2013, got %d", pub.item.Year)
+	}
+}
