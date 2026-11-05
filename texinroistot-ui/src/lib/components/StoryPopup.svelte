@@ -8,6 +8,7 @@
 		storyVillainTitle
 	} from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
+	import StoryTitle from './StoryTitle.svelte';
 	import VillainCard from './VillainCard.svelte';
 
 	export let story: Story;
@@ -93,17 +94,17 @@
 		</div>
 
 		<article class="story-card popup-story-card">
-			<h3 id="story-popup-title">{title}</h3>
+			<h3 id="story-popup-title"><StoryTitle {title} /></h3>
 			<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
 			<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
 			<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
 			{#if italianOriginal}
 				<p>
 					<strong>Alkuperäisjulkaisu (Italia):</strong>
-					{#if italianOriginal.title}<em>{italianOriginal.title}</em>{/if}
-					{#if italianOriginal.details}{italianOriginal.title
-							? ', '
-							: ''}{italianOriginal.details}{/if}
+					{#if italianOriginal.title}<em>{italianOriginal.title}</em>{italianOriginal.details
+							? ','
+							: ''}{/if}
+					{italianOriginal.details}
 				</p>
 			{/if}
 			<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary}</p>
@@ -140,7 +141,6 @@
 											: baseTitle}
 								<VillainCard
 									title={cardTitle}
-									ranks={villain.ranks}
 									roles={appearance?.roles}
 									destiny={appearance?.destiny}
 									codeNames={appearance?.codeNames}

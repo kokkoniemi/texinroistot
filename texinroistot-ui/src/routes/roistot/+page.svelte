@@ -2,6 +2,7 @@
 	import { navigating } from '$app/stores';
 	import {
 		buildPageHref,
+		firstEditionTitle,
 		hasValues,
 		joinValues,
 		nonItalianTitlesByFirstPublication,
@@ -122,6 +123,10 @@
 		return uniqueTitles.length > 0 ? uniqueTitles.join('; ') : 'Nimetön tarina';
 	}
 
+	function storyListTitle(story: Story): string {
+		return firstEditionTitle(story.publications) || 'Nimetön tarina';
+	}
+
 	function publicationSummary(story?: Story | null): string {
 		if (!story) return '-';
 		return publicationSummaryFromPublications(story.publications, 'Ei julkaisutietoja');
@@ -224,7 +229,7 @@
 								{#if index > 0},
 								{/if}
 								<button type="button" class="story-link" on:click={() => (selectedStory = story)}
-									>{storyCardTitle(story)}</button
+									>{storyListTitle(story)}</button
 								>
 							{/each}
 						{:else}

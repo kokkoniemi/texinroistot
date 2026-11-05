@@ -12,6 +12,7 @@ export type Publication = {
 
 export type StoryPublication = {
 	title: string;
+	isRepublication?: boolean;
 	in?: Publication;
 };
 
@@ -54,16 +55,65 @@ export function hasValues(values?: string[] | null): boolean {
 	return Boolean(values && values.some((value) => Boolean(value)));
 }
 
+export type StoryTitleSegment = {
+	text: string;
+	isAnnotation: boolean;
+};
+
+const storyTitleAnnotationPattern = /\(\d+\.(?:\s*[–-]\s*\d+\.)?\s*p\)|;/g;
+
+const storyTitlePartNotePattern = /\s*\(\d+\.(?:\s*[–-]\s*\d+\.)?\s*p\)/g;
+
+// The title of the story's first Finnish edition without part notes, e.g.
+// "Taistelu erämaassa" instead of "Taistelu erämaassa (1. – 2. p); ...".
+export function firstEditionTitle(publications?: StoryPublication[] | null): string {
+	const [firstTitle] = nonItalianTitlesByFirstPublication(publications);
+	return (firstTitle ?? '').replace(storyTitlePartNotePattern, '').trim();
+}
+
+// Splits a story title into text and annotations (part notes such as "(1. p)"
+// or "(1. – 2. p)", and the ";" between titles), so the annotations can be
+// styled separately from the title text.
+export function storyTitleSegments(title: string): StoryTitleSegment[] {
+	const segments: StoryTitleSegment[] = [];
+	let lastIndex = 0;
+	for (const match of title.matchAll(storyTitleAnnotationPattern)) {
+		const index = match.index ?? 0;
+		if (index > lastIndex) {
+			segments.push({ text: title.slice(lastIndex, index), isAnnotation: false });
+		}
+		segments.push({ text: match[0], isAnnotation: true });
+		lastIndex = index + match[0].length;
+	}
+	if (lastIndex < title.length) {
+		segments.push({ text: title.slice(lastIndex), isAnnotation: false });
+	}
+	return segments;
+}
+
+// Authors sharing the same details are combined, e.g.
+// "Birger Terni & Pia Ravenna (1. – 2. p)".
 export function authorList(authors?: Author[] | null, separator = ', '): string {
 	if (!authors || authors.length === 0) return '-';
-	return authors
-		.map((author) => {
-			const base = `${author.firstName} ${author.lastName}`.trim();
-			const details = (author.details ?? '').trim();
-			if (details) return `${base} (${details})`.trim();
-			return base;
+
+	const groups: { names: string[]; details: string }[] = [];
+	for (const author of authors) {
+		const name = `${author.firstName} ${author.lastName}`.trim();
+		if (!name) continue;
+		const details = (author.details ?? '').trim();
+		const group = details ? groups.find((existing) => existing.details === details) : undefined;
+		if (group) {
+			if (!group.names.includes(name)) group.names.push(name);
+		} else {
+			groups.push({ names: [name], details });
+		}
+	}
+
+	return groups
+		.map(({ names, details }) => {
+			const base = names.join(' & ');
+			return details ? `${base} (${details})` : base;
 		})
-		.filter(Boolean)
 		.join(separator);
 }
 
@@ -135,6 +185,34 @@ function parseBaseSeriesIssue(publication: StoryPublication): BaseSeriesIssue | 
 	return { year, issue, issueNumber };
 }
 
+// Issues per year in the Finnish base series; keep in sync with
+// getPublishedAnnualCount in texinroistot-server/internal/importer/publications.go.
+function baseSeriesAnnualCount(year: number): number | null {
+	if (year === 1953) return 25;
+	if (year >= 1954 && year <= 1964) return 26;
+	if (year === 1965) return 27;
+	if (year >= 1971 && year <= 1978) return 12;
+	if (year === 1979) return 13;
+	if (year >= 1980) return 16;
+	return null;
+}
+
+// No base series issues were published in 1966–1970.
+function nextBaseSeriesYear(year: number): number {
+	return year === 1965 ? 1971 : year + 1;
+}
+
+function isNextBaseSeriesIssue(previous: BaseSeriesIssue, current: BaseSeriesIssue): boolean {
+	if (current.year === previous.year) {
+		return current.issueNumber === previous.issueNumber + 1;
+	}
+	return (
+		current.year === nextBaseSeriesYear(previous.year) &&
+		current.issueNumber === 1 &&
+		previous.issueNumber === baseSeriesAnnualCount(previous.year)
+	);
+}
+
 function formatBaseSeriesRange(start: BaseSeriesIssue, end: BaseSeriesIssue): string {
 	if (start.year === end.year && start.issueNumber === end.issueNumber) {
 		return `${start.issue}/${start.year}`;
@@ -174,9 +252,7 @@ function baseSeriesSummary(publications: StoryPublication[]): string {
 
 		for (let i = 1; i < orderedIssues.length; i++) {
 			const current = orderedIssues[i];
-			const isContinuous =
-				current.year === previous.year && current.issueNumber === previous.issueNumber + 1;
-			if (isContinuous) {
+			if (isNextBaseSeriesIssue(previous, current)) {
 				previous = current;
 				continue;
 			}
@@ -204,11 +280,16 @@ export function publicationSummaryFromPublications(
 		kirjasto: 'Kirjasto'
 	};
 
+	// Base series re-publications (UVuosi/Ualkaen/Upäättyen) are listed after
+	// special publications instead of next to the original base series issues.
+	const republicationGroup = 'perus_uusinta';
+
 	const groups: Record<string, StoryPublication[]> = {};
 	for (const publication of publications ?? []) {
 		const pType = publication.in?.type ?? 'muu_erikois';
-		if (!groups[pType]) groups[pType] = [];
-		groups[pType].push(publication);
+		const group = pType === 'perus' && publication.isRepublication ? republicationGroup : pType;
+		if (!groups[group]) groups[group] = [];
+		groups[group].push(publication);
 	}
 
 	const order = [
@@ -225,6 +306,7 @@ export function publicationSummaryFromPublications(
 		'italia_tex_romanzi_a_fumetti',
 		'italia_tex_magazine',
 		'italia_erikois',
+		republicationGroup,
 		'kirjasto'
 	];
 	const parts = order.flatMap((type) => {
@@ -232,7 +314,7 @@ export function publicationSummaryFromPublications(
 		if (groupedPublications.length === 0) return [];
 
 		const items =
-			type === 'perus'
+			type === 'perus' || type === republicationGroup
 				? baseSeriesSummary(groupedPublications)
 				: groupedPublications
 						.map((publication) => publicationItem(publication).trim())
@@ -317,13 +399,16 @@ export function italianOriginalPublication(story: StoryBase): ItalianOriginalPub
 			return a.issue.localeCompare(b.issue);
 		});
 
+	// Italian issue numbers form one continuous series, so the year is shown
+	// once after the issues, e.g. "1-2 (1948)" or "25-27 (1949-1950)".
 	let issuePart = '';
 	if (issues.length === 1) {
-		issuePart = `${issues[0].issue}/${issues[0].year}`;
+		issuePart = `${issues[0].issue} (${issues[0].year})`;
 	} else if (issues.length > 1) {
 		const first = issues[0];
 		const last = issues[issues.length - 1];
-		issuePart = `${first.issue}/${first.year}-${last.issue}/${last.year}`;
+		const yearPart = first.year === last.year ? `${first.year}` : `${first.year}-${last.year}`;
+		issuePart = `${first.issue}-${last.issue} (${yearPart})`;
 	}
 
 	let details = issuePart;
@@ -349,6 +434,7 @@ export function storyVillainForStory<T extends { story?: { hash?: string | null 
 }
 
 type VillainForTitle = {
+	ranks?: string[] | null;
 	firstNames?: string[] | null;
 	lastName?: string | null;
 	as?: Array<{
@@ -372,10 +458,16 @@ export function storyVillainTitle(villain: VillainForTitle, storyHash: string): 
 		.filter((c, i, arr) => Boolean(c) && arr.indexOf(c) === i);
 	const quotedNicknames = nicknames.map((n) => `"${n}"`);
 
-	if (realName && quotedNicknames.length > 0) return [realName, ...quotedNicknames].join(', ');
-	if (realName) return realName;
-	if (quotedNicknames.length > 0) return quotedNicknames.join(', ');
-	if (codeNames.length > 0) return codeNames.join(', ');
+	// The rank goes in front of the name, e.g. "Don Esteban de Queretaro".
+	const rank = joinValues(villain.ranks, '').trim();
+	const withRank = (name: string) => (rank ? `${rank} ${name}` : name);
+
+	if (realName && quotedNicknames.length > 0)
+		return [withRank(realName), ...quotedNicknames].join(', ');
+	if (realName) return withRank(realName);
+	if (quotedNicknames.length > 0) return withRank(quotedNicknames.join(', '));
+	if (codeNames.length > 0) return withRank(codeNames.join(', '));
+	if (rank) return rank;
 	return 'Nimetön roisto';
 }
 
