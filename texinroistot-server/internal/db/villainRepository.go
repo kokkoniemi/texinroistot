@@ -271,6 +271,13 @@ EXISTS (
 	)
 )`, argPos, argPos, argPos, argPos, argPos, argPos))
 		args = append(args, "%"+search+"%")
+		argPos++
+	}
+
+	villainHash := strings.TrimSpace(params.VillainHash)
+	if len(villainHash) > 0 {
+		clauses = append(clauses, fmt.Sprintf("v.hash = $%d", argPos))
+		args = append(args, villainHash)
 	}
 
 	return strings.Join(clauses, " AND "), args, nil
@@ -515,7 +522,12 @@ SELECT
 	COALESCE(vis.roles, ARRAY[]::varchar[]),
 	COALESCE(vis.destiny, ARRAY[]::varchar[]),
 	COALESCE(s.id, 0),
-	COALESCE(s.hash, '')
+	COALESCE(s.hash, ''),
+	(
+		SELECT COUNT(DISTINCT all_vis.story)
+		FROM villains_in_stories AS all_vis
+		WHERE all_vis.villain = v.id
+	)
 FROM stories AS s
 LEFT JOIN villains_in_stories AS vis ON vis.story = s.id
 LEFT JOIN villains AS v ON v.id = vis.villain AND v.version = s.version
@@ -565,6 +577,7 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			Destiny          []string
 			StoryID          int
 			StoryHash        string
+			StoryCount       int
 		}
 
 		if err = rows.Scan(
@@ -582,6 +595,7 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			ArrayParam(&row.Destiny),
 			&row.StoryID,
 			&row.StoryHash,
+			&row.StoryCount,
 		); err != nil {
 			return nil, false, err
 		}
@@ -596,6 +610,7 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			Ranks:      row.Ranks,
 			FirstNames: row.FirstNames,
 			LastName:   row.LastName,
+			StoryCount: row.StoryCount,
 			As: []*StoryVillain{
 				{
 					ID:         row.StoryVillainID,

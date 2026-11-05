@@ -86,6 +86,7 @@ func parseVillainListParams(c *fiber.Ctx) (db.VillainListParams, error) {
 		Publication: publication,
 		Sort:        sort,
 		Search:      strings.TrimSpace(c.Query("q", "")),
+		VillainHash: strings.TrimSpace(c.Query("villain", "")),
 		Page:        page,
 		PageSize:    pageSize,
 	}, nil
@@ -126,6 +127,7 @@ func ListVillainsHandler(c *fiber.Ctx) error {
 			"publication": params.Publication,
 			"sort":        params.Sort,
 			"q":           params.Search,
+			"villain":     params.VillainHash,
 		},
 	})
 }

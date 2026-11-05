@@ -25,6 +25,7 @@ type VillainListParams struct {
 	Publication string
 	Sort        string
 	Search      string
+	VillainHash string
 	Page        int
 	PageSize    int
 }
