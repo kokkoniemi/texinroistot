@@ -1,4 +1,5 @@
 export type Author = {
+	hash?: string;
 	firstName: string;
 	lastName: string;
 	details?: string | null;
@@ -29,7 +30,18 @@ export type Meta = {
 	page: number;
 	pageSize: number;
 	totalPages: number;
+	// Initial letters available for letter paging; empty for non-alphabetical sorts.
+	letters?: string[];
+	// After a letter jump: 0-based index of the letter's first item on the page.
+	letterIndex?: number | null;
 };
+
+// Scrolls the item at index (a child of list) to the top of the view; used
+// after a letter jump so the letter's first item starts the visible list.
+export function scrollToListItem(list: HTMLElement | undefined, index?: number | null): void {
+	if (!list || index === null || index === undefined) return;
+	list.children[index]?.scrollIntoView({ block: 'start' });
+}
 
 export type PaginationToken = number | 'ellipsis';
 
@@ -515,14 +527,13 @@ export function storyVillainTitle(villain: VillainForTitle, storyHash: string): 
 	return 'Nimetön roisto';
 }
 
-// Villains appearing in several stories link to their own card on the
-// Roistot page, which lists all of their stories.
-export function storyVillainHref(villain: {
+// Villains appearing in several stories get a "Näytä roiston muut tarinat"
+// popup; returns the villain hash for those and undefined for the rest.
+export function otherStoriesVillainHash(villain: {
 	hash: string;
 	storyCount?: number;
 }): string | undefined {
-	if ((villain.storyCount ?? 0) <= 1) return undefined;
-	return buildPageHref('/roistot', { publication: 'all', villain: villain.hash });
+	return (villain.storyCount ?? 0) > 1 ? villain.hash : undefined;
 }
 
 export function buildPageHref(

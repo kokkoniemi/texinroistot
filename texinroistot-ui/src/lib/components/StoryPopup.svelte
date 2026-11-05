@@ -4,10 +4,11 @@
 		authorList,
 		italianOriginalPublication,
 		storyVillainForStory,
-		storyVillainHref,
+		otherStoriesVillainHash,
 		storyVillainTitle
 	} from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
+	import AuthorLinks from './AuthorLinks.svelte';
 	import StoryTitle from './StoryTitle.svelte';
 	import VillainCard from './VillainCard.svelte';
 
@@ -15,7 +16,9 @@
 	export let title: string;
 	export let publicationSummary: string;
 
-	const dispatch = createEventDispatcher<{ close: void }>();
+	// selectStory: another story was chosen from an author popup; the parent
+	// shows that story in this popup instead.
+	const dispatch = createEventDispatcher<{ close: void; selectStory: Story }>();
 
 	let closeButton: HTMLButtonElement;
 
@@ -95,8 +98,22 @@
 
 		<article class="story-card popup-story-card">
 			<h3 id="story-popup-title"><StoryTitle {title} /></h3>
-			<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
-			<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
+			<p>
+				<strong>Kertoi:</strong>
+				<AuthorLinks
+					authors={story.writtenBy}
+					type="writer"
+					on:selectStory={(e) => dispatch('selectStory', e.detail)}
+				/>
+			</p>
+			<p>
+				<strong>Piirsi:</strong>
+				<AuthorLinks
+					authors={story.drawnBy}
+					type="drawer"
+					on:selectStory={(e) => dispatch('selectStory', e.detail)}
+				/>
+			</p>
 			<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
 			{#if italianOriginal}
 				<p>
@@ -134,10 +151,11 @@
 								{@const cardTitle = storyVillainTitle(villain, storyHash)}
 								<VillainCard
 									title={cardTitle}
-									otherStoriesHref={storyVillainHref(villain)}
+									otherStoriesVillainHash={otherStoriesVillainHash(villain)}
 									roles={appearance?.roles}
 									destiny={appearance?.destiny}
 									codeNames={appearance?.codeNames}
+									on:selectStory={(e) => dispatch('selectStory', e.detail)}
 								/>
 							{/each}
 						</div>
