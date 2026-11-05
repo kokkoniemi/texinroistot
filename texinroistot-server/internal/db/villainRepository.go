@@ -138,10 +138,41 @@ func mapVillainPublicationFilterToTypes(filter string) ([]string, error) {
 	return types, nil
 }
 
-func buildVillainSortClause(sort string) string {
-	normalizeSQL := func(expr string) string {
-		return fmt.Sprintf(`NULLIF(regexp_replace(lower(COALESCE(%s, '')), '[[:punct:][:space:]]+', '', 'g'), '')`, expr)
+func normalizeSortSQL(expr string) string {
+	return fmt.Sprintf(`NULLIF(regexp_replace(lower(COALESCE(%s, '')), '[[:punct:][:space:]]+', '', 'g'), '')`, expr)
+}
+
+func storyVillainSortSQL(column string) string {
+	return fmt.Sprintf(`(
+	SELECT MIN(%s)
+	FROM villains_in_stories AS vis
+	WHERE vis.villain = v.id
+)`, normalizeSortSQL(fmt.Sprintf("array_to_string(vis.%s, ' ')", column)))
+}
+
+// villainSortKeyExpr returns the primary sort key of an alphabetical villain
+// sort, or "" for the publication date sorts and the grouped default sort,
+// which have no single key. Letter paging uses the same key.
+func villainSortKeyExpr(sort string) string {
+	switch sort {
+	case "fi_pub_date", "it_pub_date", "default":
+		return ""
+	case "last_name":
+		return normalizeSortSQL("v.last_name")
+	case "nickname":
+		return storyVillainSortSQL("nicknames")
+	case "other_name":
+		return storyVillainSortSQL("other_names")
+	case "code_name":
+		return storyVillainSortSQL("code_names")
+	case "rank":
+		return normalizeSortSQL("array_to_string(v.ranks, ' ')")
+	default:
+		return normalizeSortSQL("array_to_string(v.first_names, ' ')")
 	}
+}
+
+func buildVillainSortClause(sort string) string {
 	publicationSortExpr := func(pubType string) string {
 		return fmt.Sprintf(`(
 	SELECT MIN(
@@ -155,24 +186,8 @@ func buildVillainSortClause(sort string) string {
 )`, pubType)
 	}
 
-	firstNameExpr := normalizeSQL("array_to_string(v.first_names, ' ')")
-	lastNameExpr := normalizeSQL("v.last_name")
-	nicknameExpr := fmt.Sprintf(`(
-	SELECT MIN(%s)
-	FROM villains_in_stories AS vis
-	WHERE vis.villain = v.id
-)`, normalizeSQL("array_to_string(vis.nicknames, ' ')"))
-	otherNameExpr := fmt.Sprintf(`(
-	SELECT MIN(%s)
-	FROM villains_in_stories AS vis
-	WHERE vis.villain = v.id
-)`, normalizeSQL("array_to_string(vis.other_names, ' ')"))
-	codeNameExpr := fmt.Sprintf(`(
-	SELECT MIN(%s)
-	FROM villains_in_stories AS vis
-	WHERE vis.villain = v.id
-)`, normalizeSQL("array_to_string(vis.code_names, ' ')"))
-	rankExpr := normalizeSQL("array_to_string(v.ranks, ' ')")
+	firstNameExpr := villainSortKeyExpr("first_name")
+	lastNameExpr := villainSortKeyExpr("last_name")
 
 	switch sort {
 	case "fi_pub_date":
@@ -181,17 +196,36 @@ func buildVillainSortClause(sort string) string {
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, publicationSortExpr("italia_perus"), lastNameExpr, firstNameExpr)
 	case "last_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, lastNameExpr, firstNameExpr)
-	case "nickname":
-		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, nicknameExpr, lastNameExpr)
-	case "other_name":
-		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, otherNameExpr, lastNameExpr)
-	case "code_name":
-		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, codeNameExpr, lastNameExpr)
-	case "rank":
-		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, rankExpr, lastNameExpr)
-	default:
+	case "nickname", "other_name", "code_name", "rank":
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, villainSortKeyExpr(sort), lastNameExpr)
+	case "first_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, firstNameExpr, lastNameExpr)
+	default:
+		return defaultVillainSortClause()
 	}
+}
+
+// defaultVillainSortKeys are the name fields of the default sort in group
+// order: a villain belongs to the first group whose name it has.
+var defaultVillainSortKeys = []string{"first_name", "last_name", "other_name", "nickname", "rank", "code_name"}
+
+// defaultVillainSortClause orders villains group by group (first name, then
+// last name, other name, nickname, rank, code name, then villains with none of
+// these), each group alphabetically by its own name. It has no letter paging.
+func defaultVillainSortClause() string {
+	keys := make([]string, len(defaultVillainSortKeys))
+	groupCases := make([]string, len(defaultVillainSortKeys))
+	for i, sort := range defaultVillainSortKeys {
+		keys[i] = villainSortKeyExpr(sort)
+		groupCases[i] = fmt.Sprintf("WHEN %s IS NOT NULL THEN %d", keys[i], i+1)
+	}
+	return fmt.Sprintf(
+		`CASE %s ELSE %d END ASC, COALESCE(%s) ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`,
+		strings.Join(groupCases, " "),
+		len(defaultVillainSortKeys)+1,
+		strings.Join(keys, ", "),
+		villainSortKeyExpr("last_name"),
+	)
 }
 
 func buildVillainSortRequirementClause(sort string) string {

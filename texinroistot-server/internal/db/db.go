@@ -57,6 +57,7 @@ type AuthorRepository interface {
 type StoryRepository interface {
 	List(version *Version, limit int, offset int) ([]*Story, error)
 	ListFiltered(version *Version, params StoryListParams) ([]*Story, int, error)
+	LetterPaging(version *Version, params StoryListParams, letter string) ([]string, *LetterPosition, error)
 	ListByAuthorHash(version *Version, authorHash string, authorType string) ([]*Story, bool, error)
 	BulkCreate(stories []*Story, version *Version) ([]*Story, error)
 	BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error)
@@ -65,6 +66,7 @@ type StoryRepository interface {
 type VillainRepository interface {
 	BulkCreate(villains []*Villain, version *Version) ([]*Villain, error)
 	ListFiltered(version *Version, params VillainListParams) ([]*Villain, int, error)
+	LetterPaging(version *Version, params VillainListParams, letter string) ([]string, *LetterPosition, error)
 	ListByStoryHash(version *Version, storyHash string) ([]*Villain, bool, error)
 	//BulkCreateStoryVillain(storyVillains []*StoryVillain) ([]*StoryVillain, error)
 }
