@@ -264,7 +264,8 @@ func (i *importer) loadSpecialPublication(storyID id, r row) error {
 		lower := strings.ToLower(val)
 		if strings.Contains(lower, "suuralbumi") {
 			pubType = PUB_SUUR
-		} else if strings.Contains(lower, "maxi-tex") {
+		} else if strings.Contains(strings.ReplaceAll(lower, "-", " "), "maxi tex") {
+			// the sheet uses "Maxi Tex 11 (2006)"; accept "Maxi-Tex" too
 			pubType = PUB_MAXI
 		}
 
@@ -295,6 +296,13 @@ func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
 		title = strings.TrimSpace(titles[1])
 	}
 
+	// Rows with an Italian special publication have no base issue numbers, so
+	// the Italian year column holds the special publication's year.
+	year, err := strconv.Atoi(strings.TrimSpace(r.getValue("italy_year")))
+	if err != nil {
+		year = 0
+	}
+
 	for _, val := range strings.Split(r.getValue("italy_pub_special"), ";") {
 		val = strings.TrimSpace(val)
 		if len(val) == 0 {
@@ -305,6 +313,7 @@ func (i *importer) loadItalianSpecialPublication(storyID id, r row) error {
 		pub := &db.Publication{
 			Hash:  crypt.Hash(fmt.Sprintf("%s%s", pubType, val)),
 			Type:  pubType,
+			Year:  year,
 			Issue: val,
 		}
 
