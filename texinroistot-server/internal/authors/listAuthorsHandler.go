@@ -119,15 +119,33 @@ func authorNameMatches(author *db.Author, search string) bool {
 		strings.Contains(fullName, search)
 }
 
+// sortNames returns the first and last name used for sorting. Authors known by
+// a single name (e.g. "Leomacs", stored as a first name) sort by it as their
+// last name, so they land among the other names instead of first.
+func sortNames(author *db.Author) (string, string) {
+	first := normalizedText(author.FirstName)
+	last := normalizedText(author.LastName)
+	if last == "" {
+		return "", first
+	}
+	return first, last
+}
+
 func compareAuthors(sortValue string, a *db.Author, b *db.Author) bool {
-	firstA := normalizedText(a.FirstName)
-	lastA := normalizedText(a.LastName)
-	firstB := normalizedText(b.FirstName)
-	lastB := normalizedText(b.LastName)
+	firstA, lastA := sortNames(a)
+	firstB, lastB := sortNames(b)
 
 	if sortValue == "first_name" {
-		if firstA != firstB {
-			return firstA < firstB
+		// a single name is also the first name when sorting by first name
+		sortFirstA, sortFirstB := firstA, firstB
+		if sortFirstA == "" {
+			sortFirstA = lastA
+		}
+		if sortFirstB == "" {
+			sortFirstB = lastB
+		}
+		if sortFirstA != sortFirstB {
+			return sortFirstA < sortFirstB
 		}
 		if lastA != lastB {
 			return lastA < lastB
