@@ -2,7 +2,6 @@
 	import { hasValues, joinValues } from '$lib/listing/shared';
 
 	export let title: string;
-	export let ranks: string[] | null | undefined = undefined;
 	export let roles: string[] | null | undefined = undefined;
 	export let destiny: string[] | null | undefined = undefined;
 	export let codeNames: string[] | null | undefined = undefined;
@@ -10,9 +9,6 @@
 
 <article class="story-villain-card">
 	<h4>{title}</h4>
-	{#if hasValues(ranks)}
-		<p><strong>Arvo:</strong> {joinValues(ranks)}</p>
-	{/if}
 	{#if hasValues(roles)}
 		<p><strong>Rooli:</strong> {joinValues(roles, '-', '; ')}</p>
 	{/if}

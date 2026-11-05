@@ -11,6 +11,7 @@
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
+	import StoryTitle from '$lib/components/StoryTitle.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -99,13 +100,8 @@
 
 	function storyTitle(story: Story): string {
 		const publications = finnishPublications(story);
-		const baseTitles = nonItalianTitlesByFirstPublication(
-			publications.filter((publication) => publication.in?.type === 'perus')
-		);
-		if (baseTitles.length > 0) return baseTitles[0];
-
 		const nonItalianTitles = nonItalianTitlesByFirstPublication(publications);
-		if (nonItalianTitles.length > 0) return nonItalianTitles[0];
+		if (nonItalianTitles.length > 0) return nonItalianTitles.join('; ');
 
 		const anyTitle = publications
 			.find((publication) => Boolean(publication.title?.trim()))
@@ -232,7 +228,7 @@
 												class="author-story-link"
 												on:click={() => (selectedStory = story)}
 											>
-												{storyTitle(story)}
+												<StoryTitle title={storyTitle(story)} />
 											</button>
 											<br />
 											<span>{publicationSummary(story)}</span>

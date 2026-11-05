@@ -15,6 +15,7 @@
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import StoryTitle from '$lib/components/StoryTitle.svelte';
 	import VillainCard from '$lib/components/VillainCard.svelte';
 	import type { PageData } from './$types';
 
@@ -218,17 +219,17 @@
 				{@const storyHash = story.hash.trim()}
 				{@const italianOriginal = italianOriginalPublication(story)}
 				<article class="story-card">
-					<h3>{storyTitle(story)}</h3>
+					<h3><StoryTitle title={storyTitle(story)} /></h3>
 					<p><strong>Kertoi:</strong> {authorList(story.writtenBy, '; ')}</p>
 					<p><strong>Piirsi:</strong> {authorList(story.drawnBy, '; ')}</p>
 					<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
 					{#if italianOriginal}
 						<p>
 							<strong>Alkuperäisjulkaisu (Italia):</strong>
-							{#if italianOriginal.title}<em>{italianOriginal.title}</em>{/if}
-							{#if italianOriginal.details}{italianOriginal.title
-									? ', '
-									: ''}{italianOriginal.details}{/if}
+							{#if italianOriginal.title}<em>{italianOriginal.title}</em>{italianOriginal.details
+									? ','
+									: ''}{/if}
+							{italianOriginal.details}
 						</p>
 					{/if}
 					<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary(story)}</p>
@@ -269,7 +270,6 @@
 													: baseTitle}
 										<VillainCard
 											title={cardTitle}
-											ranks={villain.ranks}
 											roles={appearance?.roles}
 											destiny={appearance?.destiny}
 											codeNames={appearance?.codeNames}
