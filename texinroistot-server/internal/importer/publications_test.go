@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kokkoniemi/texinroistot/internal/db"
@@ -715,5 +716,93 @@ func TestLoadBasePublication_UnknownCadenceErrors(t *testing.T) {
 	err := i.loadBasePublication(story.ID, r)
 	if err == nil {
 		t.Fatalf("expected error for unknown annual cadence")
+	}
+}
+
+// Links created from the UVuosi/Ualkaen/Upäättyen columns are flagged as
+// re-publications; base and Italian links are not.
+func TestLoadBaseRePublication_MarksLinksAsRepublication(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-taistelu"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"story_title":       "Taistelu erämaassa; Taistelu erämaassa uusinta",
+		"pub_year":          "1953",
+		"pub_from":          "1",
+		"pub_to":            "3",
+		"repub_year":        "1998",
+		"repub_from":        "11",
+		"repub_to":          "11",
+		"italy_story_title": "Il totem misterioso",
+		"italy_year":        "1948",
+		"italy_pub_from":    "1",
+		"italy_pub_to":      "1",
+	})
+
+	if err := i.loadBasePublication(story.ID, r); err != nil {
+		t.Fatalf("loadBasePublication failed: %v", err)
+	}
+	if err := i.loadBaseRePublication(story.ID, r); err != nil {
+		t.Fatalf("loadBaseRePublication failed: %v", err)
+	}
+	if err := i.loadItalianBasePublication(story.ID, r); err != nil {
+		t.Fatalf("loadItalianBasePublication failed: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, sp := range i.getStoryPublications(story.ID) {
+		pub := i.getPublicationWithID(sp.publication).item
+		got[fmt.Sprintf("%s %d/%s", pub.Type, pub.Year, pub.Issue)] = sp.isRepublication
+	}
+
+	want := map[string]bool{
+		"perus 1953/1":        false,
+		"perus 1953/2":        false,
+		"perus 1953/3":        false,
+		"perus 1998/11":       true,
+		"italia_perus 1948/1": false,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d links, got %d: %v", len(want), len(got), got)
+	}
+	for key, wantRepub := range want {
+		gotRepub, ok := got[key]
+		if !ok {
+			t.Errorf("missing link %s", key)
+			continue
+		}
+		if gotRepub != wantRepub {
+			t.Errorf("link %s: isRepublication = %v, want %v", key, gotRepub, wantRepub)
+		}
+	}
+}
+
+// 1954 had 26 issues, so a 1954 range wrapping into 1955 must go 26/54 → 1/55
+// without creating a non-existent 27/1954.
+func TestLoadBasePublication_1954WrapUses26Issues(t *testing.T) {
+	i := newPublicationTestImporter()
+	story := i.addStory(&db.Story{Hash: "story-1954-wrap"})
+
+	r := newPubRow(i, 0, map[string]string{
+		"story_title": "Tarina",
+		"pub_year":    "1954",
+		"pub_from":    "25",
+		"pub_to":      "1/55",
+	})
+
+	if err := i.loadBasePublication(story.ID, r); err != nil {
+		t.Fatalf("loadBasePublication failed: %v", err)
+	}
+
+	if findPublication(i, PUB_PERUS, 1954, "27") != nil {
+		t.Errorf("unexpected publication 27/1954")
+	}
+	for _, want := range []struct {
+		year  int
+		issue string
+	}{{1954, "25"}, {1954, "26"}, {1955, "1"}} {
+		if findPublication(i, PUB_PERUS, want.year, want.issue) == nil {
+			t.Errorf("expected publication %s/%d", want.issue, want.year)
+		}
 	}
 }

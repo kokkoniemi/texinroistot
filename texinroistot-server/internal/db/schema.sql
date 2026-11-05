@@ -57,6 +57,7 @@ CREATE TABLE "public"."stories_in_publications" (
 	    "story" int8 NOT NULL,
 	    "publication" int8 NOT NULL,
 	    "title" varchar NOT NULL,
+	    "is_republication" bool NOT NULL DEFAULT false,
 	    PRIMARY KEY ("id")
 );
 

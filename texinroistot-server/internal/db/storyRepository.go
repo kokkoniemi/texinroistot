@@ -86,13 +86,14 @@ func (s *storyRepo) BulkCreate(stories []*Story, version *Version) ([]*Story, er
 				s.ID,
 				p.In.ID,
 				p.Title,
+				p.IsRepublication,
 			})
 		}
 	}
 
 	_, err = BulkInsertTxn(bulkInsertParams{
 		Table:   "stories_in_publications",
-		Columns: []string{"story", "publication", "title"},
+		Columns: []string{"story", "publication", "title", "is_republication"},
 		Values:  storyPubValues,
 	})
 	if err != nil {
@@ -579,6 +580,7 @@ SELECT
 	p.issue,
 	sip.id,
 	sip.title,
+	sip.is_republication,
 	sip.story
 FROM publications as p
 JOIN stories_in_publications AS sip ON p.id = sip.publication
@@ -702,6 +704,7 @@ func (*storyRepo) selectStoryPublicationRows(storyIDs []int) (map[int][]*StoryPu
 			&p.Issue,
 			&sp.ID,
 			&sp.Title,
+			&sp.IsRepublication,
 			&storyID,
 		); err != nil {
 			return nil, err
