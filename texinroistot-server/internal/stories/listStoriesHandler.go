@@ -117,6 +117,19 @@ func ListStoriesHandler(c *fiber.Ctx) error {
 	}
 
 	storyRepo := db.NewStoryRepository()
+
+	// letter=<a-ö> jumps to the page where that letter starts (alphabetical sort only).
+	letters, letterPosition, err := storyRepo.LetterPaging(version, params, db.NormalizePagingLetter(c.Query("letter")))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list stories"})
+	}
+	// letterIndex: 0-based position of the letter's first story on the page.
+	var letterIndex interface{}
+	if letterPosition != nil {
+		params.Page = letterPosition.Page
+		letterIndex = letterPosition.Index
+	}
+
 	stories, total, err := storyRepo.ListFiltered(version, params)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list stories"})
@@ -130,10 +143,12 @@ func ListStoriesHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"stories": stories,
 		"meta": fiber.Map{
-			"total":      total,
-			"page":       params.Page,
-			"pageSize":   params.PageSize,
-			"totalPages": totalPages,
+			"total":       total,
+			"page":        params.Page,
+			"pageSize":    params.PageSize,
+			"totalPages":  totalPages,
+			"letters":     letters,
+			"letterIndex": letterIndex,
 		},
 		"filters": fiber.Map{
 			"publication": params.Publication,

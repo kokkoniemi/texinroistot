@@ -105,6 +105,19 @@ func ListVillainsHandler(c *fiber.Ctx) error {
 	}
 
 	villainRepo := db.NewVillainRepository()
+
+	// letter=<a-ö> jumps to the page where that letter starts (alphabetical sorts only).
+	letters, letterPosition, err := villainRepo.LetterPaging(version, params, db.NormalizePagingLetter(c.Query("letter")))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list villains"})
+	}
+	// letterIndex: 0-based position of the letter's first villain on the page.
+	var letterIndex interface{}
+	if letterPosition != nil {
+		params.Page = letterPosition.Page
+		letterIndex = letterPosition.Index
+	}
+
 	villains, total, err := villainRepo.ListFiltered(version, params)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list villains"})
@@ -118,10 +131,12 @@ func ListVillainsHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"villains": villains,
 		"meta": fiber.Map{
-			"total":      total,
-			"page":       params.Page,
-			"pageSize":   params.PageSize,
-			"totalPages": totalPages,
+			"total":       total,
+			"page":        params.Page,
+			"pageSize":    params.PageSize,
+			"totalPages":  totalPages,
+			"letters":     letters,
+			"letterIndex": letterIndex,
 		},
 		"filters": fiber.Map{
 			"publication": params.Publication,
