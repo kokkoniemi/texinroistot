@@ -1,7 +1,3 @@
-TODO: Paholaiskolo näyttää väärin julkaisutiedot
-TODO: Kursiivilla kirjoitetut osuudet Excelin tekstissä tulisi näyttää kursiivilla käyttöliittymässä
-TODO: tarkista filtterit. Suomen perussarjassa ei näytä esim. kuolma tulee taivaalta
-TODO: Salanimi Roistot-sivun Järjestys-filtteriin.
 TODO: Aakkosten mukainen sivutus
 
 TODO: Svelte 5 Migration
