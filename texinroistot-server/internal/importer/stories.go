@@ -172,8 +172,9 @@ func (i *importer) persistStories(version *db.Version) error {
 		for _, sp := range importerStoryPublications {
 			importerStory.item.Publications = append(importerStory.item.Publications,
 				&db.StoryPublication{
-					Title: sp.title,
-					In:    i.getPublicationWithID(sp.publication).item,
+					Title:           sp.title,
+					IsRepublication: sp.isRepublication,
+					In:              i.getPublicationWithID(sp.publication).item,
 				})
 		}
 

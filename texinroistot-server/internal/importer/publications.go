@@ -16,10 +16,11 @@ type importerPublication struct {
 }
 
 type importerStoryPublication struct {
-	ID          id
-	story       id
-	publication id
-	title       string
+	ID              id
+	story           id
+	publication     id
+	title           string
+	isRepublication bool
 }
 
 const (
@@ -58,14 +59,15 @@ func (i *importer) getPublicationIndexWithHash(hash string) int {
 	})
 }
 
-func (i *importer) addStoryPublication(storyID id, pubID id, title string) *importerStoryPublication {
+func (i *importer) addStoryPublication(storyID id, pubID id, title string, isRepublication bool) *importerStoryPublication {
 	i.totalEntities++
 
 	importerStoryPublication := &importerStoryPublication{
-		ID:          id(i.totalEntities),
-		story:       storyID,
-		publication: pubID,
-		title:       title,
+		ID:              id(i.totalEntities),
+		story:           storyID,
+		publication:     pubID,
+		title:           title,
+		isRepublication: isRepublication,
 	}
 	i.storyPublications = append(i.storyPublications, importerStoryPublication)
 
@@ -92,6 +94,12 @@ func (i *importer) getStoryPublications(storyID id) []*importerStoryPublication 
 // If a publication with the same hash already exists, it is reused; either way
 // the story-publication link is created when missing.
 func (i *importer) ensureStoryPublication(storyID id, pub *db.Publication, title string) {
+	i.ensureStoryPublicationLink(storyID, pub, title, false)
+}
+
+// ensureStoryPublicationLink is ensureStoryPublication with an explicit
+// re-publication flag for links created from the UVuosi/Ualkaen/Upäättyen columns.
+func (i *importer) ensureStoryPublicationLink(storyID id, pub *db.Publication, title string, isRepublication bool) {
 	idx := i.getPublicationIndexWithHash(pub.Hash)
 	var pubID id
 	if idx == -1 {
@@ -100,7 +108,7 @@ func (i *importer) ensureStoryPublication(storyID id, pub *db.Publication, title
 		pubID = i.publications[idx].ID
 	}
 	if !i.hasStoryPublication(storyID, pubID) {
-		i.addStoryPublication(storyID, pubID, title)
+		i.addStoryPublication(storyID, pubID, title, isRepublication)
 	}
 }
 
@@ -114,6 +122,7 @@ func (i *importer) handleBasePublications(
 	fromCol string,
 	toCol string,
 	wrapAnnually bool,
+	isRepublication bool,
 ) error {
 	yearVal := r.getValue(yearCol)
 	fromVal := r.getValue(fromCol)
@@ -183,7 +192,7 @@ func (i *importer) handleBasePublications(
 			Year:  issue["year"],
 			Issue: fmt.Sprintf("%v", issue["num"]),
 		}
-		i.ensureStoryPublication(storyID, pub, title)
+		i.ensureStoryPublicationLink(storyID, pub, title, isRepublication)
 	}
 
 	return nil
@@ -192,19 +201,19 @@ func (i *importer) handleBasePublications(
 func (i *importer) loadBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_PERUS, "story_title", 0, "pub_year", "pub_from",
-		"pub_to", true)
+		"pub_to", true, false)
 }
 
 func (i *importer) loadBaseRePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_PERUS, "story_title", 1, "repub_year", "repub_from",
-		"repub_to", true)
+		"repub_to", true, true)
 }
 
 func (i *importer) loadItalianBasePublication(storyID id, r row) error {
 	return i.handleBasePublications(
 		storyID, r, PUB_IT_PERUS, "italy_story_title", 0, "italy_year",
-		"italy_pub_from", "italy_pub_to", false)
+		"italy_pub_from", "italy_pub_to", false, false)
 }
 
 // parseNonBaseTitle parses the title for publications other than PUB_PERUS, PUB_IT_PERUS, PUB_IT_ERIK
@@ -554,10 +563,10 @@ func getPublishedAnnualCount(year int) int {
 	if year == 1953 {
 		return 25
 	}
-	if year == 1954 || year == 1965 {
+	if year == 1965 {
 		return 27
 	}
-	if year >= 1955 && year <= 1964 {
+	if year >= 1954 && year <= 1964 {
 		return 26
 	}
 	if year >= 1971 && year <= 1978 {

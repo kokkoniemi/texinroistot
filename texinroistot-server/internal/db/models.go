@@ -90,9 +90,10 @@ type Publication struct {
 }
 
 type StoryPublication struct {
-	ID    int          `json:"-"`
-	Title string       `json:"title"`
-	In    *Publication `json:"in"`
+	ID              int          `json:"-"`
+	Title           string       `json:"title"`
+	IsRepublication bool         `json:"isRepublication"`
+	In              *Publication `json:"in"`
 }
 
 type Villain struct {
