@@ -81,3 +81,41 @@ func TestBuildVillainListWhere_SearchArgPositionWithPublicationFilter(t *testing
 		t.Fatalf("expected search arg to be %%kit%%, got %v", args[2])
 	}
 }
+
+func TestBuildVillainListWhere_VillainHashFollowsOtherFilters(t *testing.T) {
+	whereClause, args, err := buildVillainListWhere(5, VillainListParams{
+		Publication: "fi",
+		Search:      "kit",
+		VillainHash: " abc123 ",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !strings.Contains(whereClause, "v.hash = $4") {
+		t.Fatalf("expected villain hash filter to use $4, got %s", whereClause)
+	}
+	if len(args) != 4 {
+		t.Fatalf("expected 4 args (version + publication + search + hash), got %d", len(args))
+	}
+	if args[3] != "abc123" {
+		t.Fatalf("expected trimmed villain hash arg, got %v", args[3])
+	}
+}
+
+func TestBuildVillainListWhere_VillainHashAlone(t *testing.T) {
+	whereClause, args, err := buildVillainListWhere(5, VillainListParams{
+		Publication: "all",
+		VillainHash: "abc123",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if !strings.Contains(whereClause, "v.hash = $2") {
+		t.Fatalf("expected villain hash filter to use $2, got %s", whereClause)
+	}
+	if len(args) != 2 || args[1] != "abc123" {
+		t.Fatalf("expected args [5 abc123], got %v", args)
+	}
+}

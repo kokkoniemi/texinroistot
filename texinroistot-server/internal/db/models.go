@@ -103,6 +103,9 @@ type Villain struct {
 	FirstNames []string        `json:"firstNames"`
 	LastName   string          `json:"lastName"`
 	As         []*StoryVillain `json:"as"`
+	// StoryCount is the number of stories the villain appears in. Only set
+	// by ListByStoryHash, where As holds just the requested story.
+	StoryCount int `json:"storyCount,omitempty"`
 }
 
 type StoryVillain struct {
