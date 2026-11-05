@@ -10,7 +10,7 @@ RUN apk update \
     && update-ca-certificates
 
 
-RUN go install github.com/air-verse/air@latest && go install github.com/go-delve/delve/cmd/dlv@latest
+RUN go install github.com/air-verse/air@v1.67.1 && go install github.com/go-delve/delve/cmd/dlv@v1.27.2
 
 
 ENV PATH="/go/bin:${PATH}"
