@@ -44,6 +44,9 @@ func importSpreadsheet(file *excelize.File) (*db.Version, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := spreadsheetImporter.applyItalicMarkup(file, inputSheetName, rows); err != nil {
+		return nil, err
+	}
 	if err := spreadsheetImporter.LoadData(rows[1:]); err != nil {
 		return nil, err
 	}

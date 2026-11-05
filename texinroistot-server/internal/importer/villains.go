@@ -112,8 +112,9 @@ func (i *importer) loadVillain(storyID id, r row) error {
 			strings.Join(nicknames, "") +
 			strings.Join(otherNames, "") +
 			strings.Join(codeNames, "") +
-			strings.Join(roles, "") +
-			strings.Join(destiny, ""))
+			// italic markup must not change the hash
+			strings.Join(stripItalicMarkupAll(roles), "") +
+			strings.Join(stripItalicMarkupAll(destiny), ""))
 	}
 
 	// create villain if not exist
