@@ -62,6 +62,27 @@ export type StoryTitleSegment = {
 
 const storyTitleAnnotationPattern = /\(\d+\.(?:\s*[–-]\s*\d+\.)?\s*p\)|;/g;
 
+export type TextSegment = {
+	text: string;
+	italic: boolean;
+};
+
+// Splits text with the importer's <i>…</i> italic markup (used in Rooli and
+// Kohtalo) into plain and italic segments. Nothing else is treated as markup.
+export function italicSegments(text: string): TextSegment[] {
+	const segments: TextSegment[] = [];
+	const pattern = /<i>(.*?)<\/i>/g;
+	let lastIndex = 0;
+	for (const match of text.matchAll(pattern)) {
+		const index = match.index ?? 0;
+		if (index > lastIndex) segments.push({ text: text.slice(lastIndex, index), italic: false });
+		if (match[1]) segments.push({ text: match[1], italic: true });
+		lastIndex = index + match[0].length;
+	}
+	if (lastIndex < text.length) segments.push({ text: text.slice(lastIndex), italic: false });
+	return segments;
+}
+
 const storyTitlePartNotePattern = /\s*\(\d+\.(?:\s*[–-]\s*\d+\.)?\s*p\)/g;
 
 // The title of the story's first Finnish edition without part notes, e.g.
@@ -165,13 +186,29 @@ export function nonItalianTitlesByFirstPublication(
 		}
 	}
 
-	return [...earliestByTitle.values()]
+	const titles = [...earliestByTitle.values()]
 		.sort((a, b) => {
 			const order = comparePublicationOrderKey(a.key, b.key);
 			if (order !== 0) return order;
 			return a.title.localeCompare(b.title);
 		})
 		.map((entry) => entry.title);
+
+	// When every title has a part note, order by the first part number
+	// ("(1. p)", "(2. – 3. p)", ...) instead of publication date.
+	const partNumbers = titles.map(firstPartNumber);
+	if (titles.length > 1 && partNumbers.every((part) => part !== null)) {
+		return titles
+			.map((title, index) => ({ title, part: partNumbers[index] as number }))
+			.sort((a, b) => a.part - b.part)
+			.map((entry) => entry.title);
+	}
+	return titles;
+}
+
+function firstPartNumber(title: string): number | null {
+	const match = title.match(/\((\d+)\.(?:\s*[–-]\s*\d+\.)?\s*p\)/);
+	return match ? Number(match[1]) : null;
 }
 
 function parseBaseSeriesIssue(publication: StoryPublication): BaseSeriesIssue | null {
@@ -292,20 +329,14 @@ export function publicationSummaryFromPublications(
 		groups[group].push(publication);
 	}
 
+	// Finnish publications only; Italian ones (italia_*) are shown separately as
+	// the Italian original publication.
 	const order = [
 		'perus',
 		'kronikka',
 		'suur',
 		'maxi',
 		'muu_erikois',
-		'italia_serie_extra',
-		'italia_texone',
-		'italia_mini_texone_maxi_tex',
-		'italia_almanacco_del_west',
-		'italia_color_tex',
-		'italia_tex_romanzi_a_fumetti',
-		'italia_tex_magazine',
-		'italia_erikois',
 		republicationGroup,
 		'kirjasto'
 	];
@@ -377,6 +408,7 @@ export function italianOriginalPublication(story: StoryBase): ItalianOriginalPub
 	const titlePart = titles.join('; ');
 
 	const issues = italianPublications
+		.filter((publication) => publication.in?.type === 'italia_perus')
 		.map((publication) => {
 			const issue = (publication.in?.issue ?? '').trim();
 			const year = publication.in?.year ?? 0;
@@ -411,7 +443,20 @@ export function italianOriginalPublication(story: StoryBase): ItalianOriginalPub
 		issuePart = `${first.issue}-${last.issue} (${yearPart})`;
 	}
 
-	let details = issuePart;
+	// Italian special publications (Maxi Tex, Texone, Color Tex, ...): the issue
+	// text already names the series, so only the year is added, e.g.
+	// "Maxi Tex 16 (2013)".
+	const specialIssues = italianPublications
+		.filter((publication) => publication.in?.type !== 'italia_perus')
+		.map((publication) => {
+			const issue = (publication.in?.issue ?? '').trim();
+			const year = publication.in?.year ?? 0;
+			if (!issue) return publicationItem(publication).trim();
+			return year > 0 ? `${issue} (${year})` : issue;
+		})
+		.filter((item, index, values) => Boolean(item) && values.indexOf(item) === index);
+
+	let details = [issuePart, ...specialIssues].filter(Boolean).join('; ');
 	if (story.orderNumber > 0) {
 		const storyNumberPart = `(tarina nro ${story.orderNumber})`;
 		details = details ? `${details} ${storyNumberPart}` : storyNumberPart;
@@ -439,6 +484,7 @@ type VillainForTitle = {
 	lastName?: string | null;
 	as?: Array<{
 		nicknames?: string[] | null;
+		otherNames?: string[] | null;
 		codeNames?: string[] | null;
 		story?: { hash?: string | null } | null;
 	}> | null;
@@ -450,25 +496,33 @@ export function storyVillainTitle(villain: VillainForTitle, storyHash: string): 
 	const realName = `${firstNames} ${lastName}`.trim();
 
 	const appearance = storyVillainForStory(villain, storyHash);
-	const nicknames = (appearance?.nicknames ?? [])
-		.map((n) => n.trim())
-		.filter((n, i, arr) => Boolean(n) && arr.indexOf(n) === i);
-	const codeNames = (appearance?.codeNames ?? [])
-		.map((c) => c.trim())
-		.filter((c, i, arr) => Boolean(c) && arr.indexOf(c) === i);
+	const uniqueTrimmed = (values?: string[] | null) =>
+		(values ?? []).map((v) => v.trim()).filter((v, i, arr) => Boolean(v) && arr.indexOf(v) === i);
+	const otherNames = uniqueTrimmed(appearance?.otherNames);
+	const nicknames = uniqueTrimmed(appearance?.nicknames);
+	const codeNames = uniqueTrimmed(appearance?.codeNames);
 	const quotedNicknames = nicknames.map((n) => `"${n}"`);
 
 	// The rank goes in front of the name, e.g. "Don Esteban de Queretaro".
 	const rank = joinValues(villain.ranks, '').trim();
 	const withRank = (name: string) => (rank ? `${rank} ${name}` : name);
 
-	if (realName && quotedNicknames.length > 0)
-		return [withRank(realName), ...quotedNicknames].join(', ');
-	if (realName) return withRank(realName);
-	if (quotedNicknames.length > 0) return withRank(quotedNicknames.join(', '));
-	if (codeNames.length > 0) return withRank(codeNames.join(', '));
+	// Real name first, then other names (Excel column D), then nicknames (column E).
+	const names = [realName, ...otherNames, ...quotedNicknames].filter(Boolean);
+	if (names.length > 0) return [withRank(names[0]), ...names.slice(1)].join(', ');
+	if (codeNames.length > 0) return withRank(codeNames.join('; '));
 	if (rank) return rank;
 	return 'Nimetön roisto';
+}
+
+// Villains appearing in several stories link to their own card on the
+// Roistot page, which lists all of their stories.
+export function storyVillainHref(villain: {
+	hash: string;
+	storyCount?: number;
+}): string | undefined {
+	if ((villain.storyCount ?? 0) <= 1) return undefined;
+	return buildPageHref('/roistot', { publication: 'all', villain: villain.hash });
 }
 
 export function buildPageHref(

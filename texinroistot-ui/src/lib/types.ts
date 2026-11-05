@@ -20,6 +20,8 @@ export type Villain = {
 	firstNames?: string[] | null;
 	lastName?: string | null;
 	as?: StoryVillain[] | null;
+	// Only set by the story villains endpoint.
+	storyCount?: number;
 };
 
 export type StoryVillainsResponse = {

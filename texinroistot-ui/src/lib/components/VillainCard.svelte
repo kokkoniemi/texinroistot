@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { hasValues, joinValues } from '$lib/listing/shared';
+	import ItalicText from './ItalicText.svelte';
 
 	export let title: string;
+	// Link to the villain's other stories; only given for villains in several stories.
+	export let otherStoriesHref: string | undefined = undefined;
 	export let roles: string[] | null | undefined = undefined;
 	export let destiny: string[] | null | undefined = undefined;
 	export let codeNames: string[] | null | undefined = undefined;
@@ -10,13 +13,16 @@
 <article class="story-villain-card">
 	<h4>{title}</h4>
 	{#if hasValues(roles)}
-		<p><strong>Rooli:</strong> {joinValues(roles, '-', '; ')}</p>
+		<p><strong>Rooli:</strong> <ItalicText text={joinValues(roles, '-', '; ')} /></p>
 	{/if}
 	{#if hasValues(destiny)}
-		<p><strong>Kohtalo:</strong> {joinValues(destiny, '-', '; ')}</p>
+		<p><strong>Kohtalo:</strong> <ItalicText text={joinValues(destiny, '-', '; ')} /></p>
 	{/if}
 	{#if hasValues(codeNames)}
-		<p><strong>Salanimi:</strong> {joinValues(codeNames)}</p>
+		<p><strong>Salanimi:</strong> {joinValues(codeNames, '-', '; ')}</p>
+	{/if}
+	{#if otherStoriesHref}
+		<p><a href={otherStoriesHref}>Näytä roiston muut tarinat</a></p>
 	{/if}
 </article>
 
