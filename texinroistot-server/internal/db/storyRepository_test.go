@@ -74,10 +74,35 @@ func TestMapPublicationFilterToTypes_ItalianSpecialSeries(t *testing.T) {
 	}
 }
 
-func TestBuildSortClause_AlphaUsesSelectedItalianSpecialSeries(t *testing.T) {
-	clause := buildSortClause("alpha", "texone")
-	if !strings.Contains(clause, "p.type = 'italia_texone'") {
-		t.Fatalf("expected alpha sort to use italia_texone publication type, got %s", clause)
+func TestBuildSortClause_AlphaItUsesSelectedItalianSpecialSeries(t *testing.T) {
+	clause := buildSortClause("alpha_it", "texone")
+	if !strings.Contains(clause, "p.type::text IN ('italia_texone')") {
+		t.Fatalf("expected Italian alpha sort to use italia_texone titles, got %s", clause)
+	}
+}
+
+// The alphabetical sort uses Finnish titles, the Italian one Italian titles:
+// the selected publication's own titles when it is in that language,
+// otherwise any title in that language.
+func TestAlphaTitleTypes(t *testing.T) {
+	cases := []struct {
+		sort, publication string
+		want              []string
+	}{
+		{"alpha", "suur", []string{"suur"}},
+		{"alpha", "perus_fi", []string{"perus"}},
+		{"alpha", "texone", finnishPublicationTypes},
+		{"alpha", "all", finnishPublicationTypes},
+		{"alpha_it", "texone", []string{"italia_texone"}},
+		{"alpha_it", "perus_it", []string{"italia_perus"}},
+		{"alpha_it", "suur", italianPublicationTypes},
+		{"alpha_it", "all", italianPublicationTypes},
+	}
+	for _, c := range cases {
+		got := alphaTitleTypes(c.sort, c.publication)
+		if strings.Join(got, ",") != strings.Join(c.want, ",") {
+			t.Errorf("alphaTitleTypes(%q, %q) = %v, want %v", c.sort, c.publication, got, c.want)
+		}
 	}
 }
 
@@ -155,5 +180,65 @@ func TestItalianDateSort_YearThenOrderNumber(t *testing.T) {
 	withYear := buildStoryOrderClause(StoryListParams{Sort: "it_pub_date", Publication: "all", Year: 1999})
 	if !strings.HasPrefix(withYear, "s.order_num ASC") {
 		t.Fatalf("expected order number order with a year, got %s", withYear)
+	}
+}
+
+// A Finnish special publication filter with the Finnish date sort orders by
+// that publication's own year and number, with or without a year filter.
+func TestFinnishSpecialOrderClause(t *testing.T) {
+	for _, publication := range []string{"suur", "maxi", "kirjasto", "kronikka"} {
+		for _, year := range []int{0, 2006} {
+			params := StoryListParams{Publication: publication, Sort: "fi_pub_date", Year: year}
+			clause := buildStoryOrderClause(params)
+			if !strings.Contains(clause, publicationYearSQL) || !strings.Contains(clause, "'"+publication+"'") {
+				t.Fatalf("%s/%d: expected the special publication's year and number, got %s", publication, year, clause)
+			}
+		}
+	}
+	for _, params := range []StoryListParams{
+		{Publication: "all", Sort: "fi_pub_date"},
+		{Publication: "perus_fi", Sort: "fi_pub_date"},
+		{Publication: "texone", Sort: "fi_pub_date"},
+		{Publication: "suur", Sort: "alpha"},
+		{Publication: "suur", Sort: "it_pub_date"},
+	} {
+		if finnishSpecialOrderClause(params) != "" {
+			t.Fatalf("%+v: special order must only apply to Finnish specials with the Finnish date sort", params)
+		}
+	}
+}
+
+// Stories starting in the same issue are ordered by where their run ends
+// before the story order number, in the Finnish date sort with and without a year.
+func TestFinnishDateSort_SameStartOrdersByRunEnd(t *testing.T) {
+	for _, clause := range []string{
+		buildSortClause("fi_pub_date", "all"),
+		buildStoryOrderClause(StoryListParams{Publication: "all", Sort: "fi_pub_date", Year: 1971}),
+	} {
+		end := strings.Index(clause, "SELECT MAX(")
+		orderNum := strings.Index(clause, "s.order_num ASC")
+		if end < 0 || orderNum < 0 || end > orderNum {
+			t.Fatalf("expected the run end before the order number, got %s", clause)
+		}
+	}
+	if !strings.Contains(buildSortClause("fi_pub_date", "all"), "NOT sip.is_republication") {
+		t.Fatalf("without a year the run end must come from the original publication")
+	}
+}
+
+// Stories published in Finland only as special publications get their date
+// from the dated special publication, after that year's base series issues.
+func TestFinnishDateKeyFallsBackToSpecials(t *testing.T) {
+	key := finnishDateKeySQL()
+	perus := strings.Index(key, "p.type = 'perus'")
+	special := strings.Index(key, "'suur', 'maxi'")
+	if !strings.HasPrefix(key, "COALESCE(") || perus < 0 || special < perus {
+		t.Fatalf("expected the base series key first and specials as fallback, got %s", key)
+	}
+	if !strings.Contains(key, publicationYearSQL+" IS NOT NULL") {
+		t.Fatalf("undated specials (Kronikka, Kirjasto) must not give a date")
+	}
+	if finnishSpecialAfterBaseSeries <= 0 || finnishSpecialAfterBaseSeries >= finnishDateKeySpan {
+		t.Fatalf("specials must stay within their year's key span")
 	}
 }

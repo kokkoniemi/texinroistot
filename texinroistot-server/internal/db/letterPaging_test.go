@@ -55,12 +55,14 @@ func TestStorySortKeyExpr_OnlyAlphaSort(t *testing.T) {
 			t.Errorf("expected no letter paging key for %q, got %s", sort, key)
 		}
 	}
-	key := storySortKeyExpr("alpha", "texone")
+	key := storySortKeyExpr("alpha_it", "texone")
 	if !strings.Contains(key, "'italia_texone'") {
-		t.Errorf("alpha key for texone should use texone titles, got %s", key)
+		t.Errorf("Italian alpha key for texone should use texone titles, got %s", key)
 	}
-	if !strings.HasPrefix(buildSortClause("alpha", "texone"), key) {
-		t.Errorf("alpha sort clause must start with its letter paging key")
+	for _, sort := range []string{"alpha", "alpha_it"} {
+		if !strings.HasPrefix(buildSortClause(sort, "texone"), storySortKeyExpr(sort, "texone")) {
+			t.Errorf("%s sort clause must start with its letter paging key", sort)
+		}
 	}
 }
 
@@ -92,5 +94,37 @@ func TestDefaultVillainSortClause_GroupOrder(t *testing.T) {
 	}
 	if buildVillainSortClause("first_name") == clause {
 		t.Fatalf("first_name sort must stay a plain first name sort")
+	}
+}
+
+// Year paging uses the same key as the date sort it jumps in, with that key's
+// year span, and is off for alphabetical sorts and single-year lists.
+func TestStoryDateKey(t *testing.T) {
+	cases := []struct {
+		params StoryListParams
+		span   int
+		order  string
+	}{
+		{StoryListParams{Publication: "all", Sort: "fi_pub_date"}, finnishDateKeySpan, buildSortClause("fi_pub_date", "all")},
+		{StoryListParams{Publication: "texone", Sort: "it_pub_date"}, italianYearKeySpan, buildSortClause("it_pub_date", "texone")},
+		{StoryListParams{Publication: "suur", Sort: "fi_pub_date"}, finnishDateKeySpan, finnishSpecialOrderClause(StoryListParams{Publication: "suur", Sort: "fi_pub_date"})},
+	}
+	for _, c := range cases {
+		key, span := storyDateKey(c.params)
+		if key == "" || span != c.span {
+			t.Fatalf("%+v: expected a date key with span %d, got %q span %d", c.params, c.span, key, span)
+		}
+		if !strings.HasPrefix(c.order, key) {
+			t.Fatalf("%+v: the sort must start with the year paging key", c.params)
+		}
+	}
+	for _, params := range []StoryListParams{
+		{Publication: "all", Sort: "alpha"},
+		{Publication: "texone", Sort: "alpha_it"},
+		{Publication: "all", Sort: "fi_pub_date", Year: 1999},
+	} {
+		if key, _ := storyDateKey(params); key != "" {
+			t.Fatalf("%+v: expected no year paging", params)
+		}
 	}
 }

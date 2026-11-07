@@ -38,6 +38,7 @@ var allowedPublicationFilters = map[string]bool{
 
 var allowedSorts = map[string]bool{
 	"alpha":       true,
+	"alpha_it":    true,
 	"fi_pub_date": true,
 	"it_pub_date": true,
 }
@@ -63,6 +64,16 @@ func parseAllowedValue(raw string, fallback string, allowed map[string]bool) (st
 		return "", fmt.Errorf("invalid value")
 	}
 	return raw, nil
+}
+
+// parseJumpYear returns the year of a jumpYear query value, or 0 when it is
+// missing or not a plausible publication year.
+func parseJumpYear(raw string) int {
+	year, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || year < 1900 || year > 2100 {
+		return 0
+	}
+	return year
 }
 
 func parseStoryListParams(c *fiber.Ctx) (db.StoryListParams, error) {
@@ -94,10 +105,22 @@ func parseStoryListParams(c *fiber.Ctx) (db.StoryListParams, error) {
 		return db.StoryListParams{}, fmt.Errorf("year must be a positive integer")
 	}
 
+	// A search word that is a year (e.g. "1988") works as the year filter.
+	search := strings.TrimSpace(c.Query("q", ""))
+	if searchYear := parseJumpYear(search); searchYear > 0 {
+		year = searchYear
+		search = ""
+	}
+	// A single year is listed whole on one page (a year has at most a few dozen stories).
+	if year > 0 {
+		page = 1
+		pageSize = maxPageSize
+	}
+
 	return db.StoryListParams{
 		Publication: publication,
 		Sort:        sort,
-		Search:      strings.TrimSpace(c.Query("q", "")),
+		Search:      search,
 		Year:        year,
 		Page:        page,
 		PageSize:    pageSize,
@@ -123,7 +146,15 @@ func ListStoriesHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list stories"})
 	}
-	// letterIndex: 0-based position of the letter's first story on the page.
+	// jumpYear=<year> jumps to the page where that year starts (date sorts only).
+	years, yearPosition, err := storyRepo.YearPaging(version, params, parseJumpYear(c.Query("jumpYear")))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list stories"})
+	}
+	if letterPosition == nil {
+		letterPosition = yearPosition
+	}
+	// letterIndex: 0-based position of the letter's or year's first story on the page.
 	var letterIndex interface{}
 	if letterPosition != nil {
 		params.Page = letterPosition.Page
@@ -148,12 +179,14 @@ func ListStoriesHandler(c *fiber.Ctx) error {
 			"pageSize":    params.PageSize,
 			"totalPages":  totalPages,
 			"letters":     letters,
+			"years":       years,
 			"letterIndex": letterIndex,
 		},
 		"filters": fiber.Map{
 			"publication": params.Publication,
 			"sort":        params.Sort,
-			"q":           params.Search,
+			// the search word as given, also when it was a year
+			"q":           strings.TrimSpace(c.Query("q", "")),
 			"year":        params.Year,
 		},
 	})

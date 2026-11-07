@@ -323,14 +323,35 @@ func mapPublicationFilterToTypes(filter string) ([]string, error) {
 	return types, nil
 }
 
-// storySortKeyExpr returns the primary sort key of the alphabetical story
-// sort, or "" for the publication date sorts. Letter paging uses the same key.
+// isAlphaSort reports whether sort is one of the alphabetical story sorts:
+// alpha (Finnish title) or alpha_it (Italian title).
+func isAlphaSort(sort string) bool {
+	return sort == "alpha" || sort == "alpha_it"
+}
+
+// alphaTitleTypes returns the publication types whose titles the alphabetical
+// sort uses: the selected publication's own type when it is in the sort's
+// language, otherwise every type of that language.
+func alphaTitleTypes(sort string, publication string) []string {
+	languageTypes := finnishPublicationTypes
+	if sort == "alpha_it" {
+		languageTypes = italianPublicationTypes
+	}
+	filterTypes, err := mapPublicationFilterToTypes(publication)
+	if err == nil && len(filterTypes) == 1 && slices.Contains(languageTypes, filterTypes[0]) {
+		return filterTypes
+	}
+	return languageTypes
+}
+
+// storySortKeyExpr returns the primary sort key of an alphabetical story sort
+// (Finnish title for alpha, Italian title for alpha_it), or "" for the
+// publication date sorts. Letter paging uses the same key.
 func storySortKeyExpr(sort string, publication string) string {
-	if sort != "alpha" {
+	if !isAlphaSort(sort) {
 		return ""
 	}
-	alphaTitleExpr := func(pubType string) string {
-		return fmt.Sprintf(`(
+	return fmt.Sprintf(`LOWER((
 	SELECT MIN(
 		NULLIF(
 			regexp_replace(
@@ -345,70 +366,102 @@ func storySortKeyExpr(sort string, publication string) string {
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
 	WHERE sip.story = s.id
-	AND p.type = '%s'
-)`, pubType)
-	}
-	alphaPublicationTypeForFilter := func(filter string) string {
-		switch filter {
-		case "perus_it":
-			return "italia_perus"
-		case "suur":
-			return "suur"
-		case "maxi":
-			return "maxi"
-		case "kirjasto":
-			return "kirjasto"
-		case "kronikka":
-			return "kronikka"
-		case "serie_extra":
-			return "italia_serie_extra"
-		case "texone":
-			return "italia_texone"
-		case "mini_texone_maxi_tex":
-			return "italia_mini_texone_maxi_tex"
-		case "almanacco_del_west":
-			return "italia_almanacco_del_west"
-		case "color_tex":
-			return "italia_color_tex"
-		case "tex_romanzi_a_fumetti":
-			return "italia_tex_romanzi_a_fumetti"
-		case "tex_magazine":
-			return "italia_tex_magazine"
-		default:
-			return "perus"
-		}
-	}
-	return fmt.Sprintf(`LOWER(%s)`, alphaTitleExpr(alphaPublicationTypeForFilter(publication)))
+	AND p.type::text IN ('%s')
+))`, strings.Join(alphaTitleTypes(sort, publication), "', '"))
 }
 
-func buildSortClause(sort string, publication string) string {
-	publicationSortExpr := func(pubType string) string {
-		return fmt.Sprintf(`(
+// Year span of each date sort key: a story first published in year Y has a
+// key of at least Y*span and below (Y+1)*span. Year paging relies on this.
+const (
+	finnishDateKeySpan = 100000
+	italianYearKeySpan = 1
+)
+
+// finnishSpecialAfterBaseSeries puts Finnish special publications after the
+// base series issues of the same year in finnishDateKeySQL.
+const finnishSpecialAfterBaseSeries = finnishDateKeySpan / 2
+
+// finnishDateKeySQL is the story's first Finnish publication as
+// year*100000 + issue: its base series issue, or for stories published in
+// Finland only as special publications (e.g. Tex romanzi a fumetti stories in
+// Suuralbumi) the earliest dated special publication, after that year's base
+// series issues. Kronikka and Kirjasto have no year and are not used.
+func finnishDateKeySQL() string {
+	return fmt.Sprintf(`COALESCE((
 	SELECT MIN(
-		(COALESCE(p.year, 0) * 1000) + COALESCE(NULLIF(regexp_replace(p.issue, '[^0-9]', '', 'g'), '')::int, 0)
+		(COALESCE(p.year, 0) * %[1]d) + COALESCE(NULLIF(regexp_replace(p.issue, '[^0-9]', '', 'g'), '')::int, 0)
 	)
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
-	WHERE sip.story = s.id AND p.type = '%s'
-)`, pubType)
-	}
+	WHERE sip.story = s.id AND p.type = 'perus'
+), (
+	SELECT MIN(
+		%[2]s * %[1]d + %[3]d + COALESCE(substring(p.issue from '(\d+)')::int, 0)
+	)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type::text IN ('%[4]s')
+	AND %[2]s IS NOT NULL
+))`, finnishDateKeySpan, publicationYearSQL, finnishSpecialAfterBaseSeries,
+		strings.Join(finnishSpecialPublicationTypes, "', '"))
+}
 
-	switch sort {
-	case "alpha":
-		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, storySortKeyExpr(sort, publication))
-	case "it_pub_date":
-		// Year of the first Italian publication (base series or special), then
-		// the story order number (Järjestysluku) within the same year.
-		return fmt.Sprintf(`(
+// baseSeriesRunEndKeySQL is the last year*100000 + issue of the story's base
+// series run selected by runCondition (an SQL condition on sip). Stories that
+// start in the same issue are ordered by it: the one ending first is printed
+// first, e.g. "Väärää rahaa Laredosta" (2/1971) before "Navajon kosto"
+// (2/1971–4/1971).
+func baseSeriesRunEndKeySQL(runCondition string) string {
+	return fmt.Sprintf(`(
+	SELECT MAX(
+		(COALESCE(p.year, 0) * %d) + COALESCE(NULLIF(regexp_replace(p.issue, '[^0-9]', '', 'g'), '')::int, 0)
+	)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id AND p.type = 'perus' AND %s
+)`, finnishDateKeySpan, runCondition)
+}
+
+// italianYearKeySQL is the year of the story's first Italian publication
+// (base series or special).
+func italianYearKeySQL() string {
+	return fmt.Sprintf(`(
 	SELECT MIN(%s)
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
 	WHERE sip.story = s.id
 	AND p.type::text IN ('%s')
-) ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`,
-			publicationYearSQL, strings.Join(italianPublicationTypes, "', '"))
+)`, publicationYearSQL, strings.Join(italianPublicationTypes, "', '"))
+}
+
+// finnishSpecialDateKeySQL is the earliest year*100000 + number of the story's
+// publications of the given Finnish special types, e.g. "Suuralbumi 1 (1998)".
+func finnishSpecialDateKeySQL(types []string) string {
+	return fmt.Sprintf(`(
+	SELECT MIN(
+		COALESCE(%s, 0) * %d
+		+ COALESCE(substring(p.issue from '(\d+)')::int, 0)
+	)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type::text IN ('%s')
+)`, publicationYearSQL, finnishDateKeySpan, strings.Join(types, "', '"))
+}
+
+func buildSortClause(sort string, publication string) string {
+	switch sort {
+	case "alpha", "alpha_it":
+		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, storySortKeyExpr(sort, publication))
+	case "it_pub_date":
+		// Year of the first Italian publication (base series or special), then
+		// the story order number (Järjestysluku) within the same year.
+		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, italianYearKeySQL())
 	default:
-		return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, publicationSortExpr("perus"))
+		// First issue, then the end of the original run, then the story order number.
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`,
+			finnishDateKeySQL(), baseSeriesRunEndKeySQL("NOT sip.is_republication"))
 	}
 }
 
@@ -438,11 +491,58 @@ func yearPublicationTypesForSort(sort string) []string {
 	switch sort {
 	case "alpha":
 		return nil
-	case "it_pub_date":
+	case "it_pub_date", "alpha_it":
 		return italianPublicationTypes
 	default:
 		return finnishPublicationTypes
 	}
+}
+
+// finnishSpecialOrderClause orders the Finnish date sort of a Finnish special
+// publication filter (Suuralbumit, Maxi Tex, Kirjasto, Kronikka) by that
+// publication's own year and number, e.g. "Suuralbumi 1 (1998)" first.
+// Kirjasto and Kronikka have no year and order by number only. Returns "" for
+// other filters and sorts.
+func finnishSpecialOrderClause(params StoryListParams) string {
+	types := finnishSpecialFilterTypes(params)
+	if types == nil {
+		return ""
+	}
+	return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, finnishSpecialDateKeySQL(types))
+}
+
+// finnishSpecialFilterTypes returns the publication types of a Finnish special
+// publication filter used with the Finnish date sort, or nil otherwise.
+func finnishSpecialFilterTypes(params StoryListParams) []string {
+	if isAlphaSort(params.Sort) || params.Sort == "it_pub_date" {
+		return nil
+	}
+	types, err := mapPublicationFilterToTypes(params.Publication)
+	if err != nil || len(types) == 0 {
+		return nil
+	}
+	for _, pubType := range types {
+		if !slices.Contains(finnishSpecialPublicationTypes, pubType) {
+			return nil
+		}
+	}
+	return types
+}
+
+// storyDateKey returns the primary sort key of the story's date sort and the
+// key's year span (see finnishDateKeySpan), or "" when the list is not
+// ordered by date: alphabetical sorts and lists filtered to a single year.
+func storyDateKey(params StoryListParams) (string, int) {
+	if params.Year > 0 || isAlphaSort(params.Sort) {
+		return "", 0
+	}
+	if params.Sort == "it_pub_date" {
+		return italianYearKeySQL(), italianYearKeySpan
+	}
+	if types := finnishSpecialFilterTypes(params); types != nil {
+		return finnishSpecialDateKeySQL(types), finnishDateKeySpan
+	}
+	return finnishDateKeySQL(), finnishDateKeySpan
 }
 
 // buildStoryOrderClause is buildSortClause, except with a year: the Finnish
@@ -450,7 +550,10 @@ func yearPublicationTypesForSort(sort string) []string {
 // re-publications), followed by that year's Finnish special publications, and
 // the Italian date sort orders by the story order number (Järjestysluku).
 func buildStoryOrderClause(params StoryListParams) string {
-	if params.Year <= 0 || params.Sort == "alpha" {
+	if specialOrder := finnishSpecialOrderClause(params); specialOrder != "" {
+		return specialOrder
+	}
+	if params.Year <= 0 || isAlphaSort(params.Sort) {
 		return buildSortClause(params.Sort, params.Publication)
 	}
 	if params.Sort == "it_pub_date" {
@@ -463,7 +566,7 @@ func buildStoryOrderClause(params StoryListParams) string {
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
 	WHERE sip.story = s.id AND p.type = 'perus' AND p.year = %[1]d
-) ASC NULLS LAST, (
+) ASC NULLS LAST, %[4]s ASC NULLS LAST, (
 	SELECT MIN(LOWER(p.issue))
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
@@ -471,7 +574,16 @@ func buildStoryOrderClause(params StoryListParams) string {
 	AND p.type::text IN ('%[2]s')
 	AND %[3]s = %[1]d
 ) ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`,
-		params.Year, strings.Join(finnishSpecialPublicationTypes, "', '"), publicationYearSQL)
+		params.Year, strings.Join(finnishSpecialPublicationTypes, "', '"), publicationYearSQL,
+		// the end of the run (original or re-publication) that this year's first issue belongs to
+		baseSeriesRunEndKeySQL(fmt.Sprintf(`sip.is_republication = (
+		SELECT year_sip.is_republication
+		FROM stories_in_publications AS year_sip
+		JOIN publications AS year_p ON year_p.id = year_sip.publication
+		WHERE year_sip.story = s.id AND year_p.type = 'perus' AND year_p.year = %d
+		ORDER BY COALESCE(NULLIF(regexp_replace(year_p.issue, '[^0-9]', '', 'g'), '')::int, 0)
+		LIMIT 1
+	)`, params.Year)))
 }
 
 func buildStoryListWhere(versionID int, params StoryListParams) (string, []interface{}, error) {
