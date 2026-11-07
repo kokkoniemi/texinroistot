@@ -187,7 +187,12 @@
 	>
 		<label class="field">
 			<span>Järjestys</span>
-			<select name="sort" disabled={isFilterLoading}>
+			<!-- Changing the sort runs the search right away. -->
+			<select
+				name="sort"
+				disabled={isFilterLoading}
+				on:change={(e) => e.currentTarget.form?.requestSubmit()}
+			>
 				{#each sortOptions as option (option.value)}
 					<option value={option.value} selected={selectedSort === option.value}
 						>{option.label}</option

@@ -32,15 +32,27 @@ export type Meta = {
 	totalPages: number;
 	// Initial letters available for letter paging; empty for non-alphabetical sorts.
 	letters?: string[];
+	// Years available for year paging in date sorts; empty otherwise.
+	years?: number[];
 	// After a letter jump: 0-based index of the letter's first item on the page.
 	letterIndex?: number | null;
 };
 
 // Scrolls the item at index (a child of list) to the top of the view; used
-// after a letter jump so the letter's first item starts the visible list.
+// after a letter or year jump so its first item starts the visible list. When
+// the item is near the end of the page, space is added below the list so it
+// can still reach the top; the space is removed on the next call.
 export function scrollToListItem(list: HTMLElement | undefined, index?: number | null): void {
-	if (!list || index === null || index === undefined) return;
-	list.children[index]?.scrollIntoView({ block: 'start' });
+	if (!list) return;
+	list.style.paddingBottom = '';
+	if (index === null || index === undefined) return;
+	const item = list.children[index];
+	if (!item) return;
+
+	const itemTop = item.getBoundingClientRect().top + window.scrollY;
+	const missing = itemTop + window.innerHeight - document.documentElement.scrollHeight;
+	if (missing > 0) list.style.paddingBottom = `${Math.ceil(missing)}px`;
+	item.scrollIntoView({ block: 'start' });
 }
 
 export type PaginationToken = number | 'ellipsis';
@@ -124,32 +136,6 @@ export function storyTitleSegments(title: string): StoryTitleSegment[] {
 	return segments;
 }
 
-// Authors sharing the same details are combined, e.g.
-// "Birger Terni & Pia Ravenna (1. – 2. p)".
-export function authorList(authors?: Author[] | null, separator = ', '): string {
-	if (!authors || authors.length === 0) return '-';
-
-	const groups: { names: string[]; details: string }[] = [];
-	for (const author of authors) {
-		const name = `${author.firstName} ${author.lastName}`.trim();
-		if (!name) continue;
-		const details = (author.details ?? '').trim();
-		const group = details ? groups.find((existing) => existing.details === details) : undefined;
-		if (group) {
-			if (!group.names.includes(name)) group.names.push(name);
-		} else {
-			groups.push({ names: [name], details });
-		}
-	}
-
-	return groups
-		.map(({ names, details }) => {
-			const base = names.join(' & ');
-			return details ? `${base} (${details})` : base;
-		})
-		.join(separator);
-}
-
 export function publicationItem(publication: StoryPublication): string {
 	const pub = publication.in;
 	if (!pub) return publication.title;
@@ -221,6 +207,45 @@ export function nonItalianTitlesByFirstPublication(
 function firstPartNumber(title: string): number | null {
 	const match = title.match(/\((\d+)\.(?:\s*[–-]\s*\d+\.)?\s*p\)/);
 	return match ? Number(match[1]) : null;
+}
+
+// The part range of a part note such as "1. p" or "2. – 3. p".
+function partRange(text: string): [number, number] | null {
+	const match = text.match(/(\d+)\.(?:\s*[–-]\s*(\d+)\.)?\s*p\b/);
+	if (!match) return null;
+	const from = Number(match[1]);
+	return [from, match[2] ? Number(match[2]) : from];
+}
+
+// The story's titles for the parts the translator translated, from the
+// translator's part note, e.g. "Taistelu erämaassa (1. – 2. p)" for a "1. – 2. p"
+// translator. Titles without part notes get the translator's note appended.
+// Without a translator note (or a matching title) all titles are returned.
+export function translatedPartTitles(
+	story: Pick<StoryBase, 'publications' | 'translatedBy'>,
+	translatorHash: string
+): string[] {
+	const titles = nonItalianTitlesByFirstPublication(story.publications);
+	const translatorDetails = (story.translatedBy ?? [])
+		.filter((author) => (author.hash ?? '').trim() === translatorHash)
+		.map((author) => (author.details ?? '').trim());
+	const ranges = translatorDetails
+		.map(partRange)
+		.filter((range): range is [number, number] => range !== null);
+	if (ranges.length === 0) return titles;
+
+	// Titles without part notes (e.g. "Nogalesista etelään"): add the
+	// translator's note instead, e.g. "Nogalesista etelään (1. p)".
+	if (titles.every((title) => partRange(title) === null)) {
+		const note = translatorDetails.filter((details) => partRange(details) !== null).join(', ');
+		return titles.map((title) => `${title} (${note})`);
+	}
+
+	const matching = titles.filter((title) => {
+		const range = partRange(title);
+		return range !== null && ranges.some(([from, to]) => range[0] <= to && range[1] >= from);
+	});
+	return matching.length > 0 ? matching : titles;
 }
 
 function parseBaseSeriesIssue(publication: StoryPublication): BaseSeriesIssue | null {
@@ -325,7 +350,7 @@ export function publicationSummaryFromPublications(
 	emptyText = '-'
 ): string {
 	const sectionLabels: Record<string, string> = {
-		kronikka: 'Kronikka (näköispainos)',
+		kronikka: 'Kronikka (näk. p.)',
 		kirjasto: 'Kirjasto'
 	};
 
@@ -470,8 +495,8 @@ export function italianOriginalPublication(story: StoryBase): ItalianOriginalPub
 
 	let details = [issuePart, ...specialIssues].filter(Boolean).join('; ');
 	if (story.orderNumber > 0) {
-		const storyNumberPart = `(tarina nro ${story.orderNumber})`;
-		details = details ? `${details} ${storyNumberPart}` : storyNumberPart;
+		const storyNumberPart = `tarina nro ${story.orderNumber}`;
+		details = details ? `${details}, ${storyNumberPart}` : storyNumberPart;
 	}
 
 	if (!titlePart && !details) return null;

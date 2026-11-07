@@ -14,6 +14,8 @@
 	export let filterColumns: string = '1fr';
 	export let filterColumns1500: string = '';
 	export let filterColumns1200: string = '';
+	// Hide the page numbers when the whole result is on one page (e.g. a single year).
+	export let showPagination = true;
 
 	let showInfo = false;
 	let infoWrapper: HTMLSpanElement | null = null;
@@ -70,10 +72,12 @@
 				>{#if showInfo}<span class="info-popover" role="tooltip">{totalInfo}</span>{/if}</span
 			>{/if}
 	</p>
-	<Pagination top {meta} {pageTokens} {hasPrev} {hasNext} {isLoading} {pageHref} />
-	<p class="result-page">
-		Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
-	</p>
+	{#if showPagination}
+		<Pagination top {meta} {pageTokens} {hasPrev} {hasNext} {isLoading} {pageHref} />
+		<p class="result-page">
+			Sivu {meta.totalPages === 0 ? 0 : meta.page} / {meta.totalPages === 0 ? 0 : meta.totalPages}
+		</p>
+	{/if}
 </div>
 
 <style>

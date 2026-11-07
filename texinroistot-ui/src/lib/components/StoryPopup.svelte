@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import {
-		authorList,
 		italianOriginalPublication,
 		storyVillainForStory,
 		otherStoriesVillainHash,
@@ -114,7 +113,14 @@
 					on:selectStory={(e) => dispatch('selectStory', e.detail)}
 				/>
 			</p>
-			<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
+			<p>
+				<strong>Suomensi:</strong>
+				<AuthorLinks
+					authors={story.translatedBy}
+					type="translator"
+					on:selectStory={(e) => dispatch('selectStory', e.detail)}
+				/>
+			</p>
 			{#if italianOriginal}
 				<p>
 					<strong>Alkuperäisjulkaisu (Italia):</strong>

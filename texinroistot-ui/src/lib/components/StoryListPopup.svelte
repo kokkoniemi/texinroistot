@@ -12,6 +12,9 @@
 	export let subtitle = '';
 	export let loadStories: () => Promise<Story[]>;
 	export let emptyText = 'Tarinoita ei löytynyt.';
+	// Optional: the titles to show for a story, e.g. only a translator's parts.
+	// Defaults to all of the story's titles.
+	export let storyTitles: ((story: Story) => string[]) | undefined = undefined;
 
 	// selectStory: a story title was clicked; the parent replaces this popup with
 	// the story popup.
@@ -27,7 +30,9 @@
 	}
 
 	function storyTitle(story: Story): string {
-		const titles = nonItalianTitlesByFirstPublication(story.publications);
+		const titles = storyTitles
+			? storyTitles(story)
+			: nonItalianTitlesByFirstPublication(story.publications);
 		return titles.length > 0 ? titles.join('; ') : 'Nimetön tarina';
 	}
 
