@@ -4,7 +4,8 @@
 		buildPageHref,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
-		publicationSummaryFromPublications
+		publicationSummaryFromPublications,
+		translatedPartTitles
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
 	import type { Story, ListedAuthor, AuthorStoriesResponse } from '$lib/types';
@@ -24,7 +25,8 @@
 
 	const typeOptions = [
 		{ value: 'writer', label: 'Kertojat' },
-		{ value: 'drawer', label: 'Piirtäjät' }
+		{ value: 'drawer', label: 'Piirtäjät' },
+		{ value: 'translator', label: 'Suomentajat' }
 	];
 
 	let authors: ListedAuthor[] = [];
@@ -67,7 +69,9 @@
 	}
 
 	function resultLabel(authorType: string): string {
-		return authorType === 'drawer' ? 'Piirtäjiä yhteensä' : 'Kertojia yhteensä';
+		if (authorType === 'drawer') return 'Piirtäjiä yhteensä';
+		if (authorType === 'translator') return 'Suomentajia yhteensä';
+		return 'Kertojia yhteensä';
 	}
 
 	function pageHref(page: number): string {
@@ -107,6 +111,14 @@
 			.find((publication) => Boolean(publication.title?.trim()))
 			?.title?.trim();
 		return anyTitle || 'Nimetön tarina';
+	}
+
+	// In the Suomentajat list, show only the titles of the parts the translator
+	// translated; other groups show all titles.
+	function authorStoryTitle(story: Story, authorHash: string): string {
+		if (filters.type !== 'translator') return storyTitle(story);
+		const titles = translatedPartTitles(story, authorHash);
+		return titles.length > 0 ? titles.join('; ') : storyTitle(story);
 	}
 
 	function publicationSummary(story: Story): string {
@@ -167,7 +179,12 @@
 	>
 		<label class="field">
 			<span>Ryhmä</span>
-			<select name="type" disabled={isFilterLoading}>
+			<!-- Changing the group runs the search right away. -->
+			<select
+				name="type"
+				disabled={isFilterLoading}
+				on:change={(e) => e.currentTarget.form?.requestSubmit()}
+			>
 				{#each typeOptions as option (option.value)}
 					<option value={option.value} selected={filters.type === option.value}
 						>{option.label}</option
@@ -228,7 +245,7 @@
 												class="author-story-link"
 												on:click={() => (selectedStory = story)}
 											>
-												<StoryTitle title={storyTitle(story)} />
+												<StoryTitle title={authorStoryTitle(story, authorHash)} />
 											</button>
 											<br />
 											<span>{publicationSummary(story)}</span>

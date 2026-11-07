@@ -2,7 +2,6 @@
 	import { afterNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
-		authorList,
 		buildPageHref,
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
@@ -18,6 +17,7 @@
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import AuthorLinks from '$lib/components/AuthorLinks.svelte';
 	import LetterBar from '$lib/components/LetterBar.svelte';
+	import YearBar from '$lib/components/YearBar.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import StoryTitle from '$lib/components/StoryTitle.svelte';
@@ -50,10 +50,27 @@
 		{ value: 'tex_magazine', label: 'Tex Magazine' }
 	];
 
-	const sortOptions = [
-		{ value: 'fi_pub_date', label: 'Suomen julkaisupäivän mukaan' },
+	const baseSortOptions = [
+		{ value: 'fi_pub_date', label: 'Ilmestymisjärjestyksessä (Suomi)' },
 		{ value: 'it_pub_date', label: 'Alkuperäisessä ilmestymisjärjestyksessä (Italia)' },
 		{ value: 'alpha', label: 'Aakkosjärjestyksessä' }
+	];
+	// For the Italian publications (base series and specials) both alphabetical
+	// sorts are offered, so they name their language.
+	const italianSortOptions = [
+		...baseSortOptions.filter((option) => option.value !== 'alpha'),
+		{ value: 'alpha', label: 'Aakkosjärjestyksessä (suomi)' },
+		{ value: 'alpha_it', label: 'Aakkosjärjestyksessä (italia)' }
+	];
+	const italianPublications = [
+		'perus_it',
+		'serie_extra',
+		'texone',
+		'mini_texone_maxi_tex',
+		'almanacco_del_west',
+		'color_tex',
+		'tex_romanzi_a_fumetti',
+		'tex_magazine'
 	];
 
 	let stories: Story[] = [];
@@ -78,6 +95,10 @@
 	$: stories = data.stories ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
 	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
+	$: sortOptions =
+		italianPublications.includes(filters.publication) || filters.sort === 'alpha_it'
+			? italianSortOptions
+			: baseSortOptions;
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tarinat';
@@ -161,6 +182,20 @@
 			letter
 		});
 	}
+
+	// The year row filters the list to one year (shown whole, without page
+	// numbers); a search word is kept unless it was itself a year.
+	function yearHref(year: number | null): string {
+		const q = filters.q?.trim() ?? '';
+		return buildPageHref('/tarinat', {
+			publication: filters.publication,
+			sort: filters.sort,
+			q: q && !/^\d{4}$/.test(q) ? q : undefined,
+			year: year ?? undefined
+		});
+	}
+
+	$: selectedYear = filters.year > 0 ? filters.year : null;
 </script>
 
 <svelte:head>
@@ -172,6 +207,7 @@
 
 	<FilterForm
 		isLoading={isFilterLoading}
+		showPagination={!selectedYear}
 		resetHref="/tarinat"
 		totalLabel="Tarinoita yhteensä {meta.total}"
 		{meta}
@@ -179,13 +215,18 @@
 		{hasPrev}
 		{hasNext}
 		{pageHref}
-		filterColumns="minmax(150px, 220px) minmax(200px, 320px) minmax(120px, 150px) minmax(260px, 1fr) auto"
-		filterColumns1500="minmax(150px, 1fr) minmax(200px, 1.35fr) minmax(120px, 0.7fr) minmax(230px, 1.4fr)"
+		filterColumns="minmax(150px, 220px) minmax(200px, 320px) minmax(260px, 1fr) auto"
+		filterColumns1500="minmax(150px, 1fr) minmax(200px, 1.35fr) minmax(230px, 1.4fr)"
 		filterColumns1200="minmax(150px, 1fr) minmax(200px, 1fr)"
 	>
 		<label class="field">
 			<span>Julkaisu</span>
-			<select name="publication" disabled={isFilterLoading}>
+			<!-- Changing the publication or the sort runs the search right away. -->
+			<select
+				name="publication"
+				disabled={isFilterLoading}
+				on:change={(e) => e.currentTarget.form?.requestSubmit()}
+			>
 				{#each publicationOptions as option (option.value)}
 					<option value={option.value} selected={filters.publication === option.value}
 						>{option.label}</option
@@ -196,7 +237,11 @@
 
 		<label class="field">
 			<span>Järjestys</span>
-			<select name="sort" disabled={isFilterLoading}>
+			<select
+				name="sort"
+				disabled={isFilterLoading}
+				on:change={(e) => e.currentTarget.form?.requestSubmit()}
+			>
 				{#each sortOptions as option (option.value)}
 					<option value={option.value} selected={filters.sort === option.value}
 						>{option.label}</option
@@ -205,26 +250,14 @@
 			</select>
 		</label>
 
-		<label class="field year">
-			<span>Vuosi</span>
-			<input
-				name="year"
-				type="number"
-				min="1"
-				step="1"
-				value={filters.year > 0 ? String(filters.year) : ''}
-				placeholder="esim. 1980"
-				disabled={isFilterLoading}
-			/>
-		</label>
-
+		<!-- A year as the search word (e.g. 1988) lists that year's stories. -->
 		<label class="field search">
 			<span>Hae hakusanalla</span>
 			<input
 				name="q"
 				type="text"
 				value={filters.q ?? ''}
-				placeholder="Kirjoita hakusana..."
+				placeholder="esim. väijytys tai 1988"
 				disabled={isFilterLoading}
 			/>
 		</label>
@@ -235,6 +268,15 @@
 
 	{#if meta.letters?.length}
 		<LetterBar letters={meta.letters} {letterHref} isLoading={isFilterLoading} />
+	{/if}
+	{#if meta.years?.length}
+		<YearBar
+			years={meta.years}
+			{yearHref}
+			allYearsHref={yearHref(null)}
+			currentYear={selectedYear}
+			isLoading={isFilterLoading}
+		/>
 	{/if}
 
 	{#if stories.length === 0}
@@ -262,7 +304,14 @@
 							on:selectStory={(e) => (selectedStory = e.detail)}
 						/>
 					</p>
-					<p><strong>Suomensi:</strong> {authorList(story.translatedBy, '; ')}</p>
+					<p>
+						<strong>Suomensi:</strong>
+						<AuthorLinks
+							authors={story.translatedBy}
+							type="translator"
+							on:selectStory={(e) => (selectedStory = e.detail)}
+						/>
+					</p>
 					{#if italianOriginal}
 						<p>
 							<strong>Alkuperäisjulkaisu (Italia):</strong>
@@ -319,7 +368,9 @@
 		</div>
 	{/if}
 
-	<Pagination {meta} {pageTokens} {hasPrev} {hasNext} isLoading={isFilterLoading} {pageHref} />
+	{#if !selectedYear}
+		<Pagination {meta} {pageTokens} {hasPrev} {hasNext} isLoading={isFilterLoading} {pageHref} />
+	{/if}
 
 	{#if selectedStory}
 		<StoryPopup
