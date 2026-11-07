@@ -16,8 +16,9 @@
 	$: available = new Set(years);
 	$: decades = [...new Set(years.map((year) => Math.floor(year / 10) * 10))];
 	$: useDecades = years.length > maxYearsWithoutDecades;
-	// Keep the decade of the selected year open.
-	$: if (currentYear !== null) openDecade = Math.floor(currentYear / 10) * 10;
+	// Keep the decade of the selected year open, and close it when the year is
+	// cleared ("Kaikki", "Palauta oletukset"). Runs only when currentYear changes.
+	$: openDecade = currentYear === null ? null : Math.floor(currentYear / 10) * 10;
 	$: shownYears = useDecades
 		? openDecade === null
 			? []
