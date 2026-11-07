@@ -28,16 +28,17 @@ type letterPagingQuery struct {
 	sortKey     string
 }
 
-// LetterPosition locates the first row whose sort key starts with a letter
-// (or would be, if none does): the page it is on and its 0-based index there.
+// LetterPosition locates the first row whose sort key starts with a letter or
+// year (or would be, if none does): the page it is on and its 0-based index there.
 type LetterPosition struct {
 	Page  int
 	Index int
 }
 
-// positionForLetter counts the rows sorting before letter, with the same key
-// and collation as the list itself, and turns the count into a page position.
-func positionForLetter(q letterPagingQuery, letter string, pageSize int) (*LetterPosition, error) {
+// positionBefore counts the rows whose sort key is below value (a letter or a
+// year's first key), with the same key and collation as the list itself, and
+// turns the count into a page position.
+func positionBefore(q letterPagingQuery, value interface{}, pageSize int) (*LetterPosition, error) {
 	if pageSize <= 0 {
 		return nil, fmt.Errorf("invalid page size")
 	}
@@ -48,7 +49,7 @@ WHERE %s
 AND (%s) < $%d;
 `, q.from, q.whereClause, q.sortKey, len(q.whereArgs)+1)
 
-	rows, err := Query(sql, append(append([]interface{}{}, q.whereArgs...), letter)...)
+	rows, err := Query(sql, append(append([]interface{}{}, q.whereArgs...), value)...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,9 +143,68 @@ func letterPaging(q letterPagingQuery, letter string, pageSize int) ([]string, *
 	if letter == "" {
 		return letters, nil, nil
 	}
-	position, err := positionForLetter(q, letter, pageSize)
+	position, err := positionBefore(q, letter, pageSize)
 	if err != nil {
 		return nil, nil, err
 	}
 	return letters, position, nil
+}
+
+// YearPaging returns the years that stories are listed under in a date sort
+// and, when year is set, where that year starts. The years are those of the
+// list without its year filter, so the other years stay selectable while one
+// year is shown. For the alphabetical sorts it returns no years and no position.
+func (s *storyRepo) YearPaging(version *Version, params StoryListParams, year int) ([]int, *LetterPosition, error) {
+	allYears := params
+	allYears.Year = 0
+	dateKey, span := storyDateKey(allYears)
+	if version == nil || version.ID == 0 || dateKey == "" {
+		return []int{}, nil, nil
+	}
+	whereClause, whereArgs, err := buildStoryListWhere(version.ID, allYears)
+	if err != nil {
+		return nil, nil, err
+	}
+	q := letterPagingQuery{"stories AS s", whereClause, whereArgs, dateKey}
+
+	years, err := listedYears(q, span)
+	if err != nil {
+		return nil, nil, err
+	}
+	if year <= 0 || params.Year > 0 {
+		return years, nil, nil
+	}
+	position, err := positionBefore(q, year*span, params.PageSize)
+	if err != nil {
+		return nil, nil, err
+	}
+	return years, position, nil
+}
+
+// listedYears returns the distinct years of a date sort key with the given
+// year span, ignoring rows without a year.
+func listedYears(q letterPagingQuery, span int) ([]int, error) {
+	sql := fmt.Sprintf(`
+SELECT DISTINCT (%s) / %d
+FROM %s
+WHERE %s
+AND (%s) >= %d
+ORDER BY 1;
+`, q.sortKey, span, q.from, q.whereClause, q.sortKey, span)
+
+	rows, err := Query(sql, q.whereArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	years := []int{}
+	for rows.Next() {
+		var year int
+		if err = rows.Scan(&year); err != nil {
+			return nil, err
+		}
+		years = append(years, year)
+	}
+	return years, rows.Err()
 }

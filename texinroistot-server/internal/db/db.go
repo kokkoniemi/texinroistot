@@ -58,6 +58,7 @@ type StoryRepository interface {
 	List(version *Version, limit int, offset int) ([]*Story, error)
 	ListFiltered(version *Version, params StoryListParams) ([]*Story, int, error)
 	LetterPaging(version *Version, params StoryListParams, letter string) ([]string, *LetterPosition, error)
+	YearPaging(version *Version, params StoryListParams, year int) ([]int, *LetterPosition, error)
 	ListByAuthorHash(version *Version, authorHash string, authorType string) ([]*Story, bool, error)
 	BulkCreate(stories []*Story, version *Version) ([]*Story, error)
 	BulkCreatePublications(publications []*Publication, version *Version) ([]*Publication, error)

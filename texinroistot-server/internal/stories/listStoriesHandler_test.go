@@ -146,3 +146,49 @@ func TestParseStoryListParamsRejectsInvalidYear(t *testing.T) {
 		t.Fatalf("expected 400 for invalid year format, got %d (%s)", status, body)
 	}
 }
+
+func TestParseJumpYear(t *testing.T) {
+	for raw, want := range map[string]int{"1999": 1999, " 1953 ": 1953, "": 0, "abc": 0, "99": 0, "3000": 0} {
+		if got := parseJumpYear(raw); got != want {
+			t.Errorf("parseJumpYear(%q) = %d, want %d", raw, got, want)
+		}
+	}
+}
+
+// A year as the search word works as the year filter; other words stay searches.
+func TestParseStoryListParamsSearchYear(t *testing.T) {
+	app := testParseParamsRoute()
+
+	params, status, body := decodeParamsFromResponse(t, app, "/?q=%201988%20")
+	if status != 200 {
+		t.Fatalf("expected 200, got %d (%s)", status, body)
+	}
+	if params.Year != 1988 || params.Search != "" {
+		t.Fatalf("expected year 1988 and no search, got year %d search %q", params.Year, params.Search)
+	}
+
+	params, _, _ = decodeParamsFromResponse(t, app, "/?q=v%C3%A4ijytys")
+	if params.Year != 0 || params.Search != "väijytys" {
+		t.Fatalf("expected search väijytys and no year, got year %d search %q", params.Year, params.Search)
+	}
+
+	params, _, _ = decodeParamsFromResponse(t, app, "/?q=12")
+	if params.Year != 0 || params.Search != "12" {
+		t.Fatalf("expected search 12 and no year, got year %d search %q", params.Year, params.Search)
+	}
+}
+
+// A year filter lists the whole year on one page.
+func TestParseStoryListParamsYearShowsWholeYear(t *testing.T) {
+	app := testParseParamsRoute()
+
+	for _, target := range []string{"/?year=1985&page=3&pageSize=10", "/?q=1985&page=3"} {
+		params, status, body := decodeParamsFromResponse(t, app, target)
+		if status != 200 {
+			t.Fatalf("%s: expected 200, got %d (%s)", target, status, body)
+		}
+		if params.Year != 1985 || params.Page != 1 || params.PageSize != maxPageSize {
+			t.Fatalf("%s: expected year 1985 on page 1 with page size %d, got %+v", target, maxPageSize, params)
+		}
+	}
+}
