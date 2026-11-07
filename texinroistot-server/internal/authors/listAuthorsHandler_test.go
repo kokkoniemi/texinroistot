@@ -47,3 +47,31 @@ func TestCompareAuthors_SingleNameSortsAsFirstName(t *testing.T) {
 		}
 	}
 }
+
+func TestAuthorMatchesType(t *testing.T) {
+	writer := &db.Author{IsWriter: true}
+	drawer := &db.Author{IsDrawer: true}
+	translator := &db.Author{IsTranslator: true}
+
+	cases := []struct {
+		author     *db.Author
+		authorType string
+		want       bool
+	}{
+		{writer, "writer", true},
+		{writer, "translator", false},
+		{drawer, "drawer", true},
+		{drawer, "translator", false},
+		{translator, "translator", true},
+		{translator, "writer", false},
+		{translator, "drawer", false},
+	}
+	for _, c := range cases {
+		if got := authorMatchesType(c.author, c.authorType); got != c.want {
+			t.Errorf("authorMatchesType(%+v, %q) = %v, want %v", c.author, c.authorType, got, c.want)
+		}
+	}
+	if !allowedTypes["translator"] {
+		t.Errorf("translator must be an allowed author list type")
+	}
+}

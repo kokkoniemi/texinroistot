@@ -19,8 +19,9 @@ const (
 )
 
 var allowedTypes = map[string]bool{
-	"writer": true,
-	"drawer": true,
+	"writer":     true,
+	"drawer":     true,
+	"translator": true,
 }
 
 var allowedSorts = map[string]bool{
@@ -96,10 +97,14 @@ func authorMatchesType(author *db.Author, authorType string) bool {
 	if author == nil {
 		return false
 	}
-	if authorType == "writer" {
+	switch authorType {
+	case "writer":
 		return author.IsWriter
+	case "translator":
+		return author.IsTranslator
+	default:
+		return author.IsDrawer
 	}
-	return author.IsDrawer
 }
 
 func normalizedText(value string) string {
