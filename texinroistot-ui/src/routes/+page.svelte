@@ -49,7 +49,7 @@
 		filter: url(#ragged-edge);
 	}
 
-	/* Rough, gritty paper with browned edges; a chunk torn off two corners. */
+	/* Rough, gritty paper with browned edges; chunks torn off two corners and two tears. */
 	.poster-sheet {
 		position: absolute;
 		inset: 0;
@@ -61,6 +61,13 @@
 			inset 0 0 6px rgba(100, 70, 30, 0.25);
 		clip-path: polygon(
 			0 0,
+			/* a slanting tear down from the top edge */ 31% 0,
+			calc(31% + 9px) 16px,
+			calc(31% + 5px) 24px,
+			calc(31% + 14px) 38px,
+			calc(31% + 13px) 22px,
+			calc(31% + 17px) 12px,
+			calc(31% + 12px) 0,
 			calc(100% - 70px) 0,
 			calc(100% - 52px) 10px,
 			calc(100% - 38px) 7px,
@@ -72,7 +79,14 @@
 			44px calc(100% - 12px),
 			26px calc(100% - 8px),
 			12px calc(100% - 22px),
-			0 calc(100% - 30px)
+			0 calc(100% - 30px),
+			/* a tear in from the left edge */ 0 calc(58% + 10px),
+			14px calc(58% + 7px),
+			22px calc(58% + 9px),
+			40px calc(58% + 2px),
+			24px calc(58% + 3px),
+			13px 58%,
+			0 calc(58% - 1px)
 		);
 	}
 

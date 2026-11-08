@@ -8,9 +8,9 @@
 	-->
 	<defs>
 		<filter id="lit" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
-			<!-- roughen the fold lines a little -->
-			<feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="7" result="wob" />
-			<feDisplacementMap in="SourceAlpha" in2="wob" scale="5" xChannelSelector="R" yChannelSelector="G" result="lines" />
+			<!-- bend the fold lines so they wander instead of running straight -->
+			<feTurbulence type="fractalNoise" baseFrequency="0.009" numOctaves="4" seed="7" result="wob" />
+			<feDisplacementMap in="SourceAlpha" in2="wob" scale="34" xChannelSelector="R" yChannelSelector="G" result="lines" />
 			<!-- crease profile: a sharp edge on a wider bend -->
 			<feGaussianBlur in="lines" stdDeviation="1.6" result="sharp" />
 			<feGaussianBlur in="lines" stdDeviation="9" result="wide" />
@@ -22,8 +22,25 @@
 				<feDistantLight azimuth="225" elevation="50" />
 			</feDiffuseLighting>
 			<!-- flat paper lights to ~0.766: below that is shadow, above it highlight -->
-			<feColorMatrix in="light" values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.08  -1.7 0 0 0 1.3" result="shade" />
-			<feColorMatrix in="light" values="0 0 0 0 1  0 0 0 0 0.99  0 0 0 0 0.95  1.6 0 0 0 -1.22" result="shine" />
+			<feColorMatrix in="light" values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.08  -1.15 0 0 0 0.88" result="shade" />
+			<feColorMatrix in="light" values="0 0 0 0 1  0 0 0 0 0.99  0 0 0 0 0.95  1.05 0 0 0 -0.8" result="shine" />
+			<feMerge>
+				<feMergeNode in="shade" />
+				<feMergeNode in="shine" />
+			</feMerge>
+		</filter>
+		<!-- the same crease lighting without the sheet crumple, for a single fold -->
+		<filter id="lit-fold" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
+			<feTurbulence type="fractalNoise" baseFrequency="0.009" numOctaves="4" seed="7" result="wob" />
+			<feDisplacementMap in="SourceAlpha" in2="wob" scale="34" xChannelSelector="R" yChannelSelector="G" result="lines" />
+			<feGaussianBlur in="lines" stdDeviation="1.6" result="sharp" />
+			<feGaussianBlur in="lines" stdDeviation="9" result="wide" />
+			<feComposite in="sharp" in2="wide" operator="arithmetic" k2="0.25" k3="2.2" result="height" />
+			<feDiffuseLighting in="height" surfaceScale="5" diffuseConstant="1" lighting-color="#ffffff" result="light">
+				<feDistantLight azimuth="225" elevation="50" />
+			</feDiffuseLighting>
+			<feColorMatrix in="light" values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.08  -1.15 0 0 0 0.88" result="shade" />
+			<feColorMatrix in="light" values="0 0 0 0 1  0 0 0 0 0.99  0 0 0 0 0.95  1.05 0 0 0 -0.8" result="shine" />
 			<feMerge>
 				<feMergeNode in="shade" />
 				<feMergeNode in="shine" />
@@ -45,9 +62,19 @@
 		<filter id="grime" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
 			<feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="4" seed="19" result="n" />
 			<feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -11 0 0 0 5.6" result="blots" />
-			<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="soft" />
+			<feTurbulence type="fractalNoise" baseFrequency="0.009" numOctaves="4" seed="7" result="wob" />
+			<feDisplacementMap in="SourceGraphic" in2="wob" scale="34" xChannelSelector="R" yChannelSelector="G" result="bent" />
+			<feGaussianBlur in="bent" stdDeviation="3" result="soft" />
 			<feComposite in="soft" in2="blots" operator="in" />
 		</filter>
+		<!-- patchy mask: folds are pressed harder in some places and fade out in others -->
+		<filter id="patch" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
+			<feTurbulence type="fractalNoise" baseFrequency="0.0035" numOctaves="3" seed="27" />
+			<feColorMatrix values="2.4 0 0 0 -0.75  2.4 0 0 0 -0.75  2.4 0 0 0 -0.75  0 0 0 0 1" />
+		</filter>
+		<mask id="patchy" maskUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000">
+			<rect width="1800" height="1000" filter="url(#patch)" />
+		</mask>
 	</defs>
 
 	<!-- bulges: panels between the folds bowing up unevenly -->
@@ -60,17 +87,29 @@
 	</g>
 
 	<!-- grime worked into the folds, in broken patches -->
-	<g filter="url(#grime)" fill="none" stroke="#5a3a14" stroke-opacity="0.3" stroke-width="10">
-		<polyline points="958,0 952,240 944,500 939,760 930,1000" />
-		<polyline points="0,322 450,330 900,338 1350,349 1800,357" />
-		<polyline points="0,668 600,661 1200,672 1800,664" stroke-opacity="0.18" />
+	<g mask="url(#patchy)">
+		<g filter="url(#grime)" fill="none" stroke="#5a3a14" stroke-opacity="0.17" stroke-width="9">
+			<polyline points="958,0 950,190 953,330 941,560 938,770 927,1000" />
+			<polyline points="160,752 640,762 1150,780 1640,789" stroke-opacity="0.18" />
+			<polyline points="98,0 92,260 89,520 84,780 78,1000" stroke-opacity="0.15" />
+		</g>
+
+		<!-- fold lines with uneven kinks: one vertical, two horizontal (the lower one only
+		     partly pressed), plus short crinkles where they cross -->
+		<g filter="url(#lit)" fill="none" stroke="#000" stroke-linejoin="round">
+			<polyline points="958,0 956,95 950,190 954,260 953,330 946,455 941,560 942,640 938,770 931,880 927,1000" stroke-width="1.8" />
+			<polyline points="160,752 420,763 640,762 870,771 1150,780 1390,779 1640,789" stroke-width="2.3" />
+			<polyline points="98,0 96,130 92,260 93,390 89,520 87,650 84,780 81,890 78,1000" stroke-width="1.7" />
+			<path d="M 905 300 L 985 372 M 975 305 L 925 368 M 1205 345 L 1250 312 M 310 328 L 336 362" stroke-width="0.9" />
+		</g>
 	</g>
 
-	<!-- fold lines: one vertical, two horizontal, plus short crinkles where they cross -->
-	<g filter="url(#lit)" fill="none" stroke="#000" stroke-linejoin="round">
-		<polyline points="958,0 955,120 952,240 949,370 944,500 942,630 939,760 934,880 930,1000" stroke-width="2" />
-		<polyline points="0,322 220,325 450,330 680,333 900,338 1120,344 1350,349 1580,352 1800,357" stroke-width="2" />
-		<polyline points="0,668 300,664 600,661 900,667 1200,672 1500,668 1800,664" stroke-width="1.4" />
-		<path d="M 900 290 L 990 380 M 985 300 L 915 375 M 905 630 L 975 700 M 1200 340 L 1260 300 M 300 326 L 340 370 M 1500 668 L 1545 625" stroke-width="1" />
+	<!-- the upper horizontal fold is pressed hardest: outside the patchy fade, so it
+	     shows along its whole length, only varying with its own grime -->
+	<g filter="url(#grime)" fill="none" stroke="#5a3a14" stroke-opacity="0.18" stroke-width="9">
+		<polyline points="0,318 380,331 760,333 1090,346 1430,347 1800,361" />
+	</g>
+	<g filter="url(#lit-fold)" fill="none" stroke="#000" stroke-linejoin="round">
+		<polyline points="0,318 170,326 380,331 520,329 760,333 900,341 1090,346 1260,344 1430,347 1610,356 1800,361" stroke-width="1.9" />
 	</g>
 </svg>
