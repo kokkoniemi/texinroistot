@@ -327,8 +327,8 @@
 
 	.sort-info {
 		margin: 0.75rem 0;
-		border: 1px solid black;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 		padding: 0.5rem 0.75rem;
 	}
 
@@ -362,8 +362,8 @@
 	input[type='text'] {
 		font-size: 1rem;
 		padding: 0.45rem 0.5rem;
-		border: 1px solid black;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 		width: 100%;
 		box-sizing: border-box;
 	}
@@ -375,10 +375,10 @@
 	}
 
 	.villain-card {
-		border: 1px solid black;
-		background-color: #f7f7f7;
+		border: 1px solid var(--border);
+		background-color: var(--card-bg);
 		padding: 1rem;
-		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+		box-shadow: 0 4px 10px var(--shadow);
 	}
 
 	.villain-card h3 {
@@ -402,9 +402,9 @@
 	}
 
 	.empty {
-		border: 1px solid black;
+		border: 1px solid var(--border);
 		padding: 1rem;
-		background-color: #f7f7f7;
+		background-color: var(--card-bg);
 	}
 
 	@media (max-width: 640px) {

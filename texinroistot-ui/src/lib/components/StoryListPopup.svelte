@@ -110,7 +110,7 @@
 		position: fixed;
 		inset: 0;
 		z-index: 1100;
-		background: rgba(0, 0, 0, 0.5);
+		background: rgba(43, 27, 16, 0.55);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -121,9 +121,9 @@
 		width: min(920px, 100%);
 		max-height: calc(100vh - 2rem);
 		overflow: auto;
-		background: #ffffed;
-		border: 1px solid black;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+		background: var(--page-bg);
+		border: 1px solid var(--border);
+		box-shadow: 0 10px 30px var(--shadow);
 		padding: 0.9rem;
 		font-weight: normal;
 		text-align: left;
@@ -138,17 +138,17 @@
 	.list-popup-close {
 		padding: 0.35rem 0.7rem;
 		font-size: 0.95rem;
-		border: 1px solid black;
-		background: #fff;
-		color: #111;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
+		color: var(--ink);
 		cursor: pointer;
 	}
 
 	.list-card {
-		border: 1px solid black;
-		background-color: #f7f7f7;
+		border: 1px solid var(--border);
+		background-color: var(--card-bg);
 		padding: 1rem;
-		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+		box-shadow: 0 4px 10px var(--shadow);
 	}
 
 	.list-card h3 {
@@ -160,8 +160,8 @@
 	}
 
 	.list-stories {
-		border: 1px solid black;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 		padding: 0.65rem 0.8rem;
 	}
 

@@ -72,8 +72,8 @@
 
 <style>
 	.story-villain-card {
-		border: 1px solid black;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 		padding: 0.6rem 0.75rem;
 	}
 
