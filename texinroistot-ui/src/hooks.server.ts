@@ -15,6 +15,8 @@ function isPublicPath(pathname: string): boolean {
 		pathname.startsWith('/_app/') ||
 		pathname === '/favicon.png' ||
 		pathname === '/favicon.ico' ||
+		pathname === '/paper-grit.svg' ||
+		pathname === '/paper-folds.svg' ||
 		pathname === '/robots.txt' ||
 		pathname === '/manifest.webmanifest'
 	);

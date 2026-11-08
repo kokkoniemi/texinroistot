@@ -621,8 +621,8 @@
 	.admin-section {
 		margin: 1rem 0;
 		padding: 0.8rem;
-		border: 1px solid black;
-		background: #f7f7f7;
+		border: 1px solid var(--border);
+		background: var(--card-bg);
 	}
 
 	.grant-form {
@@ -642,19 +642,19 @@
 	.grant-form input {
 		font-size: 1rem;
 		padding: 0.45rem 0.5rem;
-		border: 1px solid black;
+		border: 1px solid var(--border);
 	}
 
 	.users-table {
 		width: 100%;
 		border-collapse: collapse;
-		background: white;
+		background: var(--panel-bg);
 	}
 
 	.users-table th,
 	.users-table td {
 		padding: 0.45rem 0.55rem;
-		border: 1px solid black;
+		border: 1px solid var(--border);
 		text-align: left;
 		vertical-align: top;
 	}
@@ -675,7 +675,7 @@
 	.import-url-status {
 		margin: 0 0 0.6rem;
 		font-size: 0.9rem;
-		color: #2f2f2f;
+		color: var(--ink-soft);
 	}
 
 	.import-url-status a {
@@ -690,8 +690,8 @@
 		justify-content: space-between;
 		gap: 0.75rem;
 		padding: 0.6rem;
-		border: 1px solid black;
-		background: white;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 	}
 
 	.version-item + .version-item {
@@ -738,9 +738,9 @@
 	button {
 		font-size: 1rem;
 		padding: 0.45rem 1rem;
-		border: 1px solid black;
-		background: black;
-		color: white;
+		border: 1px solid var(--border);
+		background: var(--accent);
+		color: var(--on-accent);
 		cursor: pointer;
 	}
 

@@ -40,8 +40,8 @@
 		max-width: 560px;
 		margin: 96px auto;
 		padding: 24px;
-		border: 1px solid #000;
-		background: #ffffed;
+		border: 1px solid var(--border);
+		background: var(--page-bg);
 	}
 
 	h1 {
@@ -65,16 +65,16 @@
 	input {
 		font: inherit;
 		padding: 10px;
-		border: 1px solid #000;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 	}
 
 	button {
 		font: inherit;
 		padding: 10px 14px;
-		border: 1px solid #000;
-		background: #000;
-		color: #fff;
+		border: 1px solid var(--border);
+		background: var(--accent);
+		color: var(--on-accent);
 		cursor: pointer;
 	}
 

@@ -57,7 +57,7 @@
 	}
 
 	.disabled {
-		color: #666;
+		color: var(--muted);
 		text-decoration: none;
 	}
 
@@ -67,7 +67,7 @@
 	}
 
 	.ellipsis {
-		color: #333;
+		color: var(--ink-soft);
 	}
 
 	@media (max-width: 640px) {

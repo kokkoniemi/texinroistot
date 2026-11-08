@@ -87,8 +87,8 @@
 		gap: 0.75rem;
 		align-items: end;
 		padding: 0.75rem;
-		border: 1px solid black;
-		background-color: #f7f7f7;
+		border: 1px solid var(--border);
+		background-color: var(--card-bg);
 	}
 
 	@media (max-width: 1500px) {
@@ -126,9 +126,9 @@
 	.actions button {
 		font-size: 1rem;
 		padding: 0.45rem 1rem;
-		border: 1px solid black;
-		background: black;
-		color: white;
+		border: 1px solid var(--border);
+		background: var(--accent);
+		color: var(--on-accent);
 		cursor: pointer;
 	}
 
@@ -168,10 +168,10 @@
 		width: 1.1rem;
 		height: 1.1rem;
 		padding: 0;
-		border: 1px solid black;
+		border: 1px solid var(--border);
 		border-radius: 50%;
-		background: #ffffed;
-		color: black;
+		background: var(--page-bg);
+		color: var(--ink);
 		font: inherit;
 		font-size: 0.8rem;
 		font-weight: 700;
@@ -183,8 +183,8 @@
 
 	.info-trigger:hover,
 	.info-trigger:focus-visible {
-		background: black;
-		color: #ffffed;
+		background: var(--accent);
+		color: var(--page-bg);
 		outline: none;
 	}
 
@@ -196,9 +196,9 @@
 		min-width: 220px;
 		max-width: 320px;
 		padding: 0.5rem 0.65rem;
-		border: 1px solid black;
-		background: #fff;
-		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
+		box-shadow: 0 4px 10px var(--shadow);
 		font-size: 0.85rem;
 		line-height: 1.35;
 		white-space: normal;

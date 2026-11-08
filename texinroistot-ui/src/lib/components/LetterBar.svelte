@@ -36,6 +36,6 @@
 	}
 
 	.disabled {
-		color: #999;
+		color: var(--muted);
 	}
 </style>

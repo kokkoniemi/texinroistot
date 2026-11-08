@@ -1,12 +1,126 @@
+/*
+ * Western look: saddle-leather browns and a rust-red accent on old,
+ * yellowed paper, with a wood-type display face (Rye) for headings and a
+ * book serif (Lora) for text. Components use these tokens instead of
+ * hard-coded colors.
+ */
 :root {
+	--page-bg: #ebe2cd;
+	--card-bg: #f5eedc;
+	--panel-bg: #faf6ea;
+	--ink: #2b1b10;
+	--ink-soft: #5a3e2b;
+	--muted: #8c7660;
+	--border: #6b4a2f;
+	--border-soft: #c9ae86;
+	--leather: #3b2416;
+	--leather-light: #5c3a24;
+	--accent: #8e2f16;
+	--accent-hover: #6f230f;
+	--on-accent: #fbf3e2;
+	--gold: #c99a3c;
+	--shadow: rgba(59, 36, 22, 0.18);
 	--color-error: #8b0000;
+
+	--font-display: 'Rye', Georgia, 'Times New Roman', serif;
+	--font-text: 'Lora', Georgia, 'Times New Roman', serif;
 }
 
 body {
-	background: #ffffed;
+	margin: 0;
+	color: var(--ink);
+	font-family: var(--font-text);
+	line-height: 1.5;
+	background-color: var(--page-bg);
+	/* two rough, slightly skewed fold creases across the screen */
+	background-image: url('/paper-folds.svg');
+	background-size: 100% 100%;
+	background-repeat: no-repeat;
+	background-attachment: fixed;
+}
+
+h1,
+h2 {
+	font-family: var(--font-display);
+	font-weight: 400;
+	color: var(--leather);
+	letter-spacing: 0.02em;
+}
+
+h3,
+h4 {
+	color: var(--leather);
+}
+
+a {
+	color: var(--accent);
+}
+
+a:hover {
+	color: var(--accent-hover);
+}
+
+input,
+select,
+textarea {
+	font-family: inherit;
+	color: var(--ink);
+	background: var(--panel-bg);
+	border: 1px solid var(--border-soft);
+	border-radius: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+	outline: 2px solid var(--gold);
+	outline-offset: 1px;
+}
+
+button {
+	font-family: inherit;
 }
 
 hr {
 	border: 0;
-	border-top: 1px solid black;
+	border-top: 1px solid var(--border-soft);
+}
+
+/* Cards get a thin inner line, like a framed wanted poster. */
+.story-card,
+.villain-card,
+.author-card,
+.list-card,
+.story-villain-card {
+	outline: 1px solid var(--border-soft);
+	outline-offset: -5px;
+}
+
+/*
+ * Paper texture over the whole page: faint relief of handled paper
+ * (SVG turbulence lit from the top left) and fine grain.
+ */
+body::before,
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+}
+
+body::before {
+	opacity: 0.35;
+	mix-blend-mode: multiply;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.011' numOctaves='5' seed='11' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff3dc' surfaceScale='4'%3E%3CfeDistantLight azimuth='225' elevation='48'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+	background-size: 700px 700px;
+}
+
+body::after {
+	opacity: 0.7;
+	/* coarse surface: ground-in dirt, fibres and grit (static/paper-grit.svg) */
+	background-image: url('/paper-grit.svg');
+	background-size: 420px 420px;
 }

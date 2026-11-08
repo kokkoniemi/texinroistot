@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1000" preserveAspectRatio="none">
+	<!--
+		Fold creases for a sheet, stretched over it. The creases are not drawn
+		as lines: they are ridges in a height map (sharp crease + wider bend +
+		a little crumple), lit from the top left. Shadowed sides come out as
+		transparent brown and lit sides as transparent white, so the layer can
+		sit over any paper colour. Grime collects in broken patches along them.
+	-->
+	<defs>
+		<filter id="lit" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
+			<!-- roughen the fold lines a little -->
+			<feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="7" result="wob" />
+			<feDisplacementMap in="SourceAlpha" in2="wob" scale="5" xChannelSelector="R" yChannelSelector="G" result="lines" />
+			<!-- crease profile: a sharp edge on a wider bend -->
+			<feGaussianBlur in="lines" stdDeviation="1.6" result="sharp" />
+			<feGaussianBlur in="lines" stdDeviation="9" result="wide" />
+			<feComposite in="sharp" in2="wide" operator="arithmetic" k2="0.25" k3="2.2" result="fold" />
+			<!-- slight crumple over the whole sheet -->
+			<feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="4" seed="3" result="noise" />
+			<feComposite in="fold" in2="noise" operator="arithmetic" k2="1" k3="0.05" result="height" />
+			<feDiffuseLighting in="height" surfaceScale="5" diffuseConstant="1" lighting-color="#ffffff" result="light">
+				<feDistantLight azimuth="225" elevation="50" />
+			</feDiffuseLighting>
+			<!-- flat paper lights to ~0.766: below that is shadow, above it highlight -->
+			<feColorMatrix in="light" values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.08  -1.7 0 0 0 1.3" result="shade" />
+			<feColorMatrix in="light" values="0 0 0 0 1  0 0 0 0 0.99  0 0 0 0 0.95  1.6 0 0 0 -1.22" result="shine" />
+			<feMerge>
+				<feMergeNode in="shade" />
+				<feMergeNode in="shine" />
+			</feMerge>
+		</filter>
+		<!-- broad, gentle bulges where the paper does not lie flat between folds -->
+		<filter id="bulge" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
+			<feGaussianBlur in="SourceAlpha" stdDeviation="55" result="dome" />
+			<feDiffuseLighting in="dome" surfaceScale="45" diffuseConstant="1" lighting-color="#ffffff" result="light">
+				<feDistantLight azimuth="225" elevation="50" />
+			</feDiffuseLighting>
+			<feColorMatrix in="light" values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.08  -1.4 0 0 0 1.07" result="shade" />
+			<feColorMatrix in="light" values="0 0 0 0 1  0 0 0 0 0.99  0 0 0 0 0.95  1.3 0 0 0 -0.99" result="shine" />
+			<feMerge>
+				<feMergeNode in="shade" />
+				<feMergeNode in="shine" />
+			</feMerge>
+		</filter>
+		<filter id="grime" filterUnits="userSpaceOnUse" x="0" y="0" width="1800" height="1000" color-interpolation-filters="sRGB">
+			<feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="4" seed="19" result="n" />
+			<feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -11 0 0 0 5.6" result="blots" />
+			<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="soft" />
+			<feComposite in="soft" in2="blots" operator="in" />
+		</filter>
+	</defs>
+
+	<!-- bulges: panels between the folds bowing up unevenly -->
+	<g filter="url(#bulge)" fill="#000">
+		<ellipse cx="640" cy="170" rx="210" ry="90" fill-opacity="0.7" />
+		<ellipse cx="1260" cy="520" rx="240" ry="110" fill-opacity="0.6" />
+		<ellipse cx="380" cy="840" rx="190" ry="100" fill-opacity="0.55" />
+		<ellipse cx="1560" cy="160" rx="150" ry="80" fill-opacity="0.45" />
+		<ellipse cx="1020" cy="420" rx="70" ry="160" fill-opacity="0.5" />
+	</g>
+
+	<!-- grime worked into the folds, in broken patches -->
+	<g filter="url(#grime)" fill="none" stroke="#5a3a14" stroke-opacity="0.3" stroke-width="10">
+		<polyline points="958,0 952,240 944,500 939,760 930,1000" />
+		<polyline points="0,322 450,330 900,338 1350,349 1800,357" />
+		<polyline points="0,668 600,661 1200,672 1800,664" stroke-opacity="0.18" />
+	</g>
+
+	<!-- fold lines: one vertical, two horizontal, plus short crinkles where they cross -->
+	<g filter="url(#lit)" fill="none" stroke="#000" stroke-linejoin="round">
+		<polyline points="958,0 955,120 952,240 949,370 944,500 942,630 939,760 934,880 930,1000" stroke-width="2" />
+		<polyline points="0,322 220,325 450,330 680,333 900,338 1120,344 1350,349 1580,352 1800,357" stroke-width="2" />
+		<polyline points="0,668 300,664 600,661 900,667 1200,672 1500,668 1800,664" stroke-width="1.4" />
+		<path d="M 900 290 L 990 380 M 985 300 L 915 375 M 905 630 L 975 700 M 1200 340 L 1260 300 M 300 326 L 340 370 M 1500 668 L 1545 625" stroke-width="1" />
+	</g>
+</svg>

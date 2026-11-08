@@ -296,8 +296,8 @@
 	input[type='text'] {
 		font-size: 1rem;
 		padding: 0.45rem 0.5rem;
-		border: 1px solid black;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 		width: 100%;
 		box-sizing: border-box;
 	}
@@ -309,10 +309,10 @@
 	}
 
 	.author-card {
-		border: 1px solid black;
-		background-color: #f7f7f7;
+		border: 1px solid var(--border);
+		background-color: var(--card-bg);
 		padding: 1rem;
-		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+		box-shadow: 0 4px 10px var(--shadow);
 	}
 
 	.author-card h3 {
@@ -333,13 +333,13 @@
 
 	.author-link:disabled {
 		text-decoration: none;
-		color: #777;
+		color: var(--muted);
 		cursor: default;
 	}
 
 	.author-stories {
-		border: 1px solid black;
-		background: #fff;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
 		margin-top: 0.55rem;
 		padding: 0.65rem 0.8rem;
 	}
@@ -369,9 +369,9 @@
 	}
 
 	.empty {
-		border: 1px solid black;
+		border: 1px solid var(--border);
 		padding: 1rem;
-		background-color: #f7f7f7;
+		background-color: var(--card-bg);
 	}
 
 	@media (max-width: 640px) {
