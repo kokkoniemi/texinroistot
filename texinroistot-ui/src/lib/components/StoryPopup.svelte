@@ -16,6 +16,9 @@
 	export let story: Story;
 	export let title: string;
 	export let publicationSummary: string;
+	// Opened from a villain's name in a role or destiny: the villain list opens
+	// with that villain's card brought into view.
+	export let focusVillainKey = '';
 
 	// selectStory: another story was chosen from an author popup; the parent
 	// shows that story in this popup instead.
@@ -27,7 +30,13 @@
 	// button that returns here.
 	setContext('inStoryPopup', true);
 
-	onMount(() => closeButton.focus());
+	onMount(async () => {
+		closeButton.focus();
+		if (!focusVillainKey) return;
+		await toggleVillains();
+		await tick();
+		showMentionedVillain(villainList, focusVillainKey);
+	});
 
 	let villainsExpanded = false;
 	let villainsLoading = false;
