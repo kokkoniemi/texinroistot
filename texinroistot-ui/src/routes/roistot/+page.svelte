@@ -20,6 +20,7 @@
 	import MentionText from '$lib/components/MentionText.svelte';
 	import LetterBar from '$lib/components/LetterBar.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
+	import VillainWikiLink from '$lib/components/VillainWikiLink.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -386,6 +387,7 @@
 								>{:else}{shownCodeNames.join('; ')}{/if}
 						</p>
 					{/if}
+					<VillainWikiLink hash={villain.hash} />
 					<p>
 						<strong>{stories.length === 1 ? 'Tarina' : 'Tarinat'}:</strong>
 						{#if stories.length > 0}

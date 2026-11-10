@@ -6,6 +6,7 @@
 	import ItalicText from './ItalicText.svelte';
 	import MentionText from './MentionText.svelte';
 	import StoryListPopup from './StoryListPopup.svelte';
+	import VillainWikiLink from './VillainWikiLink.svelte';
 
 	export let title: string;
 	// Set only for villains in several stories; opens a popup with all of them.
@@ -71,6 +72,7 @@
 	{#if hasValues(codeNames)}
 		<p><strong>Salanimi:</strong> {joinValues(codeNames, '-', '; ')}</p>
 	{/if}
+	<VillainWikiLink hash={villainKey} />
 	{#if otherStoriesVillainHash}
 		{@const villainHash = otherStoriesVillainHash}
 		<p>
