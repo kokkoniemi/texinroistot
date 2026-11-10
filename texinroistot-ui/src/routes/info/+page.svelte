@@ -1,13 +1,16 @@
 <script lang="ts">
 	import PaperNotice from '$lib/components/PaperNotice.svelte';
+	import WoodWall from '$lib/components/WoodWall.svelte';
 </script>
+
+<WoodWall />
 
 <svelte:head>
 	<title>Info – Texin roistot</title>
 </svelte:head>
 
 <section class="info-page">
-	<h1>Info</h1>
+	<h1 class="on-wall">Info</h1>
 
 	<!-- The same torn paper notice as on the front page. -->
 	<PaperNotice maxWidth="46rem">

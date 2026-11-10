@@ -62,7 +62,11 @@
 			scale="9"
 			xChannelSelector="R"
 			yChannelSelector="G"
+			result="frayed"
 		/>
+		<!-- the displacement moves whole pixels, which leaves a stair-stepped edge:
+		     a slight blur smooths it out -->
+		<feGaussianBlur in="frayed" stdDeviation="0.6" />
 	</filter>
 </svg>
 
