@@ -50,6 +50,40 @@ func TestVillainSortKeyExpr_OnlyAlphabeticalSorts(t *testing.T) {
 	}
 }
 
+func TestBuildVillainSortClause_RankOrdersVillainsWithoutLastName(t *testing.T) {
+	clause := buildVillainSortClause("rank")
+	// last name first, then the other names of villains without one, so
+	// "Sheriffi Clem" and "Sheriffi Harry" are not left in insertion order
+	lastName := villainSortKeyExpr("last_name")
+	fallback := "COALESCE(" + villainSortKeyExpr("first_name")
+	if !strings.Contains(clause, lastName) || !strings.Contains(clause, fallback) {
+		t.Fatalf("rank sort should order by last name, then by the other names: %s", clause)
+	}
+	if strings.Index(clause, lastName) > strings.Index(clause, fallback) {
+		t.Fatalf("last name must come before the other names: %s", clause)
+	}
+	// a bare rank is ordered by the story it first appears in
+	if strings.Index(clause, firstAppearanceSQL) < strings.Index(clause, fallback) {
+		t.Fatalf("first appearance must settle what the names do not: %s", clause)
+	}
+}
+
+func TestDefaultVillainSortClause_SameNameByFirstAppearance(t *testing.T) {
+	clause := defaultVillainSortClause()
+	if !strings.Contains(clause, firstAppearanceSQL) ||
+		strings.Index(clause, firstAppearanceSQL) > strings.Index(clause, "v.id ASC") {
+		t.Fatalf("villains with the same name should be ordered by first appearance: %s", clause)
+	}
+}
+
+func TestSearchMatchesRank_NoSearchKeepsDefaultOrder(t *testing.T) {
+	// without a search term no query is made and the default order stays
+	matches, err := searchMatchesRank("v.version = $1", []interface{}{1}, "  ")
+	if err != nil || matches {
+		t.Fatalf("expected no rank order without a search, got %v, %v", matches, err)
+	}
+}
+
 func TestVillainListFrom_PerStoryNameSortsListEachName(t *testing.T) {
 	for sort, column := range map[string]string{
 		"nickname":   "vis.nicknames",

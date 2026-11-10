@@ -106,7 +106,8 @@
 	}
 
 	type VillainTitle = {
-		baseName: string;
+		rank: string;
+		realName: string;
 		nicknames: string[];
 	};
 
@@ -123,8 +124,15 @@
 		const rank = joinValues(villain.ranks, '').trim();
 		const realName = villainRealName(villain);
 		const nicknames = villainNicknames(villain);
-		const baseName = `${rank} ${realName}`.trim();
-		return { baseName, nicknames };
+		return { rank, realName, nicknames };
+	}
+
+	// The rank goes in front of the first name shown, whichever it is: "Don
+	// Esteban de Queretaro", and "Vanha Juan" for a villain known only by the
+	// other name Juan (not "Vanha, Juan").
+	function withRank(rank: string, names: string[]): string {
+		if (names.length === 0) return rank;
+		return [`${rank} ${names[0]}`.trim(), ...names.slice(1)].join(', ');
 	}
 
 	function primaryAppearance(villain: Villain): StoryVillain | null {
@@ -284,16 +292,16 @@
 				{@const nicknameTitle = listedNameFirst(title.nicknames, villain.sortName)
 					.map((nickname) => `"${nickname}"`)
 					.join(', ')}
-				{@const villainCardTitle = [title.baseName, displayName, nicknameTitle]
-					.filter(Boolean)
-					.join(', ')}
+				{@const cardNames = [title.realName, displayName, nicknameTitle].filter(Boolean)}
+				{@const villainCardTitle = cardNames.length > 0 ? withRank(title.rank, cardNames) : ''}
 				<article class="villain-card">
 					<!-- Code names are shown in the heading only when the villain has no other name. -->
 					<h3>
-						{#if villainCardTitle}{villainCardTitle}{:else if codeNames.length > 0}{#each codeNames as codeName, index (codeName)}{index >
-								0
-									? '; '
-									: ''}<em>{codeName}</em>{/each}{:else}Nimetön roisto{/if}
+						{#if villainCardTitle}{villainCardTitle}{:else if codeNames.length > 0}{title.rank
+								? `${title.rank} `
+								: ''}{#each codeNames as codeName, index (codeName)}{index > 0 ? '; ' : ''}<em
+									>{codeName}</em
+								>{/each}{:else if title.rank}{title.rank}{:else}Nimetön roisto{/if}
 					</h3>
 					<!-- Role and destiny are story-specific, so they are only shown for villains
 					     appearing in a single story. -->

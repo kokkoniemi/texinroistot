@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PaperNotice from '$lib/components/PaperNotice.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -7,91 +8,40 @@
 		if (value === null || value === undefined) return '...';
 		return new Intl.NumberFormat('fi-FI').format(value);
 	}
+
+	// What the database holds, counted from the active data version.
+	$: counts = [
+		{ value: data.activeVersionStats?.villains, label: 'roistoa' },
+		{ value: data.activeVersionStats?.stories, label: 'tarinaa' },
+		{ value: data.activeVersionStats?.writers, label: 'kertojaa' },
+		{ value: data.activeVersionStats?.drawers, label: 'piirtäjää' },
+		{ value: data.activeVersionStats?.translators, label: 'suomentajaa' }
+	];
 </script>
 
 <svelte:head>
-	<title>Texin roistot-tietokanta</title>
+	<title>Texin roistot -tietokanta</title>
 </svelte:head>
 
-<div class="front-poster">
-	<!-- The paper: a clipped sheet (torn corners) frayed by the #ragged-edge filter. -->
-	<div class="poster-paper" aria-hidden="true"><div class="poster-sheet"></div></div>
-
+<PaperNotice>
 	<section class="page-front">
 		<img src="/tex-logo.jpg" class="front-logo" alt="Kuva Tex Willeristä" />
-		<h1>Texin roistot-tietokanta</h1>
+		<h1>Texin roistot -tietokanta</h1>
 
-		<p>
-			Texin roistot-tietokanta sisältää tiedot
-			{formatCount(data.activeVersionStats?.villains)}:sta tex willer -sarjakuvassa esiintyvästä
-			roistosta, {formatCount(data.activeVersionStats?.stories)}:sta tarinasta,
-			{formatCount(data.activeVersionStats?.drawers)}:sta piirtäjästä, sekä
-			{formatCount(data.activeVersionStats?.writers)}:sta kirjoittajasta.
+		<p class="counts-intro">Tex Willer -sarjakuvan tietokannassa on</p>
+		<ul class="counts">
+			{#each counts as count (count.label)}
+				<li><strong>{formatCount(count.value)}</strong> <span>{count.label}</span></li>
+			{/each}
+		</ul>
+		<p class="counts-note">
+			Tilasto sisältää kaikki Suomessa ennen vuotta 2020 julkaistut Tex Willer -tarinat roistoineen.
 		</p>
 	</section>
-</div>
+</PaperNotice>
 
 <style>
-	/* A notice on the page, like a poster on a saloon wall. */
-	.front-poster {
-		position: relative;
-		isolation: isolate;
-		max-width: 40rem;
-		margin: 2.5rem auto 0;
-		/* the shadow follows the torn, frayed outline of the paper */
-		filter: drop-shadow(0 5px 8px var(--shadow));
-	}
-
-	.poster-paper {
-		position: absolute;
-		inset: 0;
-		z-index: -1;
-		filter: url(#ragged-edge);
-	}
-
-	/* Rough, gritty paper with browned edges; chunks torn off two corners and two tears. */
-	.poster-sheet {
-		position: absolute;
-		inset: 0;
-		background:
-			url('/paper-grit.svg') 0 0 / 420px 420px,
-			var(--card-bg);
-		box-shadow:
-			inset 0 0 40px rgba(120, 85, 35, 0.14),
-			inset 0 0 6px rgba(100, 70, 30, 0.25);
-		clip-path: polygon(
-			0 0,
-			/* a slanting tear down from the top edge */ 31% 0,
-			calc(31% + 9px) 16px,
-			calc(31% + 5px) 24px,
-			calc(31% + 14px) 38px,
-			calc(31% + 13px) 22px,
-			calc(31% + 17px) 12px,
-			calc(31% + 12px) 0,
-			calc(100% - 70px) 0,
-			calc(100% - 52px) 10px,
-			calc(100% - 38px) 7px,
-			calc(100% - 24px) 22px,
-			calc(100% - 10px) 26px,
-			100% 48px,
-			100% 100%,
-			58px 100%,
-			44px calc(100% - 12px),
-			26px calc(100% - 8px),
-			12px calc(100% - 22px),
-			0 calc(100% - 30px),
-			/* a tear in from the left edge */ 0 calc(58% + 10px),
-			14px calc(58% + 7px),
-			22px calc(58% + 9px),
-			40px calc(58% + 2px),
-			24px calc(58% + 3px),
-			13px 58%,
-			0 calc(58% - 1px)
-		);
-	}
-
 	.page-front {
-		padding: 2rem 2rem 1.8rem;
 		text-align: center;
 	}
 
@@ -111,21 +61,46 @@
 		font-size: 2.1rem;
 	}
 
-	p {
-		margin: 0 auto;
-		max-width: 32rem;
+	.counts-intro {
+		margin: 0 0 0.6rem;
 		font-size: 1.1rem;
 	}
 
+	/* Two columns: the counts right-aligned so they line up, labels beside them. */
+	.counts {
+		display: grid;
+		grid-template-columns: auto auto;
+		justify-content: center;
+		column-gap: 0.6rem;
+		row-gap: 0.15rem;
+		margin: 0 auto;
+		padding: 0;
+		list-style: none;
+		font-size: 1.15rem;
+	}
+
+	.counts li {
+		display: contents;
+	}
+
+	.counts strong {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.counts span {
+		text-align: left;
+	}
+
+	.counts-note {
+		margin: 1rem auto 0;
+		max-width: 30rem;
+		font-size: 0.95rem;
+		font-style: italic;
+		color: var(--ink-soft);
+	}
+
 	@media (max-width: 640px) {
-		.front-poster {
-			margin: 1.25rem 0.75rem 0;
-		}
-
-		.page-front {
-			padding: 1.5rem 1rem 1.4rem;
-		}
-
 		h1 {
 			font-size: 1.6rem;
 		}
