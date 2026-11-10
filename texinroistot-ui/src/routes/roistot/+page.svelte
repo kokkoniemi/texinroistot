@@ -9,13 +9,15 @@
 		nonItalianTitlesByFirstPublication,
 		paginationTokens,
 		publicationSummaryFromPublications,
-		scrollToListItem
+		scrollToListItem,
+		storyMentionTargets
 	} from '$lib/listing/shared';
-	import type { Meta, PaginationToken } from '$lib/listing/shared';
-	import type { Story, StoryVillain, Villain } from '$lib/types';
+	import type { MentionTarget, Meta, PaginationToken } from '$lib/listing/shared';
+	import type { Story, StoryVillain, StoryVillainsResponse, Villain } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import ItalicText from '$lib/components/ItalicText.svelte';
+	import MentionText from '$lib/components/MentionText.svelte';
 	import LetterBar from '$lib/components/LetterBar.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
 	import type { PageData } from './$types';
@@ -58,7 +60,50 @@
 	let pageTokens: PaginationToken[] = [];
 	let selectedSort = defaultSortOption;
 	let selectedStory: Story | null = null;
+	// A villain named in a role or destiny: the story card opens with that
+	// villain's card brought into view.
+	let focusVillainKey = '';
 	let villainList: HTMLElement | undefined;
+
+	// The villains of each story shown with a role or destiny, fetched once per
+	// story, so the names of other villains in those texts can be links.
+	let storyVillainsByHash: Record<string, Villain[]> = {};
+	const requestedStories = new Set<string>();
+
+	async function loadStoryVillains(storyHash: string): Promise<void> {
+		if (!storyHash || requestedStories.has(storyHash)) return;
+		requestedStories.add(storyHash);
+		try {
+			const response = await fetch(`/api/tarinat/${encodeURIComponent(storyHash)}/roistot`);
+			if (!response.ok) return;
+			const payload = (await response.json()) as StoryVillainsResponse;
+			storyVillainsByHash = { ...storyVillainsByHash, [storyHash]: payload.villains ?? [] };
+		} catch {
+			// without the story's villains the texts stay plain
+		}
+	}
+
+	function mentionTargetsFor(
+		byHash: Record<string, Villain[]>,
+		storyHash: string
+	): MentionTarget[] {
+		const storyVillains = byHash[storyHash];
+		return storyVillains ? storyMentionTargets(storyVillains, storyHash) : [];
+	}
+
+	function openMention(story: Story | undefined, villainKey: string): void {
+		if (!story) return;
+		focusVillainKey = villainKey;
+		selectedStory = story;
+	}
+
+	$: for (const villain of villains) {
+		const stories = villainStories(villain);
+		const appearance = primaryAppearance(villain);
+		if (stories.length <= 1 && (hasValues(appearance?.roles) || hasValues(appearance?.destiny))) {
+			loadStoryVillains((appearance?.story?.hash ?? '').trim());
+		}
+	}
 
 	afterNavigate(() => {
 		selectedStory = null;
@@ -306,16 +351,29 @@
 					<!-- Role and destiny are story-specific, so they are only shown for villains
 					     appearing in a single story. -->
 					{#if stories.length <= 1}
+						<!-- Names of the story's other villains link to the story card, focused on them. -->
+						{@const storyHash = (appearance?.story?.hash ?? '').trim()}
+						{@const mentionTargets = mentionTargetsFor(storyVillainsByHash, storyHash)}
 						{#if hasValues(appearance?.roles)}
 							<p>
 								<strong>Rooli:</strong>
-								<ItalicText text={joinValues(appearance?.roles, '-', '; ')} />
+								{#if mentionTargets.length > 0}<MentionText
+										text={joinValues(appearance?.roles, '-', '; ')}
+										targets={mentionTargets}
+										selfKey={villain.hash}
+										on:mention={(e) => openMention(stories[0], e.detail)}
+									/>{:else}<ItalicText text={joinValues(appearance?.roles, '-', '; ')} />{/if}
 							</p>
 						{/if}
 						{#if hasValues(appearance?.destiny)}
 							<p>
 								<strong>Kohtalo:</strong>
-								<ItalicText text={joinValues(appearance?.destiny, '-', '; ')} />
+								{#if mentionTargets.length > 0}<MentionText
+										text={joinValues(appearance?.destiny, '-', '; ')}
+										targets={mentionTargets}
+										selfKey={villain.hash}
+										on:mention={(e) => openMention(stories[0], e.detail)}
+									/>{:else}<ItalicText text={joinValues(appearance?.destiny, '-', '; ')} />{/if}
 							</p>
 						{/if}
 					{/if}
@@ -352,7 +410,11 @@
 			story={selectedStory}
 			title={storyCardTitle(selectedStory)}
 			publicationSummary={publicationSummary(selectedStory)}
-			on:close={() => (selectedStory = null)}
+			{focusVillainKey}
+			on:close={() => {
+				selectedStory = null;
+				focusVillainKey = '';
+			}}
 			on:selectStory={(e) => (selectedStory = e.detail)}
 		/>
 	{/if}
