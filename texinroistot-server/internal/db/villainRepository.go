@@ -215,6 +215,15 @@ func villainSortKeyExpr(sort string) string {
 	}
 }
 
+// firstAppearanceSQL is the order number of the first story a villain
+// appears in.
+const firstAppearanceSQL = `(
+	SELECT MIN(fs.order_num)
+	FROM villains_in_stories AS fvis
+	JOIN stories AS fs ON fs.id = fvis.story
+	WHERE fvis.villain = v.id
+)`
+
 func buildVillainSortClause(sort string) string {
 	publicationSortExpr := func(pubType string) string {
 		return fmt.Sprintf(`(
@@ -239,7 +248,17 @@ func buildVillainSortClause(sort string) string {
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, publicationSortExpr("italia_perus"), lastNameExpr, firstNameExpr)
 	case "last_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, lastNameExpr, firstNameExpr)
-	case "nickname", "other_name", "code_name", "rank":
+	case "rank":
+		// Within a rank: villains with a last name by last name (Sheriffi
+		// Abbott ... Whitaker), then those without one by the name they do
+		// have, first name, other name, nickname or code name (Sheriffi Clem,
+		// Harry, Mike ...), and bare ranks last in order of the story they
+		// first appear in, which also settles villains with the same name.
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, COALESCE(%s, %s, %s, %s) ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`,
+			villainListSortKeyExpr(sort), lastNameExpr, firstNameExpr,
+			villainSortKeyExpr("other_name"), villainSortKeyExpr("nickname"), villainSortKeyExpr("code_name"),
+			firstAppearanceSQL)
+	case "nickname", "other_name", "code_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, villainListSortKeyExpr(sort), lastNameExpr)
 	case "first_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, firstNameExpr, lastNameExpr)
@@ -254,7 +273,9 @@ var defaultVillainSortKeys = []string{"first_name", "last_name", "other_name", "
 
 // defaultVillainSortClause orders villains group by group (first name, then
 // last name, other name, nickname, rank, code name, then villains with none of
-// these), each group alphabetically by its own name. It has no letter paging.
+// these), each group alphabetically by its own name. Villains with the same
+// name (e.g. several bare "Sheriffi") are in order of the story they first
+// appear in. It has no letter paging.
 func defaultVillainSortClause() string {
 	keys := make([]string, len(defaultVillainSortKeys))
 	groupCases := make([]string, len(defaultVillainSortKeys))
@@ -263,11 +284,12 @@ func defaultVillainSortClause() string {
 		groupCases[i] = fmt.Sprintf("WHEN %s IS NOT NULL THEN %d", keys[i], i+1)
 	}
 	return fmt.Sprintf(
-		`CASE %s ELSE %d END ASC, COALESCE(%s) ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`,
+		`CASE %s ELSE %d END ASC, COALESCE(%s) ASC NULLS LAST, %s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`,
 		strings.Join(groupCases, " "),
 		len(defaultVillainSortKeys)+1,
 		strings.Join(keys, ", "),
 		villainSortKeyExpr("last_name"),
+		firstAppearanceSQL,
 	)
 }
 
@@ -362,6 +384,35 @@ EXISTS (
 	return strings.Join(clauses, " AND "), args, nil
 }
 
+// searchMatchesRank reports whether a search term matches the rank of a listed
+// villain ("sheriffi", "kapteeni"). Such a search in the default order is
+// listed like the rank order: by rank, then last name, then the other names,
+// so all sheriffs are in last name order instead of grouped by first name.
+func searchMatchesRank(whereClause string, whereArgs []interface{}, search string) (bool, error) {
+	search = strings.TrimSpace(search)
+	if search == "" {
+		return false, nil
+	}
+	rows, err := Query(fmt.Sprintf(`
+SELECT EXISTS (
+	SELECT 1 FROM villains AS v
+	WHERE %s
+	AND array_to_string(v.ranks, ' ') ILIKE $%d
+);
+`, whereClause, len(whereArgs)+1), append(append([]interface{}{}, whereArgs...), "%"+search+"%")...)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	matches := false
+	if rows.Next() {
+		if err = rows.Scan(&matches); err != nil {
+			return false, err
+		}
+	}
+	return matches, rows.Err()
+}
+
 func (v *villainRepo) selectVillainRowsFiltered(version *Version, params VillainListParams) ([]*Villain, []int, int, error) {
 	if version.ID == 0 || params.Page <= 0 || params.PageSize <= 0 {
 		return nil, nil, 0, fmt.Errorf("invalid parameters")
@@ -396,6 +447,15 @@ WHERE %s;
 	}
 
 	orderClause := buildVillainSortClause(params.Sort)
+	if params.Sort == "default" {
+		byRank, err := searchMatchesRank(whereClause, whereArgs, params.Search)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		if byRank {
+			orderClause = buildVillainSortClause("rank")
+		}
+	}
 	limitArgPos := len(whereArgs) + 1
 	offsetArgPos := len(whereArgs) + 2
 	offset := (params.Page - 1) * params.PageSize

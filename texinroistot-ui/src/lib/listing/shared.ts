@@ -468,16 +468,17 @@ export function italianOriginalPublication(story: StoryBase): ItalianOriginalPub
 			return a.issue.localeCompare(b.issue);
 		});
 
-	// Italian issue numbers form one continuous series, so the year is shown
-	// once after the issues, e.g. "1-2 (1948)" or "25-27 (1949-1950)".
+	// Italian base series issue numbers form one continuous series, so the year
+	// is shown once after the issues. The series is named like the specials:
+	// "Tex 1 (1948)", "Tex 25-27 (1949-1950)".
 	let issuePart = '';
 	if (issues.length === 1) {
-		issuePart = `${issues[0].issue} (${issues[0].year})`;
+		issuePart = `Tex ${issues[0].issue} (${issues[0].year})`;
 	} else if (issues.length > 1) {
 		const first = issues[0];
 		const last = issues[issues.length - 1];
 		const yearPart = first.year === last.year ? `${first.year}` : `${first.year}-${last.year}`;
-		issuePart = `${first.issue}-${last.issue} (${yearPart})`;
+		issuePart = `Tex ${first.issue}-${last.issue} (${yearPart})`;
 	}
 
 	// Italian special publications (Maxi Tex, Texone, Color Tex, ...): the issue

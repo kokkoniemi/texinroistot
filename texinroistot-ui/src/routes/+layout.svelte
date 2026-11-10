@@ -44,6 +44,9 @@
 				<li class:active={$page.url.pathname === '/tekijat'}>
 					<a href="/tekijat">Tekijät</a>
 				</li>
+				<li class:active={$page.url.pathname === '/info'}>
+					<a href="/info">Info</a>
+				</li>
 			</ul>
 		</nav>
 	</header>
@@ -201,14 +204,15 @@
 			font-size: 1.5rem;
 		}
 
+		/* five tabs fit a 375-pixel phone */
 		.top-menu {
-			gap: 0.2rem;
+			gap: 0.15rem;
 			flex-wrap: nowrap;
 		}
 
 		.top-menu li a {
 			min-width: 0;
-			padding: 0.45rem 0.55rem;
+			padding: 0.45rem 0.4rem;
 			font-size: 0.85rem;
 		}
 	}

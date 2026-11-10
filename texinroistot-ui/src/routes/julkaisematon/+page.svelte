@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Texin roistot-tietokanta</title>
+	<title>Texin roistot -tietokanta</title>
 </svelte:head>
 
 <section class="gate-page">
