@@ -109,7 +109,7 @@ AND (%s) IS NOT NULL;
 // villain sort and, when letter is set, where that letter starts. For the
 // publication date sorts it returns no letters and no position.
 func (v *villainRepo) LetterPaging(version *Version, params VillainListParams, letter string) ([]string, *LetterPosition, error) {
-	sortKey := villainSortKeyExpr(params.Sort)
+	sortKey := villainListSortKeyExpr(params.Sort)
 	if version == nil || version.ID == 0 || sortKey == "" {
 		return []string{}, nil, nil
 	}
@@ -117,7 +117,7 @@ func (v *villainRepo) LetterPaging(version *Version, params VillainListParams, l
 	if err != nil {
 		return nil, nil, err
 	}
-	return letterPaging(letterPagingQuery{"villains AS v", whereClause, whereArgs, sortKey}, letter, params.PageSize)
+	return letterPaging(letterPagingQuery{villainListFrom(params.Sort), whereClause, whereArgs, sortKey}, letter, params.PageSize)
 }
 
 // LetterPaging returns the initial letters available for the alphabetical

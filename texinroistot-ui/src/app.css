@@ -32,11 +32,21 @@ body {
 	font-family: var(--font-text);
 	line-height: 1.5;
 	background-color: var(--page-bg);
-	/* two rough, slightly skewed fold creases across the screen */
-	background-image: url('/paper-folds.svg');
-	background-size: 100% 100%;
-	background-repeat: no-repeat;
-	background-attachment: fixed;
+}
+
+/*
+ * Fold creases across the screen. A fixed layer rather than a fixed
+ * background, because phone browsers ignore background-attachment: fixed and
+ * would stretch the image over the whole page. The image keeps its
+ * proportions (slice), so narrow screens show its middle instead of a
+ * squeezed version.
+ */
+.paper-folds {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background: url('/paper-folds.svg') center / cover no-repeat;
 }
 
 h1,
@@ -149,4 +159,19 @@ body::after {
 	/* coarse surface: ground-in dirt, fibres and grit (static/paper-grit.svg) */
 	background-image: url('/paper-grit.svg');
 	background-size: 420px 420px;
+}
+
+/* A villain card brought into view from a name in a role or destiny text. */
+.mention-highlight {
+	animation: mention-highlight 2s ease-out;
+}
+
+@keyframes mention-highlight {
+	0%,
+	40% {
+		box-shadow: 0 0 0 3px var(--gold);
+	}
+	100% {
+		box-shadow: 0 0 0 3px transparent;
+	}
 }

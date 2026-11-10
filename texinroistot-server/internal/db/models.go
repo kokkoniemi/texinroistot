@@ -106,11 +106,19 @@ type Villain struct {
 	// StoryCount is the number of stories the villain appears in. Only set
 	// by ListByStoryHash, where As holds just the requested story.
 	StoryCount int `json:"storyCount,omitempty"`
+	// SortName is the name a villain is listed under in a per-story name sort
+	// (nickname, other name, code name), where a villain with several such
+	// names is listed once under each of them.
+	SortName string `json:"sortName,omitempty"`
 }
 
 type StoryVillain struct {
-	ID         int      `json:"-"`
-	Hash       string   `json:"hash"`
+	ID   int    `json:"-"`
+	Hash string `json:"hash"`
+	// FirstNames and LastName are the name the villain goes by in this story;
+	// empty when the story gives no name of its own.
+	FirstNames []string `json:"firstNames"`
+	LastName   string   `json:"lastName"`
 	Nicknames  []string `json:"nicknames"`
 	OtherNames []string `json:"otherNames"`
 	CodeNames  []string `json:"codeNames"`

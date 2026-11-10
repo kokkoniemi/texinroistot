@@ -149,6 +149,8 @@ CREATE TABLE "public"."villains_in_stories" (
 	    "code_names" _varchar,
 	    "destiny" _varchar,
 	    "roles" _varchar,
+	    "first_names" _varchar,
+	    "last_name" varchar,
 	    PRIMARY KEY ("id")
 );
 

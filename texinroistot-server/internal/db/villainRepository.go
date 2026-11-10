@@ -73,13 +73,15 @@ func (v *villainRepo) BulkCreate(villains []*Villain, version *Version) ([]*Vill
 				ArrayParam(sv.CodeNames),
 				ArrayParam(sv.Destiny),
 				ArrayParam(sv.Roles),
+				ArrayParam(sv.FirstNames),
+				sv.LastName,
 			})
 		}
 	}
 
 	_, err = BulkInsertTxn(bulkInsertParams{
 		Table:   "villains_in_stories",
-		Columns: []string{"villain", "story", "hash", "nicknames", "other_names", "code_names", "destiny", "roles"},
+		Columns: []string{"villain", "story", "hash", "nicknames", "other_names", "code_names", "destiny", "roles", "first_names", "last_name"},
 		Values:  storyVillainValues,
 	})
 	if err != nil {
@@ -150,6 +152,47 @@ func storyVillainSortSQL(column string) string {
 )`, normalizeSortSQL(fmt.Sprintf("array_to_string(vis.%s, ' ')", column)))
 }
 
+// storyVillainNameColumns are the per-story name lists that have their own
+// alphabetical sort. In those sorts a villain is listed once under each
+// distinct name, so a villain with the nicknames "Ice" and "Blue" is found
+// under both B and I.
+var storyVillainNameColumns = map[string]string{
+	"nickname":   "nicknames",
+	"other_name": "other_names",
+	"code_name":  "code_names",
+}
+
+// villainListFrom returns the FROM clause of a villain list. For the per-story
+// name sorts each villain row is repeated for each of its distinct names,
+// exposed as sn.key (the normalized sort key) and sn.name.
+func villainListFrom(sort string) string {
+	column, expanded := storyVillainNameColumns[sort]
+	if !expanded {
+		return "villains AS v"
+	}
+	key := normalizeSortSQL("btrim(n.name)")
+	return fmt.Sprintf(`villains AS v
+CROSS JOIN LATERAL (
+	SELECT DISTINCT ON (%s) %s AS key, btrim(n.name) AS name
+	FROM villains_in_stories AS vis
+	CROSS JOIN LATERAL unnest(vis.%s) AS n(name)
+	JOIN stories AS ns ON ns.id = vis.story
+	WHERE vis.villain = v.id
+	AND %s IS NOT NULL
+	ORDER BY %s, ns.order_num ASC NULLS LAST
+) AS sn`, key, key, column, key, key)
+}
+
+// villainListSortKeyExpr is the primary sort key that a villain list is
+// ordered and letter-paged by: sn.key for the per-story name sorts, otherwise
+// villainSortKeyExpr.
+func villainListSortKeyExpr(sort string) string {
+	if _, expanded := storyVillainNameColumns[sort]; expanded {
+		return "sn.key"
+	}
+	return villainSortKeyExpr(sort)
+}
+
 // villainSortKeyExpr returns the primary sort key of an alphabetical villain
 // sort, or "" for the publication date sorts and the grouped default sort,
 // which have no single key. Letter paging uses the same key.
@@ -197,7 +240,7 @@ func buildVillainSortClause(sort string) string {
 	case "last_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, lastNameExpr, firstNameExpr)
 	case "nickname", "other_name", "code_name", "rank":
-		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, villainSortKeyExpr(sort), lastNameExpr)
+		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, villainListSortKeyExpr(sort), lastNameExpr)
 	case "first_name":
 		return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, v.id ASC`, firstNameExpr, lastNameExpr)
 	default:
@@ -301,9 +344,11 @@ EXISTS (
 			array_to_string(vis.nicknames, ' ') ILIKE $%d
 			OR array_to_string(vis.other_names, ' ') ILIKE $%d
 			OR array_to_string(vis.code_names, ' ') ILIKE $%d
+			OR array_to_string(vis.first_names, ' ') ILIKE $%d
+			OR vis.last_name ILIKE $%d
 		)
 	)
-)`, argPos, argPos, argPos, argPos, argPos, argPos))
+)`, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
 		args = append(args, "%"+search+"%")
 		argPos++
 	}
@@ -327,11 +372,12 @@ func (v *villainRepo) selectVillainRowsFiltered(version *Version, params Villain
 		return nil, nil, 0, err
 	}
 
+	from := villainListFrom(params.Sort)
 	countSQL := fmt.Sprintf(`
 SELECT COUNT(*)
-FROM villains AS v
+FROM %s
 WHERE %s;
-`, whereClause)
+`, from, whereClause)
 
 	countRows, err := Query(countSQL, whereArgs...)
 	if err != nil {
@@ -354,18 +400,24 @@ WHERE %s;
 	offsetArgPos := len(whereArgs) + 2
 	offset := (params.Page - 1) * params.PageSize
 
+	sortNameExpr := "''"
+	if _, expanded := storyVillainNameColumns[params.Sort]; expanded {
+		sortNameExpr = "sn.name"
+	}
+
 	querySQL := fmt.Sprintf(`
 SELECT
 	v.id,
 	v.hash,
 	COALESCE(v.ranks, ARRAY[]::varchar[]),
 	COALESCE(v.first_names, ARRAY[]::varchar[]),
-	COALESCE(v.last_name, '')
-FROM villains AS v
+	COALESCE(v.last_name, ''),
+	%s
+FROM %s
 WHERE %s
 ORDER BY %s
 LIMIT $%d OFFSET $%d;
-`, whereClause, orderClause, limitArgPos, offsetArgPos)
+`, sortNameExpr, from, whereClause, orderClause, limitArgPos, offsetArgPos)
 
 	args := append(whereArgs, params.PageSize, offset)
 	rows, err := Query(querySQL, args...)
@@ -384,6 +436,7 @@ LIMIT $%d OFFSET $%d;
 			Ranks      []string
 			FirstNames []string
 			LastName   string
+			SortName   string
 		}
 		if err = rows.Scan(
 			&row.ID,
@@ -391,6 +444,7 @@ LIMIT $%d OFFSET $%d;
 			ArrayParam(&row.Ranks),
 			ArrayParam(&row.FirstNames),
 			&row.LastName,
+			&row.SortName,
 		); err != nil {
 			return nil, nil, 0, err
 		}
@@ -401,6 +455,7 @@ LIMIT $%d OFFSET $%d;
 			Ranks:      row.Ranks,
 			FirstNames: row.FirstNames,
 			LastName:   row.LastName,
+			SortName:   row.SortName,
 		})
 		villainIDs = append(villainIDs, row.ID)
 	}
@@ -422,6 +477,8 @@ SELECT
 	COALESCE(vis.code_names, ARRAY[]::varchar[]),
 	COALESCE(vis.roles, ARRAY[]::varchar[]),
 	COALESCE(vis.destiny, ARRAY[]::varchar[]),
+	COALESCE(vis.first_names, ARRAY[]::varchar[]),
+	COALESCE(vis.last_name, ''),
 	s.id,
 	s.hash,
 	s.order_num
@@ -446,17 +503,19 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 
 	for rows.Next() {
 		var row struct {
-			VillainID int
-			ID        int
-			Hash      string
-			Nicknames []string
+			VillainID  int
+			ID         int
+			Hash       string
+			Nicknames  []string
 			OtherNames []string
 			CodeNames  []string
-			Roles     []string
-			Destiny   []string
-			StoryID   int
-			StoryHash string
-			OrderNum  sql.NullInt64
+			Roles      []string
+			Destiny    []string
+			FirstNames []string
+			LastName   string
+			StoryID    int
+			StoryHash  string
+			OrderNum   sql.NullInt64
 		}
 
 		if err = rows.Scan(
@@ -468,6 +527,8 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 			ArrayParam(&row.CodeNames),
 			ArrayParam(&row.Roles),
 			ArrayParam(&row.Destiny),
+			ArrayParam(&row.FirstNames),
+			&row.LastName,
 			&row.StoryID,
 			&row.StoryHash,
 			&row.OrderNum,
@@ -478,8 +539,8 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 		story := storyByID[row.StoryID]
 		if story == nil {
 			story = &Story{
-				ID:    row.StoryID,
-				Hash:  row.StoryHash,
+				ID:   row.StoryID,
+				Hash: row.StoryHash,
 				OrderNumber: func() int {
 					if row.OrderNum.Valid {
 						return int(row.OrderNum.Int64)
@@ -493,6 +554,8 @@ func (*villainRepo) selectStoryVillainRows(villainIDs []int) (map[int][]*StoryVi
 		storyVillain := &StoryVillain{
 			ID:         row.ID,
 			Hash:       row.Hash,
+			FirstNames: row.FirstNames,
+			LastName:   row.LastName,
 			Nicknames:  row.Nicknames,
 			OtherNames: row.OtherNames,
 			CodeNames:  row.CodeNames,
@@ -555,6 +618,8 @@ SELECT
 	COALESCE(vis.code_names, ARRAY[]::varchar[]),
 	COALESCE(vis.roles, ARRAY[]::varchar[]),
 	COALESCE(vis.destiny, ARRAY[]::varchar[]),
+	COALESCE(vis.first_names, ARRAY[]::varchar[]),
+	COALESCE(vis.last_name, ''),
 	COALESCE(s.id, 0),
 	COALESCE(s.hash, ''),
 	(
@@ -568,10 +633,32 @@ LEFT JOIN villains AS v ON v.id = vis.villain AND v.version = s.version
 WHERE s.hash = $1
 AND s.version = $2
 ORDER BY
-	NULLIF(regexp_replace(lower(COALESCE(array_to_string(v.first_names, ' '), '') || COALESCE(v.last_name, '')), '[[:punct:][:space:]]+', '', 'g'), '') ASC NULLS LAST,
+	NULLIF(regexp_replace(lower(
+		CASE WHEN ` + storyVillainHasNameSQL + `
+			THEN COALESCE(array_to_string(vis.first_names, ' '), '') || COALESCE(vis.last_name, '')
+			ELSE COALESCE(array_to_string(v.first_names, ' '), '') || COALESCE(v.last_name, '')
+		END
+	), '[[:punct:][:space:]]+', '', 'g'), '') ASC NULLS LAST,
 	v.id ASC,
 	vis.id ASC;
 `
+
+// storyVillainHasNameSQL is true when a story gives the villain a name of its
+// own, which then replaces the villain's name in that story.
+const storyVillainHasNameSQL = `(COALESCE(btrim(array_to_string(vis.first_names, '')), '') <> '' OR COALESCE(btrim(vis.last_name), '') <> '')`
+
+// hasStoryName reports whether a story gives the villain a name of its own.
+func hasStoryName(firstNames []string, lastName string) bool {
+	if strings.TrimSpace(lastName) != "" {
+		return true
+	}
+	for _, name := range firstNames {
+		if strings.TrimSpace(name) != "" {
+			return true
+		}
+	}
+	return false
+}
 
 // ListByStoryHash returns villains that appear in a single story in the active version.
 func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Villain, bool, error) {
@@ -609,6 +696,8 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			CodeNames        []string
 			Roles            []string
 			Destiny          []string
+			StoryFirstNames  []string
+			StoryLastName    string
 			StoryID          int
 			StoryHash        string
 			StoryCount       int
@@ -627,6 +716,8 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			ArrayParam(&row.CodeNames),
 			ArrayParam(&row.Roles),
 			ArrayParam(&row.Destiny),
+			ArrayParam(&row.StoryFirstNames),
+			&row.StoryLastName,
 			&row.StoryID,
 			&row.StoryHash,
 			&row.StoryCount,
@@ -638,17 +729,26 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			continue
 		}
 
+		// In a single story the villain goes by the name that story gives,
+		// e.g. "Kid Rodelo" before he is revealed to be Philip Rainey.
+		firstNames, lastName := row.FirstNames, row.LastName
+		if hasStoryName(row.StoryFirstNames, row.StoryLastName) {
+			firstNames, lastName = row.StoryFirstNames, row.StoryLastName
+		}
+
 		villains = append(villains, &Villain{
 			ID:         row.VillainID,
 			Hash:       row.VillainHash,
 			Ranks:      row.Ranks,
-			FirstNames: row.FirstNames,
-			LastName:   row.LastName,
+			FirstNames: firstNames,
+			LastName:   lastName,
 			StoryCount: row.StoryCount,
 			As: []*StoryVillain{
 				{
 					ID:         row.StoryVillainID,
 					Hash:       row.StoryVillainHash,
+					FirstNames: row.StoryFirstNames,
+					LastName:   row.StoryLastName,
 					Nicknames:  row.Nicknames,
 					OtherNames: row.OtherNames,
 					CodeNames:  row.CodeNames,

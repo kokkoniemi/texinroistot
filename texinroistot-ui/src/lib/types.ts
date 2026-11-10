@@ -6,6 +6,10 @@ export type Story = StoryBase & {
 
 export type StoryVillain = {
 	hash: string;
+	// The name the villain goes by in this story; empty when the story gives
+	// none. In a story's villain list the villain's own name is already this.
+	firstNames?: string[] | null;
+	lastName?: string;
 	nicknames?: string[] | null;
 	otherNames?: string[] | null;
 	codeNames?: string[] | null;
@@ -22,6 +26,9 @@ export type Villain = {
 	as?: StoryVillain[] | null;
 	// Only set by the story villains endpoint.
 	storyCount?: number;
+	// The name the villain is listed under in a nickname, other name or code
+	// name sort; a villain with several such names is listed under each.
+	sortName?: string;
 };
 
 export type StoryVillainsResponse = {

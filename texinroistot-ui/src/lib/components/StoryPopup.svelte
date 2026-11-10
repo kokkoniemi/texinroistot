@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onMount, setContext, tick } from 'svelte';
 	import {
 		italianOriginalPublication,
 		storyVillainForStory,
 		otherStoriesVillainHash,
-		storyVillainTitle
+		storyVillainTitle,
+		storyMentionTargets,
+		showMentionedVillain
 	} from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
 	import AuthorLinks from './AuthorLinks.svelte';
@@ -21,6 +23,10 @@
 
 	let closeButton: HTMLButtonElement;
 
+	// Story lists opened from this card (author or villain links) show a back
+	// button that returns here.
+	setContext('inStoryPopup', true);
+
 	onMount(() => closeButton.focus());
 
 	let villainsExpanded = false;
@@ -29,22 +35,50 @@
 	let villains: Villain[] = [];
 	let villainsLoadedHash = '';
 	let prevHash = '';
+	let prevStory: Story | null = null;
+
+	// Cards visited before this one in the popup, so "Edellinen" can step back
+	// through them. Each remembers whether its villain list was open.
+	type HistoryEntry = { story: Story; villainsOpen: boolean };
+	let history: HistoryEntry[] = [];
+	let goingBack = false;
+	let reopenVillains = false;
 
 	$: storyHash = story.hash.trim();
 	$: italianOriginal = italianOriginalPublication(story);
+	// Names of the story's villains in roles and destinies link to their cards.
+	$: mentionTargets = storyMentionTargets(villains, storyHash);
+	let villainList: HTMLElement | undefined;
 	$: {
 		if (storyHash !== prevHash) {
+			if (prevStory && !goingBack) {
+				history = [...history, { story: prevStory, villainsOpen: villainsExpanded }];
+			}
 			prevHash = storyHash;
+			prevStory = story;
 			villainsExpanded = false;
 			villainsLoading = false;
 			villainsError = '';
 			villains = [];
 			villainsLoadedHash = '';
+			if (goingBack) {
+				goingBack = false;
+				if (reopenVillains) tick().then(toggleVillains);
+			}
 		}
 	}
 
 	function close(): void {
 		dispatch('close');
+	}
+
+	function back(): void {
+		const previous = history[history.length - 1];
+		if (!previous) return;
+		history = history.slice(0, -1);
+		goingBack = true;
+		reopenVillains = previous.villainsOpen;
+		dispatch('selectStory', previous.story);
 	}
 
 	async function toggleVillains(): Promise<void> {
@@ -90,6 +124,9 @@
 <div class="story-popup-backdrop" role="presentation" on:click|self={close}>
 	<div class="story-popup" role="dialog" aria-modal="true" aria-labelledby="story-popup-title">
 		<div class="story-popup-actions">
+			{#if history.length > 0}
+				<button type="button" class="story-popup-back" on:click={back}>&larr; Edellinen</button>
+			{/if}
 			<button type="button" class="story-popup-close" on:click={close} bind:this={closeButton}
 				>Sulje</button
 			>
@@ -151,7 +188,7 @@
 					{:else if villains.length === 0}
 						<p>Tarinalle ei löytynyt roistoja.</p>
 					{:else}
-						<div class="story-villains-list">
+						<div class="story-villains-list" bind:this={villainList}>
 							{#each villains as villain (villain.hash)}
 								{@const appearance = storyVillainForStory(villain, storyHash)}
 								{@const cardTitle = storyVillainTitle(villain, storyHash)}
@@ -161,6 +198,9 @@
 									roles={appearance?.roles}
 									destiny={appearance?.destiny}
 									codeNames={appearance?.codeNames}
+									villainKey={villain.hash}
+									{mentionTargets}
+									on:mention={(e) => showMentionedVillain(villainList, e.detail)}
 									on:selectStory={(e) => dispatch('selectStory', e.detail)}
 								/>
 							{/each}
@@ -198,6 +238,17 @@
 		display: flex;
 		justify-content: flex-end;
 		margin-bottom: 0.6rem;
+	}
+
+	/* the back button sits on the left, Sulje stays on the right */
+	.story-popup-back {
+		margin-right: auto;
+		padding: 0.35rem 0.7rem;
+		font-size: 0.95rem;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
+		color: var(--ink);
+		cursor: pointer;
 	}
 
 	.story-popup-close {
