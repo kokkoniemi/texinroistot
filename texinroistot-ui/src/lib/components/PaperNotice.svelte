@@ -11,6 +11,12 @@
 	<div class="notice-content">
 		<slot />
 	</div>
+
+	<!-- Nailed to the wall: nail heads clear of the torn corners. -->
+	<span class="nail nail-top-left" aria-hidden="true"></span>
+	<span class="nail nail-top-right" aria-hidden="true"></span>
+	<span class="nail nail-bottom-left" aria-hidden="true"></span>
+	<span class="nail nail-bottom-right" aria-hidden="true"></span>
 </div>
 
 <style>
@@ -18,8 +24,82 @@
 		position: relative;
 		isolation: isolate;
 		margin: 2.5rem auto 0;
-		/* the shadow follows the torn, frayed outline of the paper */
-		filter: drop-shadow(0 5px 8px var(--shadow));
+		/* the shadow on the wall follows the torn, frayed outline of the paper */
+		filter: drop-shadow(4px 10px 12px rgba(15, 8, 3, 0.6));
+	}
+
+	/* An old square cut nail, hammered in a little crooked: rust has run
+	   down from it (::before), the rusty, uneven
+	   iron head sits on top (::after). */
+	.nail {
+		position: absolute;
+		width: 12px;
+		height: 11px;
+		--tilt: 0deg;
+	}
+
+	.nail::before {
+		content: '';
+		position: absolute;
+		left: -18px;
+		top: -17px;
+		width: 48px;
+		height: 66px;
+		background:
+			/* rust run down the paper */ linear-gradient(
+				to bottom,
+				rgba(115, 55, 18, 0.5),
+				rgba(115, 55, 18, 0)
+			)
+			50% 24px / 5px 34px no-repeat;
+	}
+
+	.nail::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: 2px 3px 1px 3px;
+		background:
+			radial-gradient(circle at 34% 30%, rgba(205, 170, 125, 0.55), transparent 45%),
+			radial-gradient(circle at 70% 75%, rgba(140, 65, 20, 0.6), transparent 55%),
+			linear-gradient(140deg, #6e5038, #3a271a 55%, #1e140c);
+		/* The head stands a little off the paper, lit from the top left: a sharp
+		   contact shadow right at its edge and a longer, fainter cast shadow to
+		   the bottom right. The offsets are turned back against the nail's tilt
+		   so every shadow falls the same way on the page. */
+		--sx: calc(cos(var(--tilt)) * 1px + sin(var(--tilt)) * 1.5px);
+		--sy: calc(cos(var(--tilt)) * 1.5px - sin(var(--tilt)) * 1px);
+		box-shadow:
+			calc(var(--sx) * 1) calc(var(--sy) * 1) 0.5px rgba(25, 12, 2, 0.8),
+			calc(var(--sx) * 3) calc(var(--sy) * 3) 2px rgba(45, 25, 8, 0.45),
+			calc(var(--sx) * 5) calc(var(--sy) * 5) 5px rgba(45, 25, 8, 0.2),
+			inset -1px -1px 1px rgba(0, 0, 0, 0.5),
+			inset 1px 1px 0 rgba(220, 190, 150, 0.35);
+		transform: rotate(var(--tilt));
+	}
+
+	.nail-top-left {
+		--tilt: 9deg;
+		top: 16px;
+		left: 22px;
+	}
+
+	.nail-top-right {
+		--tilt: -14deg;
+		top: 40px;
+		right: 30px;
+	}
+
+	.nail-bottom-left {
+		--tilt: 22deg;
+		bottom: 32px;
+		left: 28px;
+	}
+
+	.nail-bottom-right {
+		--tilt: -6deg;
+		bottom: 18px;
+		right: 22px;
 	}
 
 	.notice-paper {
@@ -33,12 +113,16 @@
 	.notice-sheet {
 		position: absolute;
 		inset: 0;
+		/* folded in four, dirty towards the edges, a few stains (notice-aging.svg) */
 		background:
-			url('/paper-grit.svg') 0 0 / 420px 420px,
-			var(--card-bg);
+			url('/notice-aging.svg') 0 0 / 100% 100% no-repeat,
+			/* crumpled and smoothed out: ambientCG Paper003 (CC0), lit and yellowed */
+			/* lightened a little */ linear-gradient(rgba(255, 250, 236, 0.4), rgba(255, 250, 236, 0.4)),
+			url('/paper-crumpled.jpg') 0 0 / 640px 640px,
+			/* yellowed like old parchment */ #e9d4a4;
 		box-shadow:
-			inset 0 0 40px rgba(120, 85, 35, 0.14),
-			inset 0 0 6px rgba(100, 70, 30, 0.25);
+			inset 0 0 50px rgba(120, 75, 25, 0.3),
+			inset 0 0 8px rgba(90, 55, 20, 0.45);
 		clip-path: polygon(
 			0 0,
 			/* a slanting tear down from the top edge */ 31% 0,
@@ -69,18 +153,17 @@
 			0 calc(58% - 1px)
 		);
 	}
-
 	.notice-content {
-		padding: 2rem 2rem 1.8rem;
+		padding: 2rem 2rem 2.4rem;
 	}
-
 	@media (max-width: 640px) {
 		.paper-notice {
 			margin: 1.25rem 0.75rem 0;
 		}
 
 		.notice-content {
-			padding: 1.5rem 1rem 1.4rem;
+			/* room below the text for the bottom nails */
+			padding: 1.5rem 1rem 2.4rem;
 		}
 	}
 </style>

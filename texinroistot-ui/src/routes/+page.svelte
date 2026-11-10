@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PaperNotice from '$lib/components/PaperNotice.svelte';
+	import WoodWall from '$lib/components/WoodWall.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -22,6 +23,8 @@
 <svelte:head>
 	<title>Texin roistot -tietokanta</title>
 </svelte:head>
+
+<WoodWall />
 
 <PaperNotice>
 	<section class="page-front">
@@ -53,7 +56,7 @@
 		box-shadow: 0 0 0 4px var(--leather);
 		object-fit: cover;
 		/* blend the white drawing paper into the notice's paper */
-		filter: sepia(0.35);
+		filter: sepia(0.6);
 	}
 
 	h1 {
