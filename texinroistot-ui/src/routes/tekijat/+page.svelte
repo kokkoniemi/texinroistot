@@ -3,12 +3,14 @@
 	import {
 		buildPageHref,
 		nonItalianTitlesByFirstPublication,
+		openInOwnWindow,
 		paginationTokens,
 		publicationSummaryFromPublications,
 		translatedPartTitles
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
 	import type { Story, ListedAuthor, AuthorStoriesResponse } from '$lib/types';
+	import { authorWikipediaUrl } from '$lib/data/authorWikipedia';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
@@ -215,6 +217,7 @@
 		<div class="author-list">
 			{#each authors as author (author.hash ?? authorName(author))}
 				{@const authorHash = normalizeAuthorHash(author.hash)}
+				{@const wikipediaUrl = authorWikipediaUrl(authorName(author))}
 				<article class="author-card">
 					<h3>
 						<button
@@ -226,6 +229,15 @@
 						>
 							{authorName(author)}
 						</button>
+						{#if wikipediaUrl}
+							<a
+								class="wiki-link"
+								href={wikipediaUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								on:click={openInOwnWindow}>Wikipedia</a
+							>
+						{/if}
 					</h3>
 
 					{#if expandedAuthorHashes[authorHash]}
@@ -302,21 +314,24 @@
 		box-sizing: border-box;
 	}
 
+	/* A compact list: one short row per author, opening to their stories. */
 	.author-list {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 0.4rem;
 	}
 
 	.author-card {
 		border: 1px solid var(--border);
 		background-color: var(--card-bg);
-		padding: 1rem;
-		box-shadow: 0 4px 10px var(--shadow);
+		padding: 0.5rem 0.9rem;
+		box-shadow: 0 2px 6px var(--shadow);
 	}
 
 	.author-card h3 {
-		margin: 0 0 0.25rem;
+		margin: 0;
+		font-size: 1.05rem;
+		line-height: 1.4;
 	}
 
 	.author-link {
@@ -329,6 +344,12 @@
 		text-align: left;
 		cursor: pointer;
 		text-decoration: underline;
+	}
+
+	.wiki-link {
+		margin-left: 0.6rem;
+		font-size: 0.85rem;
+		font-weight: 400;
 	}
 
 	.author-link:disabled {

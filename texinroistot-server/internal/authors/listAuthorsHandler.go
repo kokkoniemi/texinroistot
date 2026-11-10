@@ -14,7 +14,7 @@ const (
 	defaultType     = "writer"
 	defaultSort     = "last_name"
 	defaultPage     = 1
-	defaultPageSize = 25
+	defaultPageSize = 100 // each author group fits on one page; paging stays for larger ones
 	maxPageSize     = 100
 )
 

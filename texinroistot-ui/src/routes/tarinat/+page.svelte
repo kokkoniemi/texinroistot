@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
@@ -10,7 +11,9 @@
 		italianOriginalPublication,
 		storyVillainForStory,
 		otherStoriesVillainHash,
-		storyVillainTitle
+		storyVillainTitle,
+		storyMentionTargets,
+		showMentionedVillain
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
@@ -131,7 +134,10 @@
 		return Object.prototype.hasOwnProperty.call(villainsByStoryHash, storyHash);
 	}
 
-	async function toggleStoryVillains(storyHash: string): Promise<void> {
+	// Only one story's villains are open at a time: opening one closes the
+	// previous. Closing a list above the button would shift the page, so the
+	// clicked button is kept where it was on screen.
+	async function toggleStoryVillains(storyHash: string, button?: HTMLElement): Promise<void> {
 		if (!storyHash) return;
 		const isCurrentlyExpanded = Boolean(expandedStoryHashes[storyHash]);
 
@@ -140,11 +146,21 @@
 			return;
 		}
 
-		expandedStoryHashes = { ...expandedStoryHashes, [storyHash]: true };
-		if (hasFetchedStoryVillains(storyHash) || loadingStoryHashes[storyHash]) return;
-
-		loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: true };
-		errorByStoryHash = { ...errorByStoryHash, [storyHash]: '' };
+		const topBefore = button?.getBoundingClientRect().top;
+		const needsFetch = !hasFetchedStoryVillains(storyHash) && !loadingStoryHashes[storyHash];
+		// Mark the fetch as started before the list renders, so an opened list
+		// never shows "no villains" while they are still being fetched.
+		if (needsFetch) {
+			loadingStoryHashes = { ...loadingStoryHashes, [storyHash]: true };
+			errorByStoryHash = { ...errorByStoryHash, [storyHash]: '' };
+		}
+		expandedStoryHashes = { [storyHash]: true };
+		if (button && topBefore !== undefined) {
+			await tick();
+			const shift = button.getBoundingClientRect().top - topBefore;
+			if (shift !== 0) window.scrollBy(0, shift);
+		}
+		if (!needsFetch) return;
 
 		try {
 			const response = await fetch(`/api/tarinat/${encodeURIComponent(storyHash)}/roistot`);
@@ -326,7 +342,7 @@
 					<button
 						type="button"
 						class="toggle-villains"
-						on:click={() => toggleStoryVillains(storyHash)}
+						on:click={(event) => toggleStoryVillains(storyHash, event.currentTarget)}
 						disabled={!storyHash}
 						aria-expanded={Boolean(expandedStoryHashes[storyHash])}
 					>
@@ -339,14 +355,16 @@
 
 					{#if expandedStoryHashes[storyHash]}
 						<section class="story-villains">
-							{#if loadingStoryHashes[storyHash]}
-								<p>Haetaan roistoja...</p>
-							{:else if errorByStoryHash[storyHash]}
+							{#if errorByStoryHash[storyHash]}
 								<p class="villain-error">{errorByStoryHash[storyHash]}</p>
-							{:else if storyVillains(storyHash).length === 0}
+							{:else if loadingStoryHashes[storyHash] || !(storyHash in villainsByStoryHash)}
+								<p>Haetaan roistoja...</p>
+							{:else if (villainsByStoryHash[storyHash] ?? []).length === 0}
 								<p>Tarinalle ei löytynyt roistoja.</p>
 							{:else}
-								<div class="story-villains-list">
+								<!-- Names of the story's villains in roles and destinies link to their cards. -->
+								{@const mentionTargets = storyMentionTargets(storyVillains(storyHash), storyHash)}
+								<div class="story-villains-list" data-story-villains={storyHash}>
 									{#each storyVillains(storyHash) as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, storyHash)}
 										{@const cardTitle = storyVillainTitle(villain, storyHash)}
@@ -356,6 +374,15 @@
 											roles={appearance?.roles}
 											destiny={appearance?.destiny}
 											codeNames={appearance?.codeNames}
+											villainKey={villain.hash}
+											{mentionTargets}
+											on:mention={(e) =>
+												showMentionedVillain(
+													document.querySelector<HTMLElement>(
+														`[data-story-villains="${CSS.escape(storyHash)}"]`
+													) ?? undefined,
+													e.detail
+												)}
 											on:selectStory={(e) => (selectedStory = e.detail)}
 										/>
 									{/each}

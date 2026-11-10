@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, getContext, onMount } from 'svelte';
 	import {
 		nonItalianTitlesByFirstPublication,
+		openInOwnWindow,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
 	import type { Story } from '$lib/types';
@@ -15,10 +16,15 @@
 	// Optional: the titles to show for a story, e.g. only a translator's parts.
 	// Defaults to all of the story's titles.
 	export let storyTitles: ((story: Story) => string[]) | undefined = undefined;
+	// Optional: a link to the author's Wikipedia article.
+	export let wikipediaUrl: string | undefined = undefined;
 
 	// selectStory: a story title was clicked; the parent replaces this popup with
 	// the story popup.
 	const dispatch = createEventDispatcher<{ close: void; selectStory: Story }>();
+
+	// Opened from a story card (StoryPopup): "Edellinen" returns to that card.
+	const openedFromStoryCard = getContext<boolean>('inStoryPopup') ?? false;
 
 	let closeButton: HTMLButtonElement;
 	let stories: Story[] = [];
@@ -60,6 +66,9 @@
 <div class="list-popup-backdrop" role="presentation" on:click|self={close}>
 	<div class="list-popup" role="dialog" aria-modal="true" aria-labelledby="list-popup-title">
 		<div class="list-popup-actions">
+			{#if openedFromStoryCard}
+				<button type="button" class="list-popup-back" on:click={close}>&larr; Edellinen</button>
+			{/if}
 			<button type="button" class="list-popup-close" on:click={close} bind:this={closeButton}
 				>Sulje</button
 			>
@@ -67,8 +76,15 @@
 
 		<article class="list-card">
 			<h3 id="list-popup-title">{title}</h3>
-			{#if subtitle}
-				<p class="list-subtitle">{subtitle}</p>
+			{#if subtitle || wikipediaUrl}
+				<p class="list-subtitle">
+					{subtitle}{#if wikipediaUrl}{subtitle ? ' · ' : ''}<a
+							href={wikipediaUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							on:click={openInOwnWindow}>Wikipedia</a
+						>{/if}
+				</p>
 			{/if}
 
 			<section class="list-stories">
@@ -133,6 +149,17 @@
 		display: flex;
 		justify-content: flex-end;
 		margin-bottom: 0.6rem;
+	}
+
+	/* the back button sits on the left, Sulje stays on the right */
+	.list-popup-back {
+		margin-right: auto;
+		padding: 0.35rem 0.7rem;
+		font-size: 0.95rem;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
+		color: var(--ink);
+		cursor: pointer;
 	}
 
 	.list-popup-close {

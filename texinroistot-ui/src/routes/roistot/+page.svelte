@@ -91,6 +91,14 @@
 			.filter((nickname, index, values) => Boolean(nickname) && values.indexOf(nickname) === index);
 	}
 
+	// Distinct code names over all of a villain's stories.
+	function villainCodeNames(villain: Villain): string[] {
+		return appearanceCodeNames({
+			hash: villain.hash,
+			codeNames: (villain.as ?? []).flatMap((appearance) => appearance.codeNames ?? [])
+		});
+	}
+
 	function appearanceCodeNames(appearance?: StoryVillain | null): string[] {
 		return (appearance?.codeNames ?? [])
 			.map((codeName) => codeName.trim())
@@ -101,6 +109,15 @@
 		baseName: string;
 		nicknames: string[];
 	};
+
+	// Under the nickname and code name sorts the name the villain is listed
+	// under comes first, so "Blue" leads under B and "Ice" under I.
+	function listedNameFirst(names: string[], listedName?: string): string[] {
+		const listed = (listedName ?? '').trim().toLowerCase();
+		const index = names.findIndex((name) => name.trim().toLowerCase() === listed);
+		if (!listed || index <= 0) return names;
+		return [names[index], ...names.slice(0, index), ...names.slice(index + 1)];
+	}
 
 	function villainTitle(villain: Villain): VillainTitle {
 		const rank = joinValues(villain.ranks, '').trim();
@@ -251,13 +268,22 @@
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
 		<div class="villain-list" bind:this={villainList}>
-			{#each villains as villain (villain.hash)}
+			<!-- In the name sorts a villain may be listed once under each of their names. -->
+			{#each villains as villain (`${villain.hash}:${villain.sortName ?? ''}`)}
 				{@const appearance = primaryAppearance(villain)}
 				{@const stories = villainStories(villain)}
 				{@const title = villainTitle(villain)}
 				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
-				{@const codeNames = appearanceCodeNames(appearance)}
-				{@const nicknameTitle = title.nicknames.map((nickname) => `"${nickname}"`).join(', ')}
+				{@const codeNames = listedNameFirst(appearanceCodeNames(appearance), villain.sortName)}
+				{@const shownCodeNames =
+					stories.length <= 1
+						? codeNames
+						: selectedSort === 'code_name'
+							? listedNameFirst(villainCodeNames(villain), villain.sortName)
+							: []}
+				{@const nicknameTitle = listedNameFirst(title.nicknames, villain.sortName)
+					.map((nickname) => `"${nickname}"`)
+					.join(', ')}
 				{@const villainCardTitle = [title.baseName, displayName, nicknameTitle]
 					.filter(Boolean)
 					.join(', ')}
@@ -269,8 +295,8 @@
 									? '; '
 									: ''}<em>{codeName}</em>{/each}{:else}Nimetön roisto{/if}
 					</h3>
-					<!-- Role, destiny and code name are story-specific, so they are only shown for
-					     villains appearing in a single story. -->
+					<!-- Role and destiny are story-specific, so they are only shown for villains
+					     appearing in a single story. -->
 					{#if stories.length <= 1}
 						{#if hasValues(appearance?.roles)}
 							<p>
@@ -284,9 +310,15 @@
 								<ItalicText text={joinValues(appearance?.destiny, '-', '; ')} />
 							</p>
 						{/if}
-						{#if hasValues(appearance?.codeNames)}
-							<p><strong>Salanimi:</strong> {joinValues(appearance?.codeNames, '-', '; ')}</p>
-						{/if}
+					{/if}
+					<!-- In code name order the code names are bold, and shown for villains in
+					     several stories too, so it is clear what the villain is listed under. -->
+					{#if shownCodeNames.length > 0}
+						<p>
+							<strong>Salanimi:</strong>
+							{#if selectedSort === 'code_name'}<strong>{shownCodeNames.join('; ')}</strong
+								>{:else}{shownCodeNames.join('; ')}{/if}
+						</p>
 					{/if}
 					<p>
 						<strong>{stories.length === 1 ? 'Tarina' : 'Tarinat'}:</strong>

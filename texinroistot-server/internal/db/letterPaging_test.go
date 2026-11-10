@@ -43,8 +43,32 @@ func TestVillainSortKeyExpr_OnlyAlphabeticalSorts(t *testing.T) {
 		if !strings.Contains(key, column) {
 			t.Errorf("sort key for %q should use %s, got %s", sort, column, key)
 		}
-		if !strings.Contains(buildVillainSortClause(sort), key) {
-			t.Errorf("sort clause for %q must start from its letter paging key", sort)
+		listKey := villainListSortKeyExpr(sort)
+		if !strings.HasPrefix(buildVillainSortClause(sort), listKey) {
+			t.Errorf("sort clause for %q must start from its letter paging key %s", sort, listKey)
+		}
+	}
+}
+
+func TestVillainListFrom_PerStoryNameSortsListEachName(t *testing.T) {
+	for sort, column := range map[string]string{
+		"nickname":   "vis.nicknames",
+		"other_name": "vis.other_names",
+		"code_name":  "vis.code_names",
+	} {
+		from := villainListFrom(sort)
+		// one row per villain and distinct name, so "Ice" and "Blue" are
+		// both listed (under I and under B)
+		if !strings.Contains(from, "unnest("+column+")") || !strings.Contains(from, "DISTINCT ON") {
+			t.Errorf("FROM for %q should list each distinct name, got %s", sort, from)
+		}
+		if villainListSortKeyExpr(sort) != "sn.key" {
+			t.Errorf("sort %q should be keyed by the listed name", sort)
+		}
+	}
+	for _, sort := range []string{"default", "first_name", "last_name", "rank", "fi_pub_date"} {
+		if from := villainListFrom(sort); from != "villains AS v" {
+			t.Errorf("sort %q should list each villain once, got %s", sort, from)
 		}
 	}
 }

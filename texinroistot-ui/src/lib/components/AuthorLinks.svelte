@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import { translatedPartTitles } from '$lib/listing/shared';
+	import { authorWikipediaUrl } from '$lib/data/authorWikipedia';
 	import type { Author } from '$lib/listing/shared';
 	import type { AuthorStoriesResponse, Story } from '$lib/types';
 	import StoryListPopup from './StoryListPopup.svelte';
@@ -67,6 +68,7 @@
 	<StoryListPopup
 		title={selected.name}
 		subtitle={roleLabels[type]}
+		wikipediaUrl={authorWikipediaUrl(selected.name)}
 		loadStories={() => loadAuthorStories(authorHash)}
 		storyTitles={type === 'translator'
 			? (story) => translatedPartTitles(story, authorHash)

@@ -63,6 +63,8 @@
 	</filter>
 </svg>
 
+<div class="paper-folds" aria-hidden="true"></div>
+
 <main class="site-main">
 	<slot />
 </main>

@@ -552,6 +552,170 @@ export function storyVillainTitle(villain: VillainForTitle, storyHash: string): 
 	return 'Nimetön roisto';
 }
 
+// A villain that a role or destiny text can mention: key identifies the villain
+// (its hash), names are the names it can be mentioned by.
+export type MentionTarget = { key: string; names: string[] };
+export type MentionSegment = TextSegment & { mention?: string };
+
+const MIN_MENTION_NAME_LENGTH = 3;
+
+// The names a villain can be mentioned by in a story: each first name with the
+// last name, the last name alone, and the story's nicknames, other names and
+// code names. Quoted parts of first names (Raymond "Ray") are left out.
+export function villainMentionNames(villain: VillainForTitle, storyHash: string): string[] {
+	const appearance = storyVillainForStory(villain, storyHash);
+	const trimmed = (values?: string[] | null) =>
+		(values ?? []).map((value) => value.replace(/<\/?i>/g, '').trim()).filter(Boolean);
+	// "Mickey (Miky)" and "Quantrill (Quantrell)" can be mentioned by either spelling.
+	const spellings = (name: string): string[] => {
+		const match = name.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+		if (!match) return [name];
+		return [match[1], ...match[2].split(',')].map((part) => part.trim()).filter(Boolean);
+	};
+	const firstNames = trimmed(villain.firstNames)
+		.map((name) =>
+			name
+				.replace(/"[^"]*"/g, '')
+				.replace(/\s+/g, ' ')
+				.trim()
+		)
+		.filter(Boolean)
+		.flatMap(spellings);
+	const lastNames = spellings((villain.lastName ?? '').trim()).filter(Boolean);
+	// The rank is part of the name in a text: "Don Felipen", "Kapteeni Garridon";
+	// it may also be written in lower case ("don Felipen").
+	const ranks = trimmed(villain.ranks).flatMap((rank) => {
+		const lower = rank.charAt(0).toLowerCase() + rank.slice(1);
+		return lower === rank ? [rank] : [rank, lower];
+	});
+
+	const names = new Set<string>();
+	const addWithRanks = (name: string) => {
+		names.add(name);
+		for (const rank of ranks) names.add(`${rank} ${name}`);
+	};
+	for (const firstName of firstNames) {
+		for (const lastName of lastNames) addWithRanks(`${firstName} ${lastName}`);
+		// The first name alone, also with a rank ("Don Felipen" for Don Felipe
+		// Fuente Madariaga y Castillo). mentionSegments links it only when no
+		// other villain of the story has the same name.
+		addWithRanks(firstName);
+	}
+	for (const lastName of lastNames) addWithRanks(lastName);
+	for (const name of trimmed(appearance?.nicknames)) names.add(name);
+	for (const name of trimmed(appearance?.otherNames)) names.add(name);
+	for (const name of trimmed(appearance?.codeNames)) names.add(name);
+	return [...names].filter((name) => name.length >= MIN_MENTION_NAME_LENGTH);
+}
+
+export function storyMentionTargets(
+	villains: Array<VillainForTitle & { hash: string }>,
+	storyHash: string
+): MentionTarget[] {
+	return villains.map((villain) => ({
+		key: villain.hash,
+		names: villainMentionNames(villain, storyHash)
+	}));
+}
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Splits a role or destiny text into italic/plain segments and marks the
+// mentions of other villains of the story. A name may carry a Finnish case
+// ending ("Pattermanille", "Ducaux'n"); the whole inflected word is the
+// mention. Longer names win over shorter ones they contain, and a name shared
+// by several villains is not linked, since it could mean either.
+export function mentionSegments(
+	text: string,
+	targets: MentionTarget[],
+	selfKey: string
+): MentionSegment[] {
+	const owners = new Map<string, Set<string>>();
+	for (const target of targets) {
+		if (target.key === selfKey) continue;
+		for (const name of target.names) {
+			const owner = owners.get(name) ?? new Set<string>();
+			owner.add(target.key);
+			owners.set(name, owner);
+		}
+	}
+	const names = [...owners.entries()]
+		.filter(([, keys]) => keys.size === 1)
+		.map(([name, keys]) => ({ name, key: [...keys][0] }))
+		.sort((a, b) => b.name.length - a.name.length);
+
+	const segments: MentionSegment[] = [];
+	for (const segment of italicSegments(text)) {
+		const taken: Array<{ start: number; end: number; key: string }> = [];
+		for (const { name, key } of names) {
+			const pattern = new RegExp(
+				`(^|[^\\p{L}])(${escapeRegExp(name)}(?:'?\\p{Ll}{0,4})?)(?![\\p{L}])`,
+				'gu'
+			);
+			for (const match of segment.text.matchAll(pattern)) {
+				const start = (match.index ?? 0) + match[1].length;
+				const end = start + match[2].length;
+				if (taken.some((range) => start < range.end && end > range.start)) continue;
+				taken.push({ start, end, key });
+			}
+		}
+		taken.sort((a, b) => a.start - b.start);
+		let position = 0;
+		for (const range of taken) {
+			if (range.start > position) {
+				segments.push({ text: segment.text.slice(position, range.start), italic: segment.italic });
+			}
+			segments.push({
+				text: segment.text.slice(range.start, range.end),
+				italic: segment.italic,
+				mention: range.key
+			});
+			position = range.end;
+		}
+		if (position < segment.text.length) {
+			segments.push({ text: segment.text.slice(position), italic: segment.italic });
+		}
+	}
+	return segments;
+}
+
+// Opens an external page (e.g. an author's Wikipedia article) in a window of
+// its own beside the site. Used as a link's click handler; the link keeps
+// href and target="_blank", so where a separate window cannot be opened (or
+// on phones) the page opens in a new tab instead.
+export function openInOwnWindow(event: MouseEvent): void {
+	const link = event.currentTarget as HTMLAnchorElement | null;
+	if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+	// phones and tablets have no separate windows: keep the new tab
+	if (window.matchMedia('(pointer: coarse)').matches) return;
+	const width = Math.min(1100, window.screen.availWidth - 80);
+	const height = Math.min(900, window.screen.availHeight - 80);
+	const opened = window.open(
+		link.href,
+		'texinroistot-wikipedia',
+		`popup,width=${width},height=${height}`
+	);
+	if (!opened) return; // blocked: the link opens a new tab instead
+	opened.opener = null;
+	opened.focus();
+	event.preventDefault();
+}
+
+// Brings a mentioned villain's card (VillainCard with villainKey) into view in
+// a story's villain list and highlights it for a moment.
+export function showMentionedVillain(container: HTMLElement | undefined, key: string): void {
+	const card = container?.querySelector<HTMLElement>(`[data-villain-key="${CSS.escape(key)}"]`);
+	if (!card) return;
+	card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	card.classList.remove('mention-highlight');
+	// restart the highlight animation when the same card is shown again
+	void card.offsetWidth;
+	card.classList.add('mention-highlight');
+	window.setTimeout(() => card.classList.remove('mention-highlight'), 2000);
+}
+
 // Villains appearing in several stories get a "Näytä roiston muut tarinat"
 // popup; returns the villain hash for those and undefined for the rest.
 export function otherStoriesVillainHash(villain: {
