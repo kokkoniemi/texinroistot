@@ -1,9 +1,14 @@
 <script lang="ts">
 	import '../app.css';
 	import { page } from '$app/stores';
+	import { syncPopupDepth } from '$lib/popupHistory';
+	import WoodWall from '$lib/components/WoodWall.svelte';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
+
+	// The browser's back (a swipe on a phone) steps back through open popups.
+	$: syncPopupDepth($page.state);
 
 	function formatLastUpdated(rawDate: string | null | undefined): string {
 		if (!rawDate) return 'ei tiedossa';
@@ -36,7 +41,7 @@
 					<a href="/">Etusivu</a>
 				</li>
 				<li class:active={$page.url.pathname === '/roistot'}>
-					<a href="/roistot?sort=default&publication=fi">Roistot</a>
+					<a href="/roistot?sort=random&publication=fi">Roistot</a>
 				</li>
 				<li class:active={$page.url.pathname === '/tarinat'}>
 					<a href="/tarinat">Tarinat</a>
@@ -71,6 +76,10 @@
 </svg>
 
 <div class="paper-folds" aria-hidden="true"></div>
+{#if $page.url.pathname !== '/julkaisematon' && !$page.url.pathname.startsWith('/hallinta')}
+	<!-- the board wall behind the site's pages (the admin pages keep the paper) -->
+	<WoodWall />
+{/if}
 
 <main class="site-main">
 	<slot />

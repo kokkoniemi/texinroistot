@@ -1,294 +1,461 @@
-// Wikipedia articles of villains based on real people, by villain hash (the
-// hash comes from the villain's id in the source spreadsheet, so it stays the
-// same across imports). The Finnish article where there is one, else the
-// English one. The link asks who the real person was.
-export type VillainWikipediaLink = { url: string; label: string };
+import type { Villain } from '$lib/types';
 
-export const villainWikipedia: Record<string, VillainWikipediaLink> = {
-	// Kenraali Stonewell
-	f53bf06bed2ac8abb6e21e957bed5f106b60da381d1caaf34610b2299c114e22: {
+// Wikipedia articles of villains based on real people: the Finnish article
+// where there is one, else the English one, linked as "Kuka oli oikea ...?".
+//
+// A villain is found by name (first and last name, a nickname or an other
+// name, in any of their stories), since villain hashes are salted per
+// environment. Where several villains share the name, a rank or a phrase in
+// one of the villain's roles picks the right one.
+// A villain modelled on several people (more) shows the label followed by a
+// link to each, by name; otherwise the label itself is the link.
+export type WikipediaPerson = { name: string; url: string };
+export type VillainWikipediaLink = {
+	url: string;
+	label: string;
+	name?: string;
+	more?: WikipediaPerson[];
+};
+
+type Entry = VillainWikipediaLink & { names: string[]; rank?: string; role?: string };
+
+const entries: Entry[] = [
+	{
+		names: ['Stonewell'],
+		rank: 'Kenraali',
 		url: 'https://fi.wikipedia.org/wiki/Stonewall_Jackson',
 		label: 'Kuka oli oikea kenraali Stonewall?'
 	},
-	// Kenraali Jackson
-	'4079e3fc52b02e3bb118ce7c7fcd8616f44f301c87e57e4c1b9099e2a45c0d13': {
+	{
+		names: ['Jackson'],
+		rank: 'Kenraali',
 		url: 'https://fi.wikipedia.org/wiki/Stonewall_Jackson',
 		label: 'Kuka oli oikea kenraali Jackson?'
 	},
-	// Belle Starr
-	'8e419bec08835547d19943fc770a30204d4df454e9da833b6bd63f73e04a5992': {
+	{
+		names: ['Belle Starr'],
 		url: 'https://fi.wikipedia.org/wiki/Belle_Starr',
 		label: 'Kuka oli oikea Belle Starr?'
 	},
-	// Soapy Smith
-	'595b725d422a8706d6f2d033b6aaa55e5bdf87ab25ed2c8675c22261d025af9d': {
+	{
+		names: ['Soapy Smith'],
 		url: 'https://en.wikipedia.org/wiki/Soapy_Smith',
 		label: 'Kuka oli oikea Soapy Smith?'
 	},
-	// Jack McCall
-	a7fb91a2cca6f648991db3523f26cf568d32731fd6bbb6ffb50958640d13a39c: {
+	{
+		names: ['Jack McCall'],
 		url: 'https://en.wikipedia.org/wiki/Jack_McCall',
 		label: 'Kuka oli oikea Jack McCall?'
 	},
-	// Tom Pickett
-	fea35376167c06127775d8d439a9eb52e152b5f08885fcfb139104a9491ac62d: {
+	{
+		names: ['Cyrus Skinner'],
+		url: 'https://en.wikipedia.org/wiki/Cyrus_Skinner',
+		label: 'Kuka oli oikea Cyrus Skinner?'
+	},
+	{
+		names: ["Pagan O'Leary"],
+		url: 'https://www.dib.ie/biography/oleary-patrick-pagan-a6865',
+		label: "Kuka oli oikea Pagan O'Leary?"
+	},
+	{
+		names: ['David McCanles'],
+		url: 'https://en.wikipedia.org/wiki/McCanles_Gang',
+		label: 'Kuka oli oikea David McCanles?'
+	},
+	{
+		names: ['Charles Jennison'],
+		url: 'https://en.wikipedia.org/wiki/Charles_R._Jennison',
+		label: 'Kuka oli oikea eversti Jennison?'
+	},
+	{
+		names: ['John Fremont'],
+		url: 'https://fi.wikipedia.org/wiki/John_C._Fr%C3%A9mont',
+		label: 'Kuka oli oikea John Fremont?'
+	},
+	{
+		names: ['Johnny Lame'],
+		url: 'https://en.wikipedia.org/wiki/Cornelius_Donahue',
+		label: 'Kuka oli oikea Johnny Lame?',
+		name: 'Cornelius Donahue',
+		more: [{ name: 'Clubfoot George', url: 'https://en.wikipedia.org/wiki/Clubfoot_George' }]
+	},
+	{
+		names: ['Ihmissyöjä-Boone'],
+		url: 'https://en.wikipedia.org/wiki/Boone_Helm',
+		label: 'Kuka oli oikea Ihmissyöjä-Boone?'
+	},
+	{
+		names: ['Tom Pickett'],
 		url: 'https://en.wikipedia.org/wiki/Tom_Pickett',
 		label: 'Kuka oli oikea Tom Pickett?'
 	},
-	// Joshua Webb
-	'408be6e239a50b15f3f3a3e31cf597b7aca712f163610067b269ba39ab6a8be9': {
+	{
+		names: ['Joshua Webb'],
 		url: 'https://en.wikipedia.org/wiki/John_Joshua_Webb',
 		label: 'Kuka oli oikea John Joshua Webb?'
 	},
-	// Dan Rudabaugh
-	aea2ed958de82abb163a4144288db4d2fcab4f70cfd64c4d1b5a2ecae57bebd7: {
+	{
+		names: ['Dan Rudabaugh'],
 		url: 'https://fi.wikipedia.org/wiki/Dave_Rudabaugh',
 		label: 'Kuka oli oikea Dave Rudabaugh?'
 	},
-	// Dave Mather
-	ebf2a8b8380a2f7ba98508d1e78f00f94767e5987e24bacea05ccd585c612cce: {
+	{
+		names: ['Dave Mather'],
 		url: 'https://en.wikipedia.org/wiki/Mysterious_Dave_Mather',
 		label: 'Kuka oli oikea Mysterious Dave Mather?'
 	},
-	// Jean Lafitte
-	'0c818e94eace40e03a43d37472f3da6799879e172eef6ab83ec79d72da7a42a4': {
+	{
+		names: ['Jean Lafitte'],
 		url: 'https://fi.wikipedia.org/wiki/Jean_Lafitte',
 		label: 'Kuka oli oikea Jean Lafitte?'
 	},
-	// Harry Tracy
-	'7607d6c8467e9dce5be7acaa0dae4bbea1f3d9d4c74fd1563d941c5c24397f9c': {
+	{
+		names: ['Harry Tracy'],
 		url: 'https://en.wikipedia.org/wiki/Harry_Tracy',
 		label: 'Kuka oli oikea Harry Tracy?'
 	},
-	// Kid Curry
-	ebb3c0c1f3cb0361222de54b39539224073dac33fbbd6bcbddf9d2594758b42f: {
+	{
+		names: ['Kid Curry'],
 		url: 'https://en.wikipedia.org/wiki/Harvey_Logan',
-		label: 'Kuka oli oikea Harvey Logan?'
+		label: 'Kuka oli oikea Kid Curry?'
 	},
-	// Ben Kilpatrick
-	'96e7d3b47bbb9a54277adb216c7fc775cc209c538e0ae71868e218ac37bfd732': {
+	{
+		names: ['Ben Kilpatrick'],
 		url: 'https://en.wikipedia.org/wiki/Ben_Kilpatrick',
 		label: 'Kuka oli oikea Ben Kilpatrick?'
 	},
-	// Jack Ketchum
-	aea2f216759858f7650e1db8e100b43506dbf91095a9935d0522b292cde7b347: {
+	{
+		names: ['Jack Ketchum'],
 		url: 'https://en.wikipedia.org/wiki/Tom_Ketchum',
-		label: 'Kuka oli oikea Tom Ketchum?'
+		label: 'Kuka oli oikea Black Jack?'
 	},
-	// Sundance Kid
-	a7d1726883573b02b877772c3929b382aba29e05db0f44126b4d706b46440cf7: {
+	{
+		names: ['Sundance Kid'],
 		url: 'https://fi.wikipedia.org/wiki/Sundance_Kid',
 		label: 'Kuka oli oikea Sundance Kid?'
 	},
-	// Flatnose George
-	a8f1384a1f04a220ab8df71cdd04fb450a3bcbec486259d7c42dc7f784849ecd: {
+	{
+		names: ['Flatnose George'],
 		url: 'https://en.wikipedia.org/wiki/George_Curry_(outlaw)',
-		label: 'Kuka oli oikea George Curry?'
+		label: 'Kuka oli oikea Flatnose George?'
 	},
-	// Elzy Lay
-	'6118a01a732e144e66dcc700c4cf05e0dabe53ac8d80f4b8ccedbdc099afd847': {
+	{
+		names: ['Elzy Lay'],
 		url: 'https://en.wikipedia.org/wiki/Elzy_Lay',
 		label: 'Kuka oli oikea Elzy Lay?'
 	},
-	// Charlie Pierce
-	'24061d4992ee6a621cdaf8137d09707c203068816166626fccc7f3bc6f464e28': {
+	{
+		names: ['Charlie Pierce'],
 		url: 'https://en.wikipedia.org/wiki/Charley_Pierce',
 		label: 'Kuka oli oikea Charley Pierce?'
 	},
-	// George Newcomb
-	bc60fb08d5089105d74f06532378b63967b9ea08345443f92f902cc2fd5fab0a: {
+	{
+		names: ['George Newcomb'],
 		url: 'https://en.wikipedia.org/wiki/George_Newcomb',
 		label: 'Kuka oli oikea George Newcomb?'
 	},
-	// Shanghai Kelly
-	'5651982389a6f2b723c1af82ad5d46276b3c8ce37c0de6c2a9f3049d8070b7ad': {
+	{
+		names: ['Shanghai-Kelly', 'Shanghain Kelly'],
 		url: 'https://en.wikipedia.org/wiki/James_Kelly_(crimper)',
-		label: 'Kuka oli oikea James Kelly?'
+		label: 'Kuka oli oikea "Shanghai" Kelly?'
 	},
-	// Bill Doolin
-	'6355cb4d55bba1eccbe00768cdbf7edd9c8337b894881c059b36d3ff30c36a19': {
+	{
+		names: ['Bill Doolin'],
 		url: 'https://en.wikipedia.org/wiki/Bill_Doolin',
 		label: 'Kuka oli oikea Bill Doolin?'
 	},
-	// Kenraali Custer
-	d79419f4115881b5957470ed6da1d219d041f8862b77162db87ab4cb79d8352a: {
-		url: 'https://fi.wikipedia.org/wiki/George_Armstrong_Custer',
-		label: 'Kuka oli oikea George Armstrong Custer?'
+	{
+		names: ['Cherokee Bill'],
+		url: 'https://en.wikipedia.org/wiki/Crawford_Goldsby',
+		label: 'Kuka oli oikea Cherokee Bill?'
 	},
-	// Franklin Buchanan
-	'9180bb59fa3d332e9e957f3cf3f77fcf1aae79109e0fcb17603d3c013228cbe2': {
+	{
+		names: ['Rube Burrows'],
+		url: 'https://en.wikipedia.org/wiki/Rube_Burrow',
+		label: 'Kuka oli oikea Rube Burrows?'
+	},
+	{
+		names: ['Jim Burrows'],
+		url: 'https://en.wikipedia.org/wiki/Rube_Burrow',
+		label: 'Kuka oli oikea Jim Burrows?'
+	},
+	{
+		names: ['Lucky Davis'],
+		url: 'https://en.wikipedia.org/wiki/Rufus_Buck_Gang',
+		label: 'Kuka oli oikea Lucky Davis?'
+	},
+	{
+		names: ['Rufus Buck'],
+		url: 'https://en.wikipedia.org/wiki/Rufus_Buck_Gang',
+		label: 'Kuka oli oikea Rufus Buck?'
+	},
+	{
+		names: ['Custer'],
+		rank: 'Kenraali',
+		url: 'https://fi.wikipedia.org/wiki/George_Armstrong_Custer',
+		label: 'Kuka oli oikea kenraali Custer?'
+	},
+	{
+		names: ['Franklin Buchanan'],
 		url: 'https://en.wikipedia.org/wiki/Franklin_Buchanan',
 		label: 'Kuka oli oikea Franklin Buchanan?'
 	},
-	// Willy Claiborne
-	a1231c58e8ebdb19ac72280d08f42ff7a6e4975c26de9a03b4aa5aead14b59c7: {
+	{
+		names: ['Willy Claiborne'],
 		url: 'https://en.wikipedia.org/wiki/Billy_Claiborne',
-		label: 'Kuka oli oikea Billy Claiborne?'
+		label: 'Kuka oli oikea William Claiborne?'
 	},
-	// Tom McLaury
-	b7342d81a5bba5d7eb45ca0b6f9ba396d97046d17b75a7c96bae214f707d7c33: {
+	{
+		names: ['Tom McLaury'],
 		url: 'https://en.wikipedia.org/wiki/Tom_McLaury',
 		label: 'Kuka oli oikea Tom McLaury?'
 	},
-	// Frank Stilwell
-	a3dcdc87699ad28514a7ae90543b7ad9bd6b6935ac4486f9232e74b3c6cd0b93: {
+	{
+		names: ['Frank Stilwell'],
 		url: 'https://en.wikipedia.org/wiki/Frank_Stilwell',
 		label: 'Kuka oli oikea Frank Stilwell?'
 	},
-	// Frank McLaury
-	f5265a5edc0ff96b09987b7f82203075bdea9ca1972c6b7a10ac82e2a5702881: {
+	{
+		names: ['Frank McLaury'],
 		url: 'https://en.wikipedia.org/wiki/Frank_McLaury',
 		label: 'Kuka oli oikea Frank McLaury?'
 	},
-	// Curly Bill
-	'16bbd2430368ec3a78d89cc14ca53eed7ad4629d8f82bad13c0441bf907f47f2': {
+	{
+		names: ['Curly Bill'],
 		url: 'https://en.wikipedia.org/wiki/William_Brocius',
-		label: 'Kuka oli oikea William Brocius?'
+		label: 'Kuka oli oikea Curly Bill?'
 	},
-	// Johnny Behan
-	'1eed39ad2b01bde85e36d92c1f33195d9a710d524da9c73304340b9282bd48a4': {
+	{
+		names: ['Johnny Behan'],
 		url: 'https://en.wikipedia.org/wiki/Johnny_Behan',
 		label: 'Kuka oli oikea Johnny Behan?'
 	},
-	// Roy Bean
-	cef722c7deee854aa533300373fe89ffcd5fddf96557209b7edea244b2dc84fb: {
+	{
+		names: ['Juan Cortina'],
+		url: 'https://en.wikipedia.org/wiki/Juan_Cortina',
+		label: 'Kuka oli oikea Juan Cortina?'
+	},
+	{
+		names: ['Roy Bean'],
 		url: 'https://fi.wikipedia.org/wiki/Roy_Bean',
 		label: 'Kuka oli oikea Roy Bean?'
 	},
-	// Samuel Quantrill
-	f9e1398e37468fbe3a693174565f43f9a1f12a714454f4cf6f54a087bf754f27: {
+	{
+		names: ['Samuel Quantrill (Quantrell)', 'Samuel Quantrell'],
 		url: 'https://fi.wikipedia.org/wiki/William_Quantrill',
-		label: 'Kuka oli oikea William Quantrill?'
+		label: 'Kuka oli oikea Quantrill?'
 	},
-	// Bloody Bill Anderson
-	f3192dba24fad689fb9d88af46b9aea0ffcc73b3e62f0c00cd2f752a44d6b0db: {
+	{
+		names: ['Bloody Bill'],
 		url: 'https://fi.wikipedia.org/wiki/William_T._Anderson',
-		label: 'Kuka oli oikea William T. Anderson?'
+		label: 'Kuka oli oikea Bloody Bill Anderson?'
 	},
-	// Victorio
-	'34c41882d8305cd8c77669b42fb124dc4ad7f3737cf7942500a7298bf9c9d8bc': {
+	{
+		names: ['Victorio'],
+		role: 'apachepäällikkö',
 		url: 'https://fi.wikipedia.org/wiki/Victorio',
 		label: 'Kuka oli oikea Victorio?'
 	},
-	// Scarface Charlie
-	'0fe3c9b39111707f264e2ced7810da7f190f4c15abc3010bd44569c2a623e5c7': {
+	{
+		names: ['Scarface Charlie'],
 		url: 'https://fi.wikipedia.org/wiki/Arpinaama_Charley',
-		label: 'Kuka oli oikea Arpinaama Charley?'
+		label: 'Kuka oli oikea Scarface Charley?'
 	},
-	// Nana
-	'2fbab108b540d0a79d1095e57b3bdccee7caa4d036d452527b4c527a51b022bb': {
+	{
+		names: ['Nana'],
+		rank: 'Poppamies',
 		url: 'https://fi.wikipedia.org/wiki/Nana_(apassi)',
 		label: 'Kuka oli oikea Nana?'
 	},
-	// Moni-Hevonen
-	'5de4a3c68112e223c1d8f8b11114124c672a537b50cdfdbd7064da0f5fe57fa5': {
+	{
+		names: ['Plenty Horse', 'Moni-Hevonen'],
 		url: 'https://en.wikipedia.org/wiki/Plenty_Horses',
 		label: 'Kuka oli oikea Plenty Horses?'
 	},
-	// Mangas Colorados
-	d0f990badd5399347b679593d74c921c688caf883570a308165c1d07ad93ea21: {
+	{
+		names: ['Mangas Colorados'],
 		url: 'https://fi.wikipedia.org/wiki/Mangas_Coloradas',
 		label: 'Kuka oli oikea Mangas Coloradas?'
 	},
-	// Lone Wolf
-	b11f3c828737f58b44501ad4d4f4d376645672bf652f71ba20c7e70b94451275: {
+	{
+		names: ['Lone Wolf'],
 		url: 'https://fi.wikipedia.org/wiki/Lone_Wolf_(intiaanijohtaja)',
 		label: 'Kuka oli oikea Lone Wolf?'
 	},
-	// Kicking Bird
-	f50ecb7ef3d872a60881d185c2400e904f9321e86ac6dcfa785e7d652a8b3fd2: {
+	{
+		names: ['Kicking Bird'],
 		url: 'https://fi.wikipedia.org/wiki/Kicking_Bird',
 		label: 'Kuka oli oikea Kicking Bird?'
 	},
-	// Iron Shirt
-	'9b2f1deb9773517af6dfe9824cfa35b901fffd0391aaf8209138980a8b4cbd04': {
+	{
+		names: ['Quanah Parker'],
+		url: 'https://fi.wikipedia.org/wiki/Quanah_Parker',
+		label: 'Kuka oli oikea Quanah Parker?'
+	},
+	{
+		names: ['Iron Shirt'],
 		url: 'https://en.wikipedia.org/wiki/Iron_Jacket',
 		label: 'Kuka oli oikea Iron Jacket?'
 	},
-	// Hooker Jim
-	'562be08e69e59d0c07ce4e7083e1e7ad3d1f3e88e3338daca3cc94d078b076d3': {
+	{
+		names: ['Captain Jack'],
+		url: 'https://fi.wikipedia.org/wiki/Kapteeni_Jack',
+		label: 'Kuka oli oikea Captain Jack?'
+	},
+	{
+		names: ['Hooker Jim'],
 		url: 'https://en.wikipedia.org/wiki/Hooker_Jim',
 		label: 'Kuka oli oikea Hooker Jim?'
 	},
-	// Cuchillo Negro
-	'9d58d06ffd7a4bae055b1e7c58f7b2edfe410aaf946797e369b64ae0bb518415': {
-		url: 'https://fi.wikipedia.org/wiki/Baishan',
-		label: 'Kuka oli oikea Baishan?'
+	{
+		names: ['Cuchillo Negro'],
+		url: 'https://en.wikipedia.org/wiki/Baishan_(Apache)',
+		label: 'Kuka oli oikea Cuchillo Negro?'
 	},
-	// Geronimo
-	f54d1315675f146783cd06493f40ada87216e48b8e1a7b0146c7a857907d81ec: {
+	{
+		names: ['Geronimo'],
 		url: 'https://fi.wikipedia.org/wiki/Geronimo',
 		label: 'Kuka oli oikea Geronimo?'
 	},
-	// Dull Knife
-	e609665833190543497036ce81b4d7ae729d1f9ff5428d216a60c7777c4c764a: {
+	{
+		names: ['Dull Knife'],
 		url: 'https://en.wikipedia.org/wiki/Morning_Star_(chief)',
-		label: 'Kuka oli oikea Morning Star?'
+		label: 'Kuka oli oikea Dull Knife?'
 	},
-	// Curly Headed Doctor
-	'0339ef4c5b4c80d5ccbb41ac3d1576a588289f0e56f49cd386acbf6fe6bb3524': {
+	{
+		names: ['Curly Headed Doctor'],
 		url: 'https://en.wikipedia.org/wiki/Curley_Headed_Doctor',
 		label: 'Kuka oli oikea Curley Headed Doctor?'
 	},
-	// Ike Clanton
-	'07dae3ca3a73343d6003b54dc276d2b8e6d87ef3811a8fd71c9a04f488b1b680': {
+	{
+		names: ['Ike Clanton'],
 		url: 'https://fi.wikipedia.org/wiki/Ike_Clanton',
 		label: 'Kuka oli oikea Ike Clanton?'
 	},
-	// Johnny Ringo
-	'1d6eef147705fa18f66834623ed334bc1b814b08c541f8ab0894eef26e9ec2cc': {
+	{
+		names: ['Johnny Ringo'],
 		url: 'https://fi.wikipedia.org/wiki/Johnny_Ringo',
 		label: 'Kuka oli oikea Johnny Ringo?'
 	},
-	// Billy Clanton
-	'8e8b097899267df7c57106253bc406405abbc863d77854fb7cc8cedd93978fcd': {
+	{
+		names: ['Billy Clanton'],
 		url: 'https://en.wikipedia.org/wiki/Billy_Clanton',
 		label: 'Kuka oli oikea Billy Clanton?'
 	},
-	// Delgadito
-	b44ab24b44dba8bbcd022748add63bd154daea12576adf13a9684cff2bb30f5a: {
+	{
+		names: ['Delgadito'],
 		url: 'https://en.wikipedia.org/wiki/Delgadito_(Apache_chief)',
 		label: 'Kuka oli oikea Delgadito?'
 	},
-	// Buffalo Chief
-	a45d553b31c0f3105390dc4d09517a7e7a8584b68e52ce04047826f47f41159e: {
+	{
+		names: ['Buffalo Chief'],
 		url: 'https://en.wikipedia.org/wiki/Kechewaishke',
-		label: 'Kuka oli oikea Kechewaishke?'
+		label: 'Kuka oli oikea Chief Buffalo?'
 	},
-	// Crazy Horse
-	'605b5ff27085bdf8be8049b4c04194cd0a1f165edcc608998b4651f50aad2a59': {
+	{
+		names: ['Crazy Horse'],
 		url: 'https://fi.wikipedia.org/wiki/Hullu_Hevonen',
 		label: 'Kuka oli oikea Hullu Hevonen?'
 	},
-	// Jesse James
-	'13a6bb02ef093307ae5ec8426ab636a8c2d1c579c233a09fd9332d3343f58e79': {
+	{
+		names: ['Kid Billy'],
+		url: 'https://fi.wikipedia.org/wiki/Billy_the_Kid',
+		label: 'Kuka oli oikea Billy the Kid?'
+	},
+	{
+		names: ['Cole Younger'],
+		url: 'https://fi.wikipedia.org/wiki/Cole_Younger',
+		label: 'Kuka oli oikea Cole Younger?'
+	},
+	{
+		names: ['Jesse James'],
 		url: 'https://fi.wikipedia.org/wiki/Jesse_James',
 		label: 'Kuka oli oikea Jesse James?'
 	},
-	// Emmett Dalton
-	d0bfcc2d254b87756cbdeeffda0d5b3cd6979d8b2a58dd763347b58c9d3311fd: {
+	{
+		names: ['Emmett Dalton'],
 		url: 'https://fi.wikipedia.org/wiki/Emmett_Dalton',
 		label: 'Kuka oli oikea Emmett Dalton?'
 	},
-	// Bob Dalton
-	'00a53c60c2fa82bf715a1aeb6f64026ae2ea78e32d350e50b5fe84831a4829d1': {
+	{
+		names: ['Bob Dalton'],
 		url: 'https://fi.wikipedia.org/wiki/Bob_Dalton',
 		label: 'Kuka oli oikea Bob Dalton?'
 	},
-	// George Leroy Parker
-	'025551608eaa9de93197ea5064ceebd068890ae1435ada00f325f07000056547': {
+	{
+		names: ['Grat Dalton'],
+		url: 'https://fi.wikipedia.org/wiki/Grat_Dalton',
+		label: 'Kuka oli oikea Grat Dalton?'
+	},
+	{
+		names: ['George Leroy Parker'],
 		url: 'https://fi.wikipedia.org/wiki/Butch_Cassidy',
 		label: 'Kuka oli oikea Butch Cassidy?'
 	},
-	// Hoodoo Brown
-	'5aaec00a73068f6b7bce424a220c1ec5b72967f2f9258667794cb6af6ef6757c': {
+	{
+		names: ['Ah-Toy'],
+		url: 'https://en.wikipedia.org/wiki/Ah_Toy',
+		label: 'Kuka oli oikea Ah-Toy?'
+	},
+	{
+		names: ['Hoodoo Brown'],
 		url: 'https://en.wikipedia.org/wiki/Hoodoo_Brown',
 		label: 'Kuka oli oikea Hoodoo Brown?'
 	}
-};
+];
+
+function normalize(text: string): string {
+	return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+const entriesByName = new Map<string, Entry[]>();
+for (const entry of entries) {
+	for (const name of entry.names) {
+		const key = normalize(name);
+		entriesByName.set(key, [...(entriesByName.get(key) ?? []), entry]);
+	}
+}
+
+// Every name the villain goes by: first and last name (all first names, and
+// each on its own), the last name alone, nicknames and other names.
+function villainNames(villain: Villain): Set<string> {
+	const names = new Set<string>();
+	for (const source of [villain, ...(villain.as ?? [])]) {
+		const firstNames = (source.firstNames ?? []).map((name) => name.trim()).filter(Boolean);
+		const lastName = (source.lastName ?? '').trim();
+		names.add(normalize(`${firstNames.join(' ')} ${lastName}`));
+		for (const firstName of firstNames) names.add(normalize(`${firstName} ${lastName}`));
+		if (lastName) names.add(normalize(lastName));
+	}
+	for (const appearance of villain.as ?? []) {
+		for (const name of [...(appearance.nicknames ?? []), ...(appearance.otherNames ?? [])]) {
+			names.add(normalize(name));
+		}
+	}
+	names.delete('');
+	return names;
+}
+
+function entryMatches(entry: Entry, villain: Villain): boolean {
+	if (entry.rank) {
+		const rank = normalize(entry.rank);
+		if (!(villain.ranks ?? []).some((villainRank) => normalize(villainRank) === rank)) return false;
+	}
+	if (entry.role) {
+		const role = normalize(entry.role);
+		const roles = (villain.as ?? []).flatMap((appearance) => appearance.roles ?? []);
+		if (!roles.some((villainRole) => normalize(villainRole).includes(role))) return false;
+	}
+	return true;
+}
 
 export function villainWikipediaLink(
-	hash: string | null | undefined
+	villain: Villain | null | undefined
 ): VillainWikipediaLink | undefined {
-	return hash ? villainWikipedia[hash] : undefined;
+	if (!villain) return undefined;
+	for (const name of villainNames(villain)) {
+		const entry = entriesByName.get(name)?.find((candidate) => entryMatches(candidate, villain));
+		if (entry) return { url: entry.url, label: entry.label, name: entry.name, more: entry.more };
+	}
+	return undefined;
 }

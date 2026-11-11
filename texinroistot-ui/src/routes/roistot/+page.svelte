@@ -29,12 +29,15 @@
 		publication: string;
 		sort: string;
 		q: string;
+		// The random sort's seed: page links keep it, so paging stays in the same
+		// shuffle; a new visit (no seed) gets a new one from the backend.
+		seed?: number;
 	};
 
-	const defaultSortOption = 'default';
+	const defaultSortOption = 'random';
 
 	const sortOptions = [
-		{ value: 'default', label: 'Oletus' },
+		{ value: 'random', label: 'Sattumanvarainen' },
 		{ value: 'first_name', label: 'Etunimen mukaan' },
 		{ value: 'last_name', label: 'Sukunimen mukaan' },
 		{ value: 'nickname', label: 'Lempinimen mukaan' },
@@ -119,6 +122,7 @@
 		? filters.sort
 		: defaultSortOption;
 	$: sortRequirementLabel = sortRequirementLabels[selectedSort] ?? '';
+	$: seed = selectedSort === 'random' && filters.seed ? filters.seed : undefined;
 	$: hasPrev = meta.page > 1;
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/roistot';
@@ -218,6 +222,7 @@
 		return buildPageHref('/roistot', {
 			publication: filters.publication,
 			sort: selectedSort,
+			seed,
 			page,
 			pageSize: meta.pageSize,
 			q: filters.q || undefined
@@ -244,7 +249,7 @@
 
 	<FilterForm
 		isLoading={isFilterLoading}
-		resetHref="/roistot?sort=default&publication=fi"
+		resetHref="/roistot?sort=random&publication=fi"
 		totalLabel="Roistoja yhteensä {meta.total}"
 		totalInfo={sortRequirementLabel
 			? `Vain roistot, joilla on ${sortRequirementLabel}, näytetään.`
@@ -289,7 +294,7 @@
 	</FilterForm>
 
 	<details class="sort-info">
-		<summary>Tietoa järjestyksistä</summary>
+		<summary>Tietoa nimistä ja järjestyksistä</summary>
 		<ul>
 			<li>
 				Etunimen mukaan järjestäessä näytetään kaikki ne, joiden etunimi on mainittu tarinassa tai
@@ -387,7 +392,6 @@
 								>{:else}{shownCodeNames.join('; ')}{/if}
 						</p>
 					{/if}
-					<VillainWikiLink hash={villain.hash} />
 					<p>
 						<strong>{stories.length === 1 ? 'Tarina' : 'Tarinat'}:</strong>
 						{#if stories.length > 0}
@@ -402,6 +406,8 @@
 							-
 						{/if}
 					</p>
+					<!-- "Kuka oli oikea …?" last on the card -->
+					<VillainWikiLink {villain} />
 				</article>
 			{/each}
 		</div>
@@ -478,9 +484,9 @@
 		gap: 1rem;
 	}
 
+	/* the paper background comes from app.css */
 	.villain-card {
 		border: 1px solid var(--border);
-		background-color: var(--card-bg);
 		padding: 1rem;
 		box-shadow: 0 4px 10px var(--shadow);
 	}

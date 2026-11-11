@@ -11,6 +11,8 @@ type TarinatPageData = {
 		sort: string;
 		q: string;
 		year: number;
+		// the random sort's seed (0 for other sorts)
+		seed?: number;
 	};
 };
 

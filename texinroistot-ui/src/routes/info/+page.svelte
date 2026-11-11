@@ -1,9 +1,6 @@
 <script lang="ts">
 	import PaperNotice from '$lib/components/PaperNotice.svelte';
-	import WoodWall from '$lib/components/WoodWall.svelte';
 </script>
-
-<WoodWall />
 
 <svelte:head>
 	<title>Info – Texin roistot</title>

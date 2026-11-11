@@ -554,8 +554,15 @@ export function storyVillainTitle(villain: VillainForTitle, storyHash: string): 
 }
 
 // A villain that a role or destiny text can mention: key identifies the villain
-// (its hash), names are the names it can be mentioned by.
-export type MentionTarget = { key: string; names: string[] };
+// (its hash), names are the names it can be mentioned by, firstNames those of
+// them that are a first name alone (with or without a rank) and lastNames the
+// villain's last names (spellings).
+export type MentionTarget = {
+	key: string;
+	names: string[];
+	firstNames?: string[];
+	lastNames?: string[];
+};
 export type MentionSegment = TextSegment & { mention?: string };
 
 const MIN_MENTION_NAME_LENGTH = 3;
@@ -564,6 +571,13 @@ const MIN_MENTION_NAME_LENGTH = 3;
 // last name, the last name alone, and the story's nicknames, other names and
 // code names. Quoted parts of first names (Raymond "Ray") are left out.
 export function villainMentionNames(villain: VillainForTitle, storyHash: string): string[] {
+	return mentionNames(villain, storyHash).names;
+}
+
+function mentionNames(
+	villain: VillainForTitle,
+	storyHash: string
+): { names: string[]; firstNames: string[]; lastNames: string[] } {
 	const appearance = storyVillainForStory(villain, storyHash);
 	const trimmed = (values?: string[] | null) =>
 		(values ?? []).map((value) => value.replace(/<\/?i>/g, '').trim()).filter(Boolean);
@@ -591,32 +605,52 @@ export function villainMentionNames(villain: VillainForTitle, storyHash: string)
 	});
 
 	const names = new Set<string>();
-	const addWithRanks = (name: string) => {
-		names.add(name);
-		for (const rank of ranks) names.add(`${rank} ${name}`);
-	};
+	const firstNamesAlone = new Set<string>();
+	const withRanks = (name: string) => [name, ...ranks.map((rank) => `${rank} ${name}`)];
 	for (const firstName of firstNames) {
-		for (const lastName of lastNames) addWithRanks(`${firstName} ${lastName}`);
+		for (const lastName of lastNames) {
+			for (const name of withRanks(`${firstName} ${lastName}`)) names.add(name);
+		}
 		// The first name alone, also with a rank ("Don Felipen" for Don Felipe
 		// Fuente Madariaga y Castillo). mentionSegments links it only when no
-		// other villain of the story has the same name.
-		addWithRanks(firstName);
+		// other villain of the story has the same name, and not when a surname
+		// follows it (someone else of that first name).
+		for (const name of withRanks(firstName)) {
+			names.add(name);
+			firstNamesAlone.add(name);
+		}
 	}
-	for (const lastName of lastNames) addWithRanks(lastName);
-	for (const name of trimmed(appearance?.nicknames)) names.add(name);
-	for (const name of trimmed(appearance?.otherNames)) names.add(name);
-	for (const name of trimmed(appearance?.codeNames)) names.add(name);
-	return [...names].filter((name) => name.length >= MIN_MENTION_NAME_LENGTH);
+	for (const lastName of lastNames) {
+		for (const name of withRanks(lastName)) {
+			names.add(name);
+			// a last name that is also the villain's first name is not one alone
+			firstNamesAlone.delete(name);
+		}
+	}
+	for (const name of [
+		...trimmed(appearance?.nicknames),
+		...trimmed(appearance?.otherNames),
+		...trimmed(appearance?.codeNames)
+	]) {
+		names.add(name);
+		firstNamesAlone.delete(name);
+	}
+	const long = (name: string) => name.length >= MIN_MENTION_NAME_LENGTH;
+	return {
+		names: [...names].filter(long),
+		firstNames: [...firstNamesAlone].filter((name) => long(name) && names.has(name)),
+		lastNames
+	};
 }
 
 export function storyMentionTargets(
 	villains: Array<VillainForTitle & { hash: string }>,
 	storyHash: string
 ): MentionTarget[] {
-	return villains.map((villain) => ({
-		key: villain.hash,
-		names: villainMentionNames(villain, storyHash)
-	}));
+	return villains.map((villain) => {
+		const { names, firstNames, lastNames } = mentionNames(villain, storyHash);
+		return { key: villain.hash, names, firstNames, lastNames };
+	});
 }
 
 function escapeRegExp(value: string): string {
@@ -634,6 +668,8 @@ export function mentionSegments(
 	selfKey: string
 ): MentionSegment[] {
 	const owners = new Map<string, Set<string>>();
+	const firstNamesAlone = new Set<string>();
+	const lastNamesByKey = new Map<string, string[]>();
 	for (const target of targets) {
 		if (target.key === selfKey) continue;
 		for (const name of target.names) {
@@ -641,16 +677,31 @@ export function mentionSegments(
 			owner.add(target.key);
 			owners.set(name, owner);
 		}
+		for (const name of target.firstNames ?? []) firstNamesAlone.add(`${target.key}\n${name}`);
+		lastNamesByKey.set(target.key, target.lastNames ?? []);
 	}
 	const names = [...owners.entries()]
 		.filter(([, keys]) => keys.size === 1)
-		.map(([name, keys]) => ({ name, key: [...keys][0] }))
+		.map(([name, keys]) => ({
+			name,
+			key: [...keys][0],
+			firstNameAlone: firstNamesAlone.has(`${[...keys][0]}\n${name}`)
+		}))
 		.sort((a, b) => b.name.length - a.name.length);
+	// Someone else's surname right after a first name: "Johnny Boyettin" is not
+	// Johnny Behan. A surname starting like the villain's own (a misspelling,
+	// "Sam Ketcumin") or a villain with no known surname still links.
+	const otherSurnameFollows = (key: string, rest: string): boolean => {
+		const following = rest.match(/^\s+(\p{Lu}\p{L}*)/u)?.[1]?.toLowerCase();
+		const lastNames = lastNamesByKey.get(key) ?? [];
+		if (!following || lastNames.length === 0) return false;
+		return !lastNames.some((lastName) => following.startsWith(lastName.slice(0, 3).toLowerCase()));
+	};
 
 	const segments: MentionSegment[] = [];
 	for (const segment of italicSegments(text)) {
 		const taken: Array<{ start: number; end: number; key: string }> = [];
-		for (const { name, key } of names) {
+		for (const { name, key, firstNameAlone } of names) {
 			const pattern = new RegExp(
 				`(^|[^\\p{L}])(${escapeRegExp(name)}(?:'?\\p{Ll}{0,4})?)(?![\\p{L}])`,
 				'gu'
@@ -659,6 +710,7 @@ export function mentionSegments(
 				const start = (match.index ?? 0) + match[1].length;
 				const end = start + match[2].length;
 				if (taken.some((range) => start < range.end && end > range.start)) continue;
+				if (firstNameAlone && otherSurnameFollows(key, segment.text.slice(end))) continue;
 				taken.push({ start, end, key });
 			}
 		}

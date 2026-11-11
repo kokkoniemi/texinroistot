@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { setContext, tick } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { navigating } from '$app/stores';
 	import {
@@ -23,6 +23,10 @@
 	import YearBar from '$lib/components/YearBar.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
+	import StoryListPopup from '$lib/components/StoryListPopup.svelte';
+	import StoryWikiLink from '$lib/components/StoryWikiLink.svelte';
+	import { REMEMBER_STORY_LIST } from '$lib/listing/storyLists';
+	import type { RememberStoryList, StoryListSpec } from '$lib/listing/storyLists';
 	import StoryTitle from '$lib/components/StoryTitle.svelte';
 	import VillainCard from '$lib/components/VillainCard.svelte';
 	import type { PageData } from './$types';
@@ -34,7 +38,11 @@
 		sort: string;
 		q: string;
 		year: number;
+		// The random sort's seed: page links keep it, so paging stays in the same
+		// shuffle; a new visit (no seed) gets a new one from the backend.
+		seed?: number;
 	};
+	const defaultFilters: Filters = { publication: 'all', sort: 'random', q: '', year: 0 };
 
 	const publicationOptions = [
 		{ value: 'all', label: 'Näytä kaikki' },
@@ -54,6 +62,7 @@
 	];
 
 	const baseSortOptions = [
+		{ value: 'random', label: 'Sattumanvarainen' },
 		{ value: 'fi_pub_date', label: 'Ilmestymisjärjestyksessä (Suomi)' },
 		{ value: 'it_pub_date', label: 'Alkuperäisessä ilmestymisjärjestyksessä (Italia)' },
 		{ value: 'alpha', label: 'Aakkosjärjestyksessä' }
@@ -78,12 +87,24 @@
 
 	let stories: Story[] = [];
 	let meta: Meta = { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	let filters: Filters = { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
+	let filters: Filters = defaultFilters;
 	let hasPrev = false;
 	let hasNext = false;
 	let expandedStoryHashes: Record<string, boolean> = {};
 	// Story chosen from an author popup (Kertoi/Piirsi), shown in a story popup.
 	let selectedStory: Story | null = null;
+	// The story list (an author's or a villain's) the story was chosen from, so
+	// the story popup's "Edellinen" (or the browser's back) returns to it.
+	let chosenFromList: StoryListSpec | null = null;
+	let selectedFromList: StoryListSpec | null = null;
+	let reopenedList: StoryListSpec | null = null;
+	setContext<RememberStoryList>(REMEMBER_STORY_LIST, (list) => (chosenFromList = list));
+
+	function openStory(story: Story): void {
+		selectedFromList = chosenFromList;
+		chosenFromList = null;
+		selectedStory = story;
+	}
 	let storyList: HTMLElement | undefined;
 
 	// After a letter jump, bring the letter's first story to the top.
@@ -97,7 +118,8 @@
 
 	$: stories = data.stories ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
-	$: filters = data.filters ?? { publication: 'perus_fi', sort: 'fi_pub_date', q: '', year: 0 };
+	$: filters = data.filters ?? defaultFilters;
+	$: seed = filters.sort === 'random' && filters.seed ? filters.seed : undefined;
 	$: sortOptions =
 		italianPublications.includes(filters.publication) || filters.sort === 'alpha_it'
 			? italianSortOptions
@@ -181,6 +203,7 @@
 		return buildPageHref('/tarinat', {
 			publication: filters.publication,
 			sort: filters.sort,
+			seed,
 			page,
 			pageSize: meta.pageSize,
 			q: filters.q || undefined,
@@ -206,6 +229,7 @@
 		return buildPageHref('/tarinat', {
 			publication: filters.publication,
 			sort: filters.sort,
+			seed,
 			q: q && !/^\d{4}$/.test(q) ? q : undefined,
 			year: year ?? undefined
 		});
@@ -309,7 +333,7 @@
 						<AuthorLinks
 							authors={story.writtenBy}
 							type="writer"
-							on:selectStory={(e) => (selectedStory = e.detail)}
+							on:selectStory={(e) => openStory(e.detail)}
 						/>
 					</p>
 					<p>
@@ -317,7 +341,7 @@
 						<AuthorLinks
 							authors={story.drawnBy}
 							type="drawer"
-							on:selectStory={(e) => (selectedStory = e.detail)}
+							on:selectStory={(e) => openStory(e.detail)}
 						/>
 					</p>
 					<p>
@@ -325,7 +349,7 @@
 						<AuthorLinks
 							authors={story.translatedBy}
 							type="translator"
-							on:selectStory={(e) => (selectedStory = e.detail)}
+							on:selectStory={(e) => openStory(e.detail)}
 						/>
 					</p>
 					{#if italianOriginal}
@@ -364,6 +388,7 @@
 							{:else}
 								<!-- Names of the story's villains in roles and destinies link to their cards. -->
 								{@const mentionTargets = storyMentionTargets(storyVillains(storyHash), storyHash)}
+								<StoryWikiLink {story} />
 								<div class="story-villains-list" data-story-villains={storyHash}>
 									{#each storyVillains(storyHash) as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, storyHash)}
@@ -375,6 +400,7 @@
 											destiny={appearance?.destiny}
 											codeNames={appearance?.codeNames}
 											villainKey={villain.hash}
+											{villain}
 											{mentionTargets}
 											on:mention={(e) =>
 												showMentionedVillain(
@@ -383,7 +409,7 @@
 													) ?? undefined,
 													e.detail
 												)}
-											on:selectStory={(e) => (selectedStory = e.detail)}
+											on:selectStory={(e) => openStory(e.detail)}
 										/>
 									{/each}
 								</div>
@@ -404,8 +430,28 @@
 			story={selectedStory}
 			title={storyTitle(selectedStory)}
 			publicationSummary={publicationSummary(selectedStory)}
+			fromList={selectedFromList}
 			on:close={() => (selectedStory = null)}
+			on:backToList={(e) => {
+				selectedStory = null;
+				reopenedList = e.detail;
+			}}
 			on:selectStory={(e) => (selectedStory = e.detail)}
+		/>
+	{/if}
+
+	<!-- The list a story was chosen from, reopened by the story popup's "Edellinen". -->
+	{#if reopenedList}
+		{@const list = reopenedList}
+		<StoryListPopup
+			{...list}
+			on:close={() => (reopenedList = null)}
+			on:selectStory={(e) => {
+				// remember the list before closing it ({@const} follows reopenedList)
+				chosenFromList = list;
+				reopenedList = null;
+				openStory(e.detail);
+			}}
 		/>
 	{/if}
 </section>
@@ -442,9 +488,9 @@
 		gap: 1rem;
 	}
 
+	/* the paper background comes from app.css */
 	.story-card {
 		border: 1px solid var(--border);
-		background-color: var(--card-bg);
 		padding: 1rem;
 		box-shadow: 0 4px 10px var(--shadow);
 	}
