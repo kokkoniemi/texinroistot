@@ -109,17 +109,15 @@
 		filter: url(#ragged-edge);
 	}
 
-	/* Rough, gritty paper with browned edges; chunks torn off two corners and two tears. */
+	/* The same paper as the page background on the other pages (app.css): the
+	   paper colour with its fold creases, a lit relief (::before) and the grit
+	   (::after). Browned edges; chunks torn off two corners and two tears. */
 	.notice-sheet {
 		position: absolute;
 		inset: 0;
-		/* folded in four, dirty towards the edges, a few stains (notice-aging.svg) */
 		background:
-			url('/notice-aging.svg') 0 0 / 100% 100% no-repeat,
-			/* crumpled and smoothed out: ambientCG Paper003 (CC0), lit and yellowed */
-			/* lightened a little */ linear-gradient(rgba(255, 250, 236, 0.4), rgba(255, 250, 236, 0.4)),
-			url('/paper-crumpled.jpg') 0 0 / 640px 640px,
-			/* yellowed like old parchment */ #e9d4a4;
+			url('/paper-folds.svg') center / cover no-repeat,
+			var(--page-bg);
 		box-shadow:
 			inset 0 0 50px rgba(120, 75, 25, 0.3),
 			inset 0 0 8px rgba(90, 55, 20, 0.45);
@@ -153,6 +151,29 @@
 			0 calc(58% - 1px)
 		);
 	}
+	.notice-sheet::before,
+	.notice-sheet::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+
+	/* the lit relief of body::before */
+	.notice-sheet::before {
+		opacity: 0.35;
+		mix-blend-mode: multiply;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.011' numOctaves='5' seed='11' stitchTiles='stitch'/%3E%3CfeDiffuseLighting lighting-color='%23fff3dc' surfaceScale='4'%3E%3CfeDistantLight azimuth='225' elevation='48'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+		background-size: 700px 700px;
+	}
+
+	/* the grit of body::after */
+	.notice-sheet::after {
+		opacity: 0.7;
+		background-image: url('/paper-grit.svg');
+		background-size: 420px 420px;
+	}
+
 	.notice-content {
 		padding: 2rem 2rem 2.4rem;
 	}

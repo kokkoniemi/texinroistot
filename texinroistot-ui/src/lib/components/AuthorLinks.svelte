@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-	import { translatedPartTitles } from '$lib/listing/shared';
-	import { authorWikipediaUrl } from '$lib/data/authorWikipedia';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import type { Author } from '$lib/listing/shared';
-	import type { AuthorStoriesResponse, Story } from '$lib/types';
+	import { REMEMBER_STORY_LIST, authorStoryList } from '$lib/listing/storyLists';
+	import type { AuthorRole, RememberStoryList } from '$lib/listing/storyLists';
+	import type { Story } from '$lib/types';
 	import StoryListPopup from './StoryListPopup.svelte';
 
 	export let authors: Author[] | null | undefined;
 	// Which of the author's stories the popup lists: as writer, drawer or translator.
-	export let type: 'writer' | 'drawer' | 'translator';
+	export let type: AuthorRole;
 
 	// selectStory: a story was chosen in the author popup; the parent shows it in
 	// its story popup.
 	const dispatch = createEventDispatcher<{ selectStory: Story }>();
-
-	const roleLabels = { writer: 'Kertoja', drawer: 'Piirtäjä', translator: 'Suomentaja' };
+	// In a story popup: lets its "Edellinen" come back to the author's list.
+	const rememberStoryList = getContext<RememberStoryList | undefined>(REMEMBER_STORY_LIST);
 
 	type AuthorLink = { hash: string; name: string };
 	// Authors sharing the same details are combined with "&" as in the sheet, e.g.
@@ -23,15 +23,7 @@
 	type AuthorGroup = { links: AuthorLink[]; details: string };
 
 	let selected: AuthorLink | null = null;
-
-	async function loadAuthorStories(authorHash: string): Promise<Story[]> {
-		const response = await fetch(
-			`/api/tekijat/${encodeURIComponent(authorHash)}/tarinat?type=${encodeURIComponent(type)}`
-		);
-		if (!response.ok) throw new Error(`Tarinoiden haku epäonnistui (${response.status})`);
-		const payload = (await response.json()) as AuthorStoriesResponse;
-		return payload.stories ?? [];
-	}
+	$: selectedList = selected ? authorStoryList(selected.name, selected.hash, type) : null;
 
 	function groupAuthors(list: Author[] | null | undefined): AuthorGroup[] {
 		const groups: AuthorGroup[] = [];
@@ -63,19 +55,13 @@
 					on:click={() => (selected = link)}>{link.name}</button
 				>{:else}{link.name}{/if}{/each}{group.details ? ` (${group.details})` : ''}{/each}{/if}
 
-{#if selected}
-	{@const authorHash = selected.hash}
+{#if selectedList}
+	{@const list = selectedList}
 	<StoryListPopup
-		title={selected.name}
-		subtitle={roleLabels[type]}
-		wikipediaUrl={authorWikipediaUrl(selected.name)}
-		loadStories={() => loadAuthorStories(authorHash)}
-		storyTitles={type === 'translator'
-			? (story) => translatedPartTitles(story, authorHash)
-			: undefined}
-		emptyText="Tekijälle ei löytynyt tarinoita."
+		{...list}
 		on:close={() => (selected = null)}
 		on:selectStory={(e) => {
+			rememberStoryList?.(list);
 			selected = null;
 			dispatch('selectStory', e.detail);
 		}}

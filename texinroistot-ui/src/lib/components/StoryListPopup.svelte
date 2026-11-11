@@ -5,6 +5,7 @@
 		openInOwnWindow,
 		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
+	import { handOverPopupStep, popupBack, pushPopupStep } from '$lib/popupHistory';
 	import type { Story } from '$lib/types';
 	import StoryTitle from './StoryTitle.svelte';
 
@@ -31,8 +32,18 @@
 	let loading = true;
 	let errorMessage = '';
 
+	// The list is a step in the browser history: back (the buttons, Escape, or
+	// the browser's back / a swipe on a phone) closes it.
+	let historyDepth = 0;
+
 	function close(): void {
-		dispatch('close');
+		popupBack();
+	}
+
+	function selectStory(story: Story): void {
+		// the story card opened next takes over this list's history entry
+		handOverPopupStep(historyDepth);
+		dispatch('selectStory', story);
 	}
 
 	function storyTitle(story: Story): string {
@@ -43,6 +54,7 @@
 	}
 
 	onMount(async () => {
+		historyDepth = pushPopupStep(() => dispatch('close'));
 		closeButton.focus();
 		try {
 			stories = await loadStories();
@@ -98,11 +110,7 @@
 					<ul class="list-story-list">
 						{#each stories as story (story.hash)}
 							<li>
-								<button
-									type="button"
-									class="list-story-link"
-									on:click={() => dispatch('selectStory', story)}
-								>
+								<button type="button" class="list-story-link" on:click={() => selectStory(story)}>
 									<StoryTitle title={storyTitle(story)} />
 								</button>
 								<br />

@@ -5,7 +5,13 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		// Shallow routing: how many popup steps (story cards, story lists) are
+		// open, so the browser's back (a swipe on a phone) steps back through them.
+		interface PageState {
+			popupDepth?: number;
+			// The page load the depth belongs to (entries from before a reload are stale).
+			popupSession?: string;
+		}
 		// interface Platform {}
 	}
 }

@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, getContext } from 'svelte';
 	import { hasValues, joinValues } from '$lib/listing/shared';
 	import type { MentionTarget } from '$lib/listing/shared';
+	import { REMEMBER_STORY_LIST, villainStoryList } from '$lib/listing/storyLists';
+	import type { RememberStoryList } from '$lib/listing/storyLists';
 	import type { Story, Villain } from '$lib/types';
 	import ItalicText from './ItalicText.svelte';
 	import MentionText from './MentionText.svelte';
@@ -18,31 +20,18 @@
 	// villains, so names of other villains in the role and destiny are links.
 	export let villainKey = '';
 	export let mentionTargets: MentionTarget[] = [];
+	// The villain itself, for the Wikipedia link of villains based on real people.
+	export let villain: Villain | undefined = undefined;
 
 	// selectStory: a story was chosen in the popup; the parent shows it in its
 	// story popup. mention: the name of another villain of the story was
 	// clicked (its key); the parent brings that villain's card into view.
 	const dispatch = createEventDispatcher<{ selectStory: Story; mention: string }>();
 
+	// In a story popup: lets its "Edellinen" come back to the villain's list.
+	const rememberStoryList = getContext<RememberStoryList | undefined>(REMEMBER_STORY_LIST);
+
 	let otherStoriesOpen = false;
-
-	async function loadVillainStories(villainHash: string): Promise<Story[]> {
-		const response = await fetch(
-			`/api/roistot?publication=all&villain=${encodeURIComponent(villainHash)}`
-		);
-		if (!response.ok) throw new Error(`Tarinoiden haku epäonnistui (${response.status})`);
-		const payload = (await response.json()) as { villains?: Villain[] };
-
-		const stories: Story[] = [];
-		const seenHashes = new Set<string>();
-		for (const appearance of payload.villains?.[0]?.as ?? []) {
-			const story = appearance.story;
-			if (!story || seenHashes.has(story.hash)) continue;
-			seenHashes.add(story.hash);
-			stories.push(story);
-		}
-		return stories;
-	}
 </script>
 
 <article class="story-villain-card" data-villain-key={villainKey || undefined}>
@@ -72,7 +61,6 @@
 	{#if hasValues(codeNames)}
 		<p><strong>Salanimi:</strong> {joinValues(codeNames, '-', '; ')}</p>
 	{/if}
-	<VillainWikiLink hash={villainKey} />
 	{#if otherStoriesVillainHash}
 		{@const villainHash = otherStoriesVillainHash}
 		<p>
@@ -81,24 +69,26 @@
 			>
 		</p>
 		{#if otherStoriesOpen}
+			{@const list = villainStoryList(title, villainHash)}
 			<StoryListPopup
-				{title}
-				subtitle="Roisto"
-				loadStories={() => loadVillainStories(villainHash)}
+				{...list}
 				on:close={() => (otherStoriesOpen = false)}
 				on:selectStory={(e) => {
+					rememberStoryList?.(list);
 					otherStoriesOpen = false;
 					dispatch('selectStory', e.detail);
 				}}
 			/>
 		{/if}
 	{/if}
+	<!-- "Kuka oli oikea …?" last on the card -->
+	<VillainWikiLink {villain} />
 </article>
 
 <style>
+	/* the paper background comes from app.css */
 	.story-villain-card {
 		border: 1px solid var(--border);
-		background-color: var(--panel-bg);
 		padding: 0.6rem 0.75rem;
 	}
 

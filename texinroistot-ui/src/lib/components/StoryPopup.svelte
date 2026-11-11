@@ -9,8 +9,13 @@
 		showMentionedVillain
 	} from '$lib/listing/shared';
 	import type { Story, Villain, StoryVillainsResponse } from '$lib/types';
+	import { REMEMBER_STORY_LIST } from '$lib/listing/storyLists';
+	import { popupBack, popupBackBelow, pushPopupStep } from '$lib/popupHistory';
+	import type { RememberStoryList, StoryListSpec } from '$lib/listing/storyLists';
 	import AuthorLinks from './AuthorLinks.svelte';
+	import StoryListPopup from './StoryListPopup.svelte';
 	import StoryTitle from './StoryTitle.svelte';
+	import StoryWikiLink from './StoryWikiLink.svelte';
 	import VillainCard from './VillainCard.svelte';
 
 	export let story: Story;
@@ -19,18 +24,44 @@
 	// Opened from a villain's name in a role or destiny: the villain list opens
 	// with that villain's card brought into view.
 	export let focusVillainKey = '';
+	// Opened from a story list on the page (an author's or a villain's): the
+	// first card's "Edellinen" goes back to that list.
+	export let fromList: StoryListSpec | null = null;
 
 	// selectStory: another story was chosen from an author popup; the parent
-	// shows that story in this popup instead.
-	const dispatch = createEventDispatcher<{ close: void; selectStory: Story }>();
+	// shows that story in this popup instead. backToList: "Edellinen" on the
+	// first card; the parent closes this popup and reopens the list.
+	const dispatch = createEventDispatcher<{
+		close: void;
+		selectStory: Story;
+		backToList: StoryListSpec;
+	}>();
 
 	let closeButton: HTMLButtonElement;
 
 	// Story lists opened from this card (author or villain links) show a back
 	// button that returns here.
 	setContext('inStoryPopup', true);
+	// A story chosen from such a list: remember the list, so "Edellinen" on the
+	// chosen story's card comes back to the list (over this card).
+	let pendingList: StoryListSpec | null = null;
+	setContext<RememberStoryList>(REMEMBER_STORY_LIST, (list) => (pendingList = list));
+	// The list reopened by "Edellinen".
+	let reopenedList: StoryListSpec | null = null;
+	let listToReopen: StoryListSpec | null = null;
+
+	// The popup and each card shown in it are steps in the browser history, so
+	// the browser's back (a swipe on a phone) works like "Edellinen", and going
+	// back past the first card closes the popup. "Sulje" goes back past all of
+	// the popup's steps at once (closing: the cards are not stepped through).
+	let openDepth = 0;
+	let closing = false;
 
 	onMount(async () => {
+		openDepth = pushPopupStep(() => {
+			if (fromList && !closing) dispatch('backToList', fromList);
+			else dispatch('close');
+		});
 		closeButton.focus();
 		if (!focusVillainKey) return;
 		await toggleVillains();
@@ -47,8 +78,9 @@
 	let prevStory: Story | null = null;
 
 	// Cards visited before this one in the popup, so "Edellinen" can step back
-	// through them. Each remembers whether its villain list was open.
-	type HistoryEntry = { story: Story; villainsOpen: boolean };
+	// through them. Each remembers whether its villain list was open and the
+	// story list (an author's or a villain's) the next card was chosen from.
+	type HistoryEntry = { story: Story; villainsOpen: boolean; list: StoryListSpec | null };
 	let history: HistoryEntry[] = [];
 	let goingBack = false;
 	let reopenVillains = false;
@@ -61,8 +93,15 @@
 	$: {
 		if (storyHash !== prevHash) {
 			if (prevStory && !goingBack) {
-				history = [...history, { story: prevStory, villainsOpen: villainsExpanded }];
+				history = [
+					...history,
+					{ story: prevStory, villainsOpen: villainsExpanded, list: pendingList }
+				];
+				pushPopupStep(() => {
+					if (!closing) stepBack();
+				});
 			}
+			pendingList = null;
 			prevHash = storyHash;
 			prevStory = story;
 			villainsExpanded = false;
@@ -73,20 +112,29 @@
 			if (goingBack) {
 				goingBack = false;
 				if (reopenVillains) tick().then(toggleVillains);
+				reopenedList = listToReopen;
+				listToReopen = null;
 			}
 		}
 	}
 
 	function close(): void {
-		dispatch('close');
+		closing = true;
+		popupBackBelow(openDepth);
 	}
 
 	function back(): void {
+		popupBack();
+	}
+
+	// Shows the previous card (run when its history step is gone back past).
+	function stepBack(): void {
 		const previous = history[history.length - 1];
 		if (!previous) return;
 		history = history.slice(0, -1);
 		goingBack = true;
 		reopenVillains = previous.villainsOpen;
+		listToReopen = previous.list;
 		dispatch('selectStory', previous.story);
 	}
 
@@ -133,7 +181,7 @@
 <div class="story-popup-backdrop" role="presentation" on:click|self={close}>
 	<div class="story-popup" role="dialog" aria-modal="true" aria-labelledby="story-popup-title">
 		<div class="story-popup-actions">
-			{#if history.length > 0}
+			{#if history.length > 0 || fromList}
 				<button type="button" class="story-popup-back" on:click={back}>&larr; Edellinen</button>
 			{/if}
 			<button type="button" class="story-popup-close" on:click={close} bind:this={closeButton}
@@ -197,6 +245,7 @@
 					{:else if villains.length === 0}
 						<p>Tarinalle ei löytynyt roistoja.</p>
 					{:else}
+						<StoryWikiLink {story} />
 						<div class="story-villains-list" bind:this={villainList}>
 							{#each villains as villain (villain.hash)}
 								{@const appearance = storyVillainForStory(villain, storyHash)}
@@ -208,6 +257,7 @@
 									destiny={appearance?.destiny}
 									codeNames={appearance?.codeNames}
 									villainKey={villain.hash}
+									{villain}
 									{mentionTargets}
 									on:mention={(e) => showMentionedVillain(villainList, e.detail)}
 									on:selectStory={(e) => dispatch('selectStory', e.detail)}
@@ -220,6 +270,21 @@
 		</article>
 	</div>
 </div>
+
+<!-- The author's or villain's list a later card was chosen from, reopened by "Edellinen". -->
+{#if reopenedList}
+	{@const list = reopenedList}
+	<StoryListPopup
+		{...list}
+		on:close={() => (reopenedList = null)}
+		on:selectStory={(e) => {
+			// remember the list before closing it ({@const} follows reopenedList)
+			pendingList = list;
+			reopenedList = null;
+			dispatch('selectStory', e.detail);
+		}}
+	/>
+{/if}
 
 <style>
 	.story-popup-backdrop {
@@ -273,9 +338,9 @@
 		margin: 0;
 	}
 
+	/* the paper background comes from app.css */
 	.story-card {
 		border: 1px solid var(--border);
-		background-color: var(--card-bg);
 		padding: 1rem;
 		box-shadow: 0 4px 10px var(--shadow);
 	}

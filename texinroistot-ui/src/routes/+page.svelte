@@ -1,6 +1,5 @@
 <script lang="ts">
 	import PaperNotice from '$lib/components/PaperNotice.svelte';
-	import WoodWall from '$lib/components/WoodWall.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -23,8 +22,6 @@
 <svelte:head>
 	<title>Texin roistot -tietokanta</title>
 </svelte:head>
-
-<WoodWall />
 
 <PaperNotice>
 	<section class="page-front">

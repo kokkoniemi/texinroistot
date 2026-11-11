@@ -321,9 +321,9 @@
 		gap: 0.4rem;
 	}
 
+	/* the paper background comes from app.css */
 	.author-card {
 		border: 1px solid var(--border);
-		background-color: var(--card-bg);
 		padding: 0.5rem 0.9rem;
 		box-shadow: 0 2px 6px var(--shadow);
 	}
