@@ -514,7 +514,7 @@ func finnishSpecialOrderClause(params StoryListParams) string {
 // finnishSpecialFilterTypes returns the publication types of a Finnish special
 // publication filter used with the Finnish date sort, or nil otherwise.
 func finnishSpecialFilterTypes(params StoryListParams) []string {
-	if isAlphaSort(params.Sort) || params.Sort == "it_pub_date" {
+	if isAlphaSort(params.Sort) || params.Sort == "it_pub_date" || params.Sort == "random" {
 		return nil
 	}
 	types, err := mapPublicationFilterToTypes(params.Publication)
@@ -531,9 +531,10 @@ func finnishSpecialFilterTypes(params StoryListParams) []string {
 
 // storyDateKey returns the primary sort key of the story's date sort and the
 // key's year span (see finnishDateKeySpan), or "" when the list is not
-// ordered by date: alphabetical sorts and lists filtered to a single year.
+// ordered by date: alphabetical and random sorts and lists filtered to a
+// single year.
 func storyDateKey(params StoryListParams) (string, int) {
-	if params.Year > 0 || isAlphaSort(params.Sort) {
+	if params.Year > 0 || isAlphaSort(params.Sort) || params.Sort == "random" {
 		return "", 0
 	}
 	if params.Sort == "it_pub_date" {
@@ -545,11 +546,20 @@ func storyDateKey(params StoryListParams) (string, int) {
 	return finnishDateKeySQL(), finnishDateKeySpan
 }
 
+// randomOrderClause shuffles the stories: each story's hash mixed with the
+// seed, so a seed always gives the same order and another seed another one.
+func randomOrderClause(seed int) string {
+	return fmt.Sprintf(`md5(s.hash || '%d') ASC, s.id ASC`, seed)
+}
+
 // buildStoryOrderClause is buildSortClause, except with a year: the Finnish
 // date sort orders by that year's base series issues (originals and
 // re-publications), followed by that year's Finnish special publications, and
 // the Italian date sort orders by the story order number (Järjestysluku).
 func buildStoryOrderClause(params StoryListParams) string {
+	if params.Sort == "random" {
+		return randomOrderClause(params.Seed)
+	}
 	if specialOrder := finnishSpecialOrderClause(params); specialOrder != "" {
 		return specialOrder
 	}

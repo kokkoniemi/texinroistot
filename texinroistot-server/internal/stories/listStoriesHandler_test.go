@@ -147,6 +147,35 @@ func TestParseStoryListParamsRejectsInvalidYear(t *testing.T) {
 	}
 }
 
+// The random sort draws a seed when none is given, keeps a given one (paging
+// through the same shuffle) and has none for the other sorts.
+func TestParseStoryListParamsRandomSeed(t *testing.T) {
+	app := testParseParamsRoute()
+
+	params, status, body := decodeParamsFromResponse(t, app, "/")
+	if status != 200 {
+		t.Fatalf("expected 200, got %d (%s)", status, body)
+	}
+	if params.Sort != "random" || params.Seed < 1 || params.Seed > maxRandomSeed {
+		t.Fatalf("expected the random sort with a drawn seed, got %+v", params)
+	}
+
+	params, _, _ = decodeParamsFromResponse(t, app, "/?sort=random&seed=12345&page=2")
+	if params.Seed != 12345 || params.Page != 2 {
+		t.Fatalf("expected seed 12345 on page 2, got %+v", params)
+	}
+
+	params, _, _ = decodeParamsFromResponse(t, app, "/?sort=alpha&seed=12345")
+	if params.Seed != 0 {
+		t.Fatalf("expected no seed for the alphabetical sort, got %d", params.Seed)
+	}
+
+	_, status, body = decodeParamsFromResponse(t, app, "/?sort=random&seed=abc")
+	if status != 400 {
+		t.Fatalf("expected 400 for an invalid seed, got %d (%s)", status, body)
+	}
+}
+
 func TestParseJumpYear(t *testing.T) {
 	for raw, want := range map[string]int{"1999": 1999, " 1953 ": 1953, "": 0, "abc": 0, "99": 0, "3000": 0} {
 		if got := parseJumpYear(raw); got != want {

@@ -82,6 +82,32 @@ func TestBuildVillainListWhere_SearchArgPositionWithPublicationFilter(t *testing
 	}
 }
 
+// A search of several words requires each word in some name field, so a whole
+// name such as "Hoodoo Brown" (first name + last name) is found.
+func TestBuildVillainListWhere_SearchWordsEachMatchAName(t *testing.T) {
+	whereClause, args, err := buildVillainListWhere(5, VillainListParams{
+		Publication: "all",
+		Search:      "  Hoodoo   Brown ",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	for _, part := range []string{
+		"array_to_string(v.first_names, ' ') ILIKE $2",
+		"v.last_name ILIKE $2",
+		"array_to_string(v.first_names, ' ') ILIKE $3",
+		"v.last_name ILIKE $3",
+	} {
+		if !strings.Contains(whereClause, part) {
+			t.Fatalf("expected where clause to include %q, got %s", part, whereClause)
+		}
+	}
+	if len(args) != 3 || args[1] != "%Hoodoo%" || args[2] != "%Brown%" {
+		t.Fatalf("expected args [5 %%Hoodoo%% %%Brown%%], got %v", args)
+	}
+}
+
 func TestBuildVillainListWhere_VillainHashFollowsOtherFilters(t *testing.T) {
 	whereClause, args, err := buildVillainListWhere(5, VillainListParams{
 		Publication: "fi",
