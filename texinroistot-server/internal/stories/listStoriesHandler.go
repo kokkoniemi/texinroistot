@@ -2,6 +2,7 @@ package stories
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 
@@ -10,8 +11,8 @@ import (
 )
 
 const (
-	defaultPublicationFilter = "perus_fi"
-	defaultSort              = "fi_pub_date"
+	defaultPublicationFilter = "all"
+	defaultSort              = "random"
 	defaultYear              = 0
 	defaultPage              = 1
 	defaultPageSize          = 25
@@ -41,7 +42,11 @@ var allowedSorts = map[string]bool{
 	"alpha_it":    true,
 	"fi_pub_date": true,
 	"it_pub_date": true,
+	"random":      true,
 }
+
+// maxRandomSeed bounds the seeds handed out for the random sort.
+const maxRandomSeed = 1_000_000_000
 
 func parsePositiveInt(raw string, fallback int) (int, error) {
 	raw = strings.TrimSpace(raw)
@@ -105,6 +110,19 @@ func parseStoryListParams(c *fiber.Ctx) (db.StoryListParams, error) {
 		return db.StoryListParams{}, fmt.Errorf("year must be a positive integer")
 	}
 
+	// The random sort is a different shuffle on every visit: without a seed
+	// (a new visit) one is drawn; the pages of the same visit pass it on.
+	seed := 0
+	if sort == "random" {
+		seed, err = parsePositiveInt(c.Query("seed"), 0)
+		if err != nil {
+			return db.StoryListParams{}, fmt.Errorf("seed must be a positive integer")
+		}
+		if seed == 0 {
+			seed = rand.IntN(maxRandomSeed) + 1
+		}
+	}
+
 	// A search word that is a year (e.g. "1988") works as the year filter.
 	search := strings.TrimSpace(c.Query("q", ""))
 	if searchYear := parseJumpYear(search); searchYear > 0 {
@@ -124,6 +142,7 @@ func parseStoryListParams(c *fiber.Ctx) (db.StoryListParams, error) {
 		Year:        year,
 		Page:        page,
 		PageSize:    pageSize,
+		Seed:        seed,
 	}, nil
 }
 
@@ -186,8 +205,9 @@ func ListStoriesHandler(c *fiber.Ctx) error {
 			"publication": params.Publication,
 			"sort":        params.Sort,
 			// the search word as given, also when it was a year
-			"q":           strings.TrimSpace(c.Query("q", "")),
-			"year":        params.Year,
+			"q":    strings.TrimSpace(c.Query("q", "")),
+			"year": params.Year,
+			"seed": params.Seed, // the random sort's seed (0 for other sorts), for the page links
 		},
 	})
 }

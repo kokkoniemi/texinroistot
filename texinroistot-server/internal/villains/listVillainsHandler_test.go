@@ -112,6 +112,35 @@ func TestParseVillainListParamsRejectsInvalidPage(t *testing.T) {
 	}
 }
 
+// The random sort draws a seed when none is given, keeps a given one (paging
+// through the same shuffle) and has none for the other sorts.
+func TestParseVillainListParamsRandomSeed(t *testing.T) {
+	app := testParseParamsRoute()
+
+	params, status, body := decodeParamsFromResponse(t, app, "/")
+	if status != 200 {
+		t.Fatalf("expected 200, got %d (%s)", status, body)
+	}
+	if params.Sort != "random" || params.Seed < 1 || params.Seed > maxRandomSeed {
+		t.Fatalf("expected the random sort with a drawn seed, got %+v", params)
+	}
+
+	params, _, _ = decodeParamsFromResponse(t, app, "/?sort=random&seed=4242&page=3")
+	if params.Seed != 4242 || params.Page != 3 {
+		t.Fatalf("expected seed 4242 on page 3, got %+v", params)
+	}
+
+	params, _, _ = decodeParamsFromResponse(t, app, "/?sort=default&seed=4242")
+	if params.Sort != "default" || params.Seed != 0 {
+		t.Fatalf("expected the default sort without a seed, got %+v", params)
+	}
+
+	_, status, body = decodeParamsFromResponse(t, app, "/?sort=random&seed=-1")
+	if status != 400 {
+		t.Fatalf("expected 400 for an invalid seed, got %d (%s)", status, body)
+	}
+}
+
 func TestParseVillainListParamsClampsPageSize(t *testing.T) {
 	app := testParseParamsRoute()
 

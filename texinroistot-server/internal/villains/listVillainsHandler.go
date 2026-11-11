@@ -2,6 +2,7 @@ package villains
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 
 const (
 	defaultPublicationFilter = "fi"
-	defaultSort              = "default"
+	defaultSort              = "random"
 	defaultPage              = 1
 	defaultPageSize          = 25
 	maxPageSize              = 100
@@ -33,7 +34,11 @@ var allowedSorts = map[string]bool{
 	"rank":        true,
 	"fi_pub_date": true,
 	"it_pub_date": true,
+	"random":      true,
 }
+
+// maxRandomSeed bounds the seeds handed out for the random sort.
+const maxRandomSeed = 1_000_000_000
 
 func parsePositiveInt(raw string, fallback int) (int, error) {
 	raw = strings.TrimSpace(raw)
@@ -82,6 +87,19 @@ func parseVillainListParams(c *fiber.Ctx) (db.VillainListParams, error) {
 		return db.VillainListParams{}, fmt.Errorf("sort is invalid")
 	}
 
+	// The random sort is a different shuffle on every visit: without a seed
+	// (a new visit) one is drawn; the pages of the same visit pass it on.
+	seed := 0
+	if sort == "random" {
+		seed, err = parsePositiveInt(c.Query("seed"), 0)
+		if err != nil {
+			return db.VillainListParams{}, fmt.Errorf("seed must be a positive integer")
+		}
+		if seed == 0 {
+			seed = rand.IntN(maxRandomSeed) + 1
+		}
+	}
+
 	return db.VillainListParams{
 		Publication: publication,
 		Sort:        sort,
@@ -89,6 +107,7 @@ func parseVillainListParams(c *fiber.Ctx) (db.VillainListParams, error) {
 		VillainHash: strings.TrimSpace(c.Query("villain", "")),
 		Page:        page,
 		PageSize:    pageSize,
+		Seed:        seed,
 	}, nil
 }
 
@@ -143,6 +162,7 @@ func ListVillainsHandler(c *fiber.Ctx) error {
 			"sort":        params.Sort,
 			"q":           params.Search,
 			"villain":     params.VillainHash,
+			"seed":        params.Seed, // the random sort's seed (0 for other sorts), for the page links
 		},
 	})
 }

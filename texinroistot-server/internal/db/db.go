@@ -19,6 +19,9 @@ type StoryListParams struct {
 	Year        int
 	Page        int
 	PageSize    int
+	// Seed of the random sort: the same seed gives the same order, so paging
+	// through a shuffled list neither repeats nor skips stories.
+	Seed int
 }
 
 type VillainListParams struct {
@@ -28,6 +31,8 @@ type VillainListParams struct {
 	VillainHash string
 	Page        int
 	PageSize    int
+	// Seed of the random sort (see StoryListParams.Seed).
+	Seed int
 }
 
 type UserRepository interface {

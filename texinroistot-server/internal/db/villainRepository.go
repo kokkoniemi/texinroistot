@@ -194,11 +194,11 @@ func villainListSortKeyExpr(sort string) string {
 }
 
 // villainSortKeyExpr returns the primary sort key of an alphabetical villain
-// sort, or "" for the publication date sorts and the grouped default sort,
-// which have no single key. Letter paging uses the same key.
+// sort, or "" for the publication date sorts, the grouped default sort and the
+// random sort, which have no single key. Letter paging uses the same key.
 func villainSortKeyExpr(sort string) string {
 	switch sort {
-	case "fi_pub_date", "it_pub_date", "default":
+	case "fi_pub_date", "it_pub_date", "default", "random":
 		return ""
 	case "last_name":
 		return normalizeSortSQL("v.last_name")
@@ -351,8 +351,10 @@ EXISTS (
 		clauses = append(clauses, sortRequirement)
 	}
 
-	search := strings.TrimSpace(params.Search)
-	if len(search) > 0 {
+	// Each word of the search must be in one of the villain's names, so a whole
+	// name spanning several fields matches too: "Hoodoo Brown" (first and last
+	// name), "sheriffi Starr" (rank and last name), "Don Felipe".
+	for _, word := range strings.Fields(params.Search) {
 		clauses = append(clauses, fmt.Sprintf(`
 (
 	array_to_string(v.first_names, ' ') ILIKE $%d
@@ -371,7 +373,7 @@ EXISTS (
 		)
 	)
 )`, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
-		args = append(args, "%"+search+"%")
+		args = append(args, "%"+word+"%")
 		argPos++
 	}
 
@@ -447,6 +449,11 @@ WHERE %s;
 	}
 
 	orderClause := buildVillainSortClause(params.Sort)
+	if params.Sort == "random" {
+		// shuffled: each villain's hash mixed with the seed, so a seed always
+		// gives the same order and paging neither repeats nor skips villains
+		orderClause = fmt.Sprintf(`md5(v.hash || '%d') ASC, v.id ASC`, params.Seed)
+	}
 	if params.Sort == "default" {
 		byRank, err := searchMatchesRank(whereClause, whereArgs, params.Search)
 		if err != nil {
