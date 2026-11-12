@@ -301,17 +301,26 @@
 	.story-popup {
 		width: min(920px, 100%);
 		max-height: calc(100vh - 2rem);
+		/* the visible height on phones, without the browser bars */
+		max-height: calc(100dvh - 2rem);
 		overflow: auto;
 		background: var(--page-bg);
 		border: 1px solid var(--border);
 		box-shadow: 0 10px 30px var(--shadow);
-		padding: 0.9rem;
+		--popup-pad: 0.9rem;
+		padding: var(--popup-pad);
 	}
 
 	.story-popup-actions {
 		display: flex;
 		justify-content: flex-end;
-		margin-bottom: 0.6rem;
+		/* stays at the top while the popup scrolls, over the content */
+		position: sticky;
+		top: calc(-1 * var(--popup-pad));
+		z-index: 2;
+		margin: calc(-1 * var(--popup-pad)) calc(-1 * var(--popup-pad)) 0;
+		padding: var(--popup-pad) var(--popup-pad) 0.6rem;
+		background: var(--page-bg);
 	}
 
 	/* the back button sits on the left, Sulje stays on the right */
@@ -391,7 +400,10 @@
 
 		.story-popup {
 			max-height: calc(100vh - 1rem);
-			padding: 0.55rem;
+			/* the visible height on phones, without the browser bars */
+			max-height: calc(100dvh - 1rem);
+			--popup-pad: 0.55rem;
+			padding: var(--popup-pad);
 		}
 	}
 </style>
