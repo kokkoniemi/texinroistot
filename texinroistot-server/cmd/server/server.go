@@ -5,6 +5,7 @@ import (
 	"github.com/kokkoniemi/texinroistot/internal/admin"
 	"github.com/kokkoniemi/texinroistot/internal/authors"
 	"github.com/kokkoniemi/texinroistot/internal/auth"
+	"github.com/kokkoniemi/texinroistot/internal/feedback"
 	"github.com/kokkoniemi/texinroistot/internal/stories"
 	"github.com/kokkoniemi/texinroistot/internal/versions"
 	"github.com/kokkoniemi/texinroistot/internal/villains"
@@ -27,6 +28,7 @@ func main() {
 	api.Get("/villains", villains.ListVillainsHandler)
 	api.Get("/authors", authors.ListAuthorsHandler)
 	api.Get("/authors/:authorHash/stories", authors.ListAuthorStoriesHandler)
+	api.Post("/feedback", feedback.RateLimit, feedback.CreateFeedbackHandler)
 
 	adminapi := api.Group("/admin", auth.ProtectedRoute)
 	adminapi.Get("/users", admin.ListUsersHandler)
@@ -35,6 +37,8 @@ func main() {
 	adminapi.Post("/versions/import", admin.ImportVersionHandler)
 	adminapi.Post("/versions/:versionID/activate", admin.ActivateVersionHandler)
 	adminapi.Delete("/versions/:versionID", admin.DeleteVersionHandler)
+	adminapi.Get("/feedback", admin.ListFeedbackHandler)
+	adminapi.Delete("/feedback/:feedbackID", admin.DeleteFeedbackHandler)
 
 	app.Listen(":6969") // TODO: add to .env file
 }

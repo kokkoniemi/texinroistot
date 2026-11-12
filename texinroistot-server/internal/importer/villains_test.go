@@ -106,6 +106,36 @@ func TestLoadVillain_AllowsSameVillainIDAcrossMultipleStories(t *testing.T) {
 	}
 }
 
+// A rank given in one story (Quantrill is "Kenraali" in some) belongs to that
+// story only, while the villain gathers the ranks of all their stories.
+func TestLoadVillain_KeepsRanksPerStory(t *testing.T) {
+	i := newVillainTestImporter()
+	general := i.addStory(&db.Story{Hash: "suuri-hyokkays"})
+	plain := i.addStory(&db.Story{Hash: "seitseman-tappajaa"})
+
+	if err := i.loadVillain(general.ID, newVillainRow(i, 0, map[string]string{
+		"villain_id": "303", "ranks": "Kenraali", "last_name": "Quantrill",
+	})); err != nil {
+		t.Fatalf("first loadVillain failed: %v", err)
+	}
+	if err := i.loadVillain(plain.ID, newVillainRow(i, 1, map[string]string{
+		"villain_id": "303", "last_name": "Quantrill",
+	})); err != nil {
+		t.Fatalf("second loadVillain failed: %v", err)
+	}
+
+	villain := i.villains[0]
+	if !reflect.DeepEqual(i.getStoryVillain(villain.ID, general.ID).item.Ranks, []string{"Kenraali"}) {
+		t.Fatalf("ranks in the general's story: %#v", i.getStoryVillain(villain.ID, general.ID).item.Ranks)
+	}
+	if !reflect.DeepEqual(i.getStoryVillain(villain.ID, plain.ID).item.Ranks, []string{""}) {
+		t.Fatalf("ranks in the story without a rank: %#v", i.getStoryVillain(villain.ID, plain.ID).item.Ranks)
+	}
+	if !reflect.DeepEqual(villain.item.Ranks, []string{"Kenraali", ""}) {
+		t.Fatalf("villain ranks: %#v", villain.item.Ranks)
+	}
+}
+
 func TestLoadVillain_KeepsNamePerStoryAndUsesLatestForVillain(t *testing.T) {
 	i := newVillainTestImporter()
 	// added out of story order on purpose: the latest story decides the name

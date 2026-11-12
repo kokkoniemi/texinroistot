@@ -73,6 +73,51 @@ const entries: Entry[] = [
 		label: 'Kuka oli oikea John Fremont?'
 	},
 	{
+		names: ['Diamond Jim', 'Timantti-Jim'],
+		url: 'https://en.wikipedia.org/wiki/Big_Jim_Colosimo',
+		label: 'Kuka oli oikea Diamond Jim?'
+	},
+	{
+		names: ['Johnny Devine'],
+		url: 'https://www.foundsf.org/Irish_1851',
+		label: 'Kuka oli oikea Johnny Devine?'
+	},
+	{
+		names: ["Tom O'Day"],
+		url: 'https://tomodayproductions.com/tom-oday-1',
+		label: "Kuka oli oikea Tom O'Day?"
+	},
+	{
+		names: ['Bedford'],
+		rank: 'Kenraali',
+		url: 'https://fi.wikipedia.org/wiki/Nathan_Bedford_Forrest',
+		label: 'Kuka oli oikea kenraali Bedford?'
+	},
+	{
+		names: ['Potkiva Karhu'],
+		url: 'https://en.wikipedia.org/wiki/Kicking_Bear',
+		label: 'Kuka oli oikea Potkiva Karhu?'
+	},
+	{
+		names: ['Musta Hirvi'],
+		role: 'Wovoka',
+		url: 'https://fi.wikipedia.org/wiki/Musta_Hirvi',
+		label: 'Kuka oli oikea Musta Hirvi?'
+	},
+	{
+		names: ['Wovoka', 'Wowoka'],
+		role: 'paiute|piute',
+		url: 'https://fi.wikipedia.org/wiki/Wovoka',
+		label: 'Kuka oli oikea Wovoka?'
+	},
+	{
+		names: ['Satanta'],
+		role: 'kiowa',
+		url: 'https://fi.wikipedia.org/wiki/Satanta',
+		label: 'Kuka oli oikea Satanta?'
+	},
+	{ names: ['Ouray'], url: 'https://fi.wikipedia.org/wiki/Ouray', label: 'Kuka oli oikea Ouray?' },
+	{
 		names: ['Johnny Lame'],
 		url: 'https://en.wikipedia.org/wiki/Cornelius_Donahue',
 		label: 'Kuka oli oikea Johnny Lame?',
@@ -420,7 +465,9 @@ for (const entry of entries) {
 // each on its own), the last name alone, nicknames and other names.
 function villainNames(villain: Villain): Set<string> {
 	const names = new Set<string>();
-	for (const source of [villain, ...(villain.as ?? [])]) {
+	// the villain's own name too, when the story gives another (story villains)
+	const sources = [villain, ...(villain.identity ? [villain.identity] : []), ...(villain.as ?? [])];
+	for (const source of sources) {
 		const firstNames = (source.firstNames ?? []).map((name) => name.trim()).filter(Boolean);
 		const lastName = (source.lastName ?? '').trim();
 		names.add(normalize(`${firstNames.join(' ')} ${lastName}`));
@@ -439,12 +486,16 @@ function villainNames(villain: Villain): Set<string> {
 function entryMatches(entry: Entry, villain: Villain): boolean {
 	if (entry.rank) {
 		const rank = normalize(entry.rank);
-		if (!(villain.ranks ?? []).some((villainRank) => normalize(villainRank) === rank)) return false;
+		// all of the villain's ranks, also those other stories give
+		const ranks = [...(villain.ranks ?? []), ...(villain.identity?.ranks ?? [])];
+		if (!ranks.some((villainRank) => normalize(villainRank) === rank)) return false;
 	}
 	if (entry.role) {
-		const role = normalize(entry.role);
+		// alternatives separated by | (a role may be worded differently per story)
+		const wanted = entry.role.split('|').map(normalize);
 		const roles = (villain.as ?? []).flatMap((appearance) => appearance.roles ?? []);
-		if (!roles.some((villainRole) => normalize(villainRole).includes(role))) return false;
+		if (!roles.some((villainRole) => wanted.some((role) => normalize(villainRole).includes(role))))
+			return false;
 	}
 	return true;
 }

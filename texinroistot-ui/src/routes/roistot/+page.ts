@@ -10,6 +10,8 @@ type RoistotPageData = {
 		publication: string;
 		sort: string;
 		q: string;
+		// the name search (names only)
+		name?: string;
 		// the random sort's seed (0 for other sorts)
 		seed?: number;
 	};

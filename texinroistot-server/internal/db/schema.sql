@@ -95,6 +95,22 @@ CREATE TABLE "public"."publications" (
 COMMENT ON COLUMN "public"."publications"."hash" IS 'consistent identifier between different versions';
 
 
+-- FEEDBACK:
+
+-- Table Definition
+CREATE TABLE "public"."feedback" (
+	    "id" int8 GENERATED ALWAYS AS IDENTITY,
+	    "created_at" timestamptz NOT NULL DEFAULT now(),
+	    "message" text NOT NULL,
+	    "contact" varchar(200),
+	    PRIMARY KEY ("id"),
+	    CONSTRAINT "feedback_message_length" CHECK (char_length(message) BETWEEN 1 AND 5000)
+);
+
+-- Comments
+COMMENT ON TABLE "public"."feedback" IS 'Feedback sent from the Info page';
+
+
 -- USERS:
 
 -- Table Definition
@@ -151,6 +167,7 @@ CREATE TABLE "public"."villains_in_stories" (
 	    "roles" _varchar,
 	    "first_names" _varchar,
 	    "last_name" varchar,
+	    "ranks" _varchar,
 	    PRIMARY KEY ("id")
 );
 

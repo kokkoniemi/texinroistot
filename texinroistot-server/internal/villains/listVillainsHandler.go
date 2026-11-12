@@ -104,6 +104,7 @@ func parseVillainListParams(c *fiber.Ctx) (db.VillainListParams, error) {
 		Publication: publication,
 		Sort:        sort,
 		Search:      strings.TrimSpace(c.Query("q", "")),
+		Name:        strings.TrimSpace(c.Query("name", "")),
 		VillainHash: strings.TrimSpace(c.Query("villain", "")),
 		Page:        page,
 		PageSize:    pageSize,
@@ -161,6 +162,7 @@ func ListVillainsHandler(c *fiber.Ctx) error {
 			"publication": params.Publication,
 			"sort":        params.Sort,
 			"q":           params.Search,
+			"name":        params.Name,
 			"villain":     params.VillainHash,
 			"seed":        params.Seed, // the random sort's seed (0 for other sorts), for the page links
 		},
