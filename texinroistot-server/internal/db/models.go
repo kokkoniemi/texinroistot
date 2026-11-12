@@ -110,6 +110,17 @@ type Villain struct {
 	// (nickname, other name, code name), where a villain with several such
 	// names is listed once under each of them.
 	SortName string `json:"sortName,omitempty"`
+	// Identity is the villain's own name and all of their ranks. Only set by
+	// ListByStoryHash, where Ranks, FirstNames and LastName are the ones the
+	// story gives (e.g. "Quantrell" with no rank), so the villain can still be
+	// recognised by name (e.g. for the Wikipedia link of a real person).
+	Identity *VillainIdentity `json:"identity,omitempty"`
+}
+
+type VillainIdentity struct {
+	Ranks      []string `json:"ranks"`
+	FirstNames []string `json:"firstNames"`
+	LastName   string   `json:"lastName"`
 }
 
 type StoryVillain struct {
@@ -119,6 +130,10 @@ type StoryVillain struct {
 	// empty when the story gives no name of its own.
 	FirstNames []string `json:"firstNames"`
 	LastName   string   `json:"lastName"`
+	// Ranks are the ranks the villain has in this story (a villain's ranks
+	// gather from all of their stories). Nil for rows imported before the
+	// column existed.
+	Ranks      []string `json:"ranks,omitempty"`
 	Nicknames  []string `json:"nicknames"`
 	OtherNames []string `json:"otherNames"`
 	CodeNames  []string `json:"codeNames"`

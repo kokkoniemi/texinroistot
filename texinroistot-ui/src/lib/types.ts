@@ -29,6 +29,13 @@ export type Villain = {
 	// The name the villain is listed under in a nickname, other name or code
 	// name sort; a villain with several such names is listed under each.
 	sortName?: string;
+	// Only set by the story villains endpoint, where ranks and names are the
+	// ones the story gives: the villain's own name and all of their ranks.
+	identity?: {
+		ranks?: string[] | null;
+		firstNames?: string[] | null;
+		lastName?: string | null;
+	};
 };
 
 export type StoryVillainsResponse = {
@@ -63,4 +70,13 @@ export type AdminVersion = {
 	id: number;
 	createdAt?: string;
 	isActive: boolean;
+};
+
+// Feedback sent from the Info page.
+export type AdminFeedback = {
+	id: number;
+	createdAt: string;
+	message: string;
+	// the sender's name or email address ('' when not given)
+	contact: string;
 };

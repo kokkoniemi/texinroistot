@@ -75,13 +75,14 @@ func (v *villainRepo) BulkCreate(villains []*Villain, version *Version) ([]*Vill
 				ArrayParam(sv.Roles),
 				ArrayParam(sv.FirstNames),
 				sv.LastName,
+				ArrayParam(sv.Ranks),
 			})
 		}
 	}
 
 	_, err = BulkInsertTxn(bulkInsertParams{
 		Table:   "villains_in_stories",
-		Columns: []string{"villain", "story", "hash", "nicknames", "other_names", "code_names", "destiny", "roles", "first_names", "last_name"},
+		Columns: []string{"villain", "story", "hash", "nicknames", "other_names", "code_names", "destiny", "roles", "first_names", "last_name", "ranks"},
 		Values:  storyVillainValues,
 	})
 	if err != nil {
@@ -323,6 +324,40 @@ func buildVillainSortRequirementClause(sort string) string {
 	}
 }
 
+// searchWordClause matches a search word (parameter $argPos) in the villain's
+// names, and with texts also in the roles and destinies of their stories.
+func searchWordClause(argPos int, texts bool) string {
+	storyFields := []string{
+		"array_to_string(vis.nicknames, ' ')",
+		"array_to_string(vis.other_names, ' ')",
+		"array_to_string(vis.code_names, ' ')",
+		"array_to_string(vis.first_names, ' ')",
+		"vis.last_name",
+	}
+	if texts {
+		storyFields = append(storyFields, "array_to_string(vis.roles, ' ')", "array_to_string(vis.destiny, ' ')")
+	}
+	param := fmt.Sprintf("$%d", argPos)
+	storyMatches := make([]string, len(storyFields))
+	for i, field := range storyFields {
+		storyMatches[i] = field + " ILIKE " + param
+	}
+	return fmt.Sprintf(`
+(
+	array_to_string(v.first_names, ' ') ILIKE %[1]s
+	OR v.last_name ILIKE %[1]s
+	OR array_to_string(v.ranks, ' ') ILIKE %[1]s
+	OR EXISTS (
+		SELECT 1
+		FROM villains_in_stories AS vis
+		WHERE vis.villain = v.id
+		AND (
+			%[2]s
+		)
+	)
+)`, param, strings.Join(storyMatches, "\n\t\t\tOR "))
+}
+
 func buildVillainListWhere(versionID int, params VillainListParams) (string, []interface{}, error) {
 	clauses := []string{"v.version = $1"}
 	args := []interface{}{versionID}
@@ -351,28 +386,18 @@ EXISTS (
 		clauses = append(clauses, sortRequirement)
 	}
 
-	// Each word of the search must be in one of the villain's names, so a whole
-	// name spanning several fields matches too: "Hoodoo Brown" (first and last
-	// name), "sheriffi Starr" (rank and last name), "Don Felipe".
+	// Each word of the name search must be in one of the villain's names, so a
+	// whole name spanning several fields matches too: "Hoodoo Brown" (first and
+	// last name), "sheriffi Starr" (rank and last name), "Don Felipe". Each word
+	// of the keyword search must be in a name or in a role or destiny of the
+	// villain ("pankkirosvo", "Tex ampui").
+	for _, word := range strings.Fields(params.Name) {
+		clauses = append(clauses, searchWordClause(argPos, false))
+		args = append(args, "%"+word+"%")
+		argPos++
+	}
 	for _, word := range strings.Fields(params.Search) {
-		clauses = append(clauses, fmt.Sprintf(`
-(
-	array_to_string(v.first_names, ' ') ILIKE $%d
-	OR v.last_name ILIKE $%d
-	OR array_to_string(v.ranks, ' ') ILIKE $%d
-	OR EXISTS (
-		SELECT 1
-		FROM villains_in_stories AS vis
-		WHERE vis.villain = v.id
-		AND (
-			array_to_string(vis.nicknames, ' ') ILIKE $%d
-			OR array_to_string(vis.other_names, ' ') ILIKE $%d
-			OR array_to_string(vis.code_names, ' ') ILIKE $%d
-			OR array_to_string(vis.first_names, ' ') ILIKE $%d
-			OR vis.last_name ILIKE $%d
-		)
-	)
-)`, argPos, argPos, argPos, argPos, argPos, argPos, argPos, argPos))
+		clauses = append(clauses, searchWordClause(argPos, true))
 		args = append(args, "%"+word+"%")
 		argPos++
 	}
@@ -455,7 +480,11 @@ WHERE %s;
 		orderClause = fmt.Sprintf(`md5(v.hash || '%d') ASC, v.id ASC`, params.Seed)
 	}
 	if params.Sort == "default" {
-		byRank, err := searchMatchesRank(whereClause, whereArgs, params.Search)
+		rankSearch := params.Name
+		if strings.TrimSpace(rankSearch) == "" {
+			rankSearch = params.Search
+		}
+		byRank, err := searchMatchesRank(whereClause, whereArgs, rankSearch)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -675,7 +704,9 @@ const selectVillainsByStoryHashSQL = `
 SELECT
 	COALESCE(v.id, 0),
 	COALESCE(v.hash, ''),
-	COALESCE(v.ranks, ARRAY[]::varchar[]),
+	-- in a single story the villain has the ranks that story gives (rows
+	-- imported before the column existed fall back to the villain's ranks)
+	COALESCE(vis.ranks, v.ranks, ARRAY[]::varchar[]),
 	COALESCE(v.first_names, ARRAY[]::varchar[]),
 	COALESCE(v.last_name, ''),
 	COALESCE(vis.id, 0),
@@ -693,7 +724,8 @@ SELECT
 		SELECT COUNT(DISTINCT all_vis.story)
 		FROM villains_in_stories AS all_vis
 		WHERE all_vis.villain = v.id
-	)
+	),
+	COALESCE(v.ranks, ARRAY[]::varchar[])
 FROM stories AS s
 LEFT JOIN villains_in_stories AS vis ON vis.story = s.id
 LEFT JOIN villains AS v ON v.id = vis.villain AND v.version = s.version
@@ -768,6 +800,7 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			StoryID          int
 			StoryHash        string
 			StoryCount       int
+			VillainRanks     []string
 		}
 
 		if err = rows.Scan(
@@ -788,6 +821,7 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			&row.StoryID,
 			&row.StoryHash,
 			&row.StoryCount,
+			ArrayParam(&row.VillainRanks),
 		); err != nil {
 			return nil, false, err
 		}
@@ -810,6 +844,11 @@ func (*villainRepo) ListByStoryHash(version *Version, storyHash string) ([]*Vill
 			FirstNames: firstNames,
 			LastName:   lastName,
 			StoryCount: row.StoryCount,
+			Identity: &VillainIdentity{
+				Ranks:      row.VillainRanks,
+				FirstNames: row.FirstNames,
+				LastName:   row.LastName,
+			},
 			As: []*StoryVillain{
 				{
 					ID:         row.StoryVillainID,

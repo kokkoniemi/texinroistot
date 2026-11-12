@@ -29,6 +29,8 @@
 		publication: string;
 		sort: string;
 		q: string;
+		// the name search (names only); q also searches roles and destinies
+		name?: string;
 		// The random sort's seed: page links keep it, so paging stays in the same
 		// shuffle; a new visit (no seed) gets a new one from the backend.
 		seed?: number;
@@ -225,7 +227,8 @@
 			seed,
 			page,
 			pageSize: meta.pageSize,
-			q: filters.q || undefined
+			q: filters.q || undefined,
+			name: filters.name || undefined
 		});
 	}
 
@@ -235,6 +238,7 @@
 			sort: selectedSort,
 			pageSize: meta.pageSize,
 			q: filters.q || undefined,
+			name: filters.name || undefined,
 			letter
 		});
 	}
@@ -259,7 +263,7 @@
 		{hasPrev}
 		{hasNext}
 		{pageHref}
-		filterColumns="minmax(300px, 360px) minmax(320px, 1fr) auto"
+		filterColumns="minmax(220px, 300px) minmax(200px, 1fr) minmax(200px, 1fr) auto"
 	>
 		<label class="field">
 			<span>Järjestys</span>
@@ -277,13 +281,26 @@
 			</select>
 		</label>
 
+		<!-- The name search looks in the villains' names only; the keyword search
+		     also in their roles and destinies. -->
+		<label class="field search">
+			<span>Hae nimellä</span>
+			<input
+				name="name"
+				type="text"
+				value={filters.name ?? ''}
+				placeholder="esim. Noah Malley"
+				disabled={isFilterLoading}
+			/>
+		</label>
+
 		<label class="field search">
 			<span>Hae hakusanalla</span>
 			<input
 				name="q"
 				type="text"
 				value={filters.q ?? ''}
-				placeholder="Kirjoita hakusana..."
+				placeholder="esim. liero tai tiger"
 				disabled={isFilterLoading}
 			/>
 		</label>
@@ -398,7 +415,12 @@
 							{#each stories as story, index (story.hash)}
 								{#if index > 0},
 								{/if}
-								<button type="button" class="story-link" on:click={() => (selectedStory = story)}
+								<!-- A villain in several stories shows no role or destiny here: the
+								     story opens with its villain list, this villain's card in view. -->
+								<button
+									type="button"
+									class="story-link"
+									on:click={() => openMention(story, stories.length > 1 ? villain.hash : '')}
 									>{storyListTitle(story)}</button
 								>
 							{/each}

@@ -29,8 +29,11 @@ type VillainListParams struct {
 	Sort        string
 	Search      string
 	VillainHash string
-	Page        int
-	PageSize    int
+	// Name searches the villain's names only; Search also their roles and
+	// destinies.
+	Name     string
+	Page     int
+	PageSize int
 	// Seed of the random sort (see StoryListParams.Seed).
 	Seed int
 }

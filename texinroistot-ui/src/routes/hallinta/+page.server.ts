@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/public';
 import type { PageServerLoad } from './$types';
-import type { AdminUser, AdminVersion } from '$lib/types';
+import type { AdminFeedback, AdminUser, AdminVersion } from '$lib/types';
 
 type MePayload = {
 	loggedIn?: boolean;
@@ -21,7 +21,9 @@ export const load: PageServerLoad = async ({ fetch }) => {
 		usersError: '',
 		versions: [] as AdminVersion[],
 		versionsError: '',
-		importUrl: ''
+		importUrl: '',
+		feedback: [] as AdminFeedback[],
+		feedbackError: ''
 	};
 
 	try {
@@ -45,7 +47,9 @@ export const load: PageServerLoad = async ({ fetch }) => {
 				usersError: '',
 				versions: [],
 				versionsError: '',
-				importUrl: ''
+				importUrl: '',
+				feedback: [],
+				feedbackError: ''
 			};
 		}
 
@@ -74,6 +78,16 @@ export const load: PageServerLoad = async ({ fetch }) => {
 			versionsError = 'Versioiden haku epäonnistui.';
 		}
 
+		let feedback: AdminFeedback[] = [];
+		let feedbackError = '';
+		const feedbackResponse = await fetch('/api/admin/feedback');
+		if (feedbackResponse.ok) {
+			const feedbackPayload = (await feedbackResponse.json()) as { feedback?: AdminFeedback[] };
+			feedback = feedbackPayload.feedback ?? [];
+		} else {
+			feedbackError = 'Palautteiden haku epäonnistui.';
+		}
+
 		return {
 			user,
 			googleClientId,
@@ -81,7 +95,9 @@ export const load: PageServerLoad = async ({ fetch }) => {
 			usersError,
 			versions,
 			versionsError,
-			importUrl
+			importUrl,
+			feedback,
+			feedbackError
 		};
 	} catch {
 		return fallbackData;

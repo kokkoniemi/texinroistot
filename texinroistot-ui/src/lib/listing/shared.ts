@@ -569,7 +569,8 @@ const MIN_MENTION_NAME_LENGTH = 3;
 
 // The names a villain can be mentioned by in a story: each first name with the
 // last name, the last name alone, and the story's nicknames, other names and
-// code names. Quoted parts of first names (Raymond "Ray") are left out.
+// code names. A quoted part of a first name (Raymond "Ray") is a first name of
+// its own too.
 export function villainMentionNames(villain: VillainForTitle, storyHash: string): string[] {
 	return mentionNames(villain, storyHash).names;
 }
@@ -587,13 +588,15 @@ function mentionNames(
 		if (!match) return [name];
 		return [match[1], ...match[2].split(',')].map((part) => part.trim()).filter(Boolean);
 	};
+	// Raymond "Ray": both the name and the quoted short form ("Ray Clemmons").
 	const firstNames = trimmed(villain.firstNames)
-		.map((name) =>
+		.flatMap((name) => [
 			name
 				.replace(/"[^"]*"/g, '')
 				.replace(/\s+/g, ' ')
-				.trim()
-		)
+				.trim(),
+			...[...name.matchAll(/"([^"]*)"/g)].map((quoted) => quoted[1].trim())
+		])
 		.filter(Boolean)
 		.flatMap(spellings);
 	const lastNames = spellings((villain.lastName ?? '').trim()).filter(Boolean);
@@ -653,6 +656,9 @@ export function storyMentionTargets(
 	});
 }
 
+// The heroes, often named right after a villain ("Trevorin Texille").
+const HEROES = ['tex', 'kit', 'carson', 'tiger', 'willer'];
+
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -689,12 +695,28 @@ export function mentionSegments(
 		}))
 		.sort((a, b) => b.name.length - a.name.length);
 	// Someone else's surname right after a first name: "Johnny Boyettin" is not
-	// Johnny Behan. A surname starting like the villain's own (a misspelling,
-	// "Sam Ketcumin") or a villain with no known surname still links.
+	// Johnny Behan, "Tom Blackburn" is not a villain called just Tom, and "Red
+	// Corralissa" is a place. A surname starting like the villain's own (a
+	// misspelling, "Sam Ketcumin") still links, and so does a first name
+	// followed by a hero ("Trevorin Texille") or another villain of the story
+	// ("Mandip Mefiston").
 	const otherSurnameFollows = (key: string, rest: string): boolean => {
 		const following = rest.match(/^\s+(\p{Lu}\p{L}*)/u)?.[1]?.toLowerCase();
+		if (!following) return false;
+		if (HEROES.some((hero) => following.startsWith(hero))) return false;
+		// another villain's own name, not just their surname ("Chris Owensin" is a
+		// full name: Chris with the surname of Stan Owens)
+		const isSurname = (other: string, name: string) =>
+			(lastNamesByKey.get(other) ?? []).includes(name);
+		if (
+			names.some(
+				({ name, key: other }) =>
+					other !== key && following.startsWith(name.toLowerCase()) && !isSurname(other, name)
+			)
+		) {
+			return false;
+		}
 		const lastNames = lastNamesByKey.get(key) ?? [];
-		if (!following || lastNames.length === 0) return false;
 		return !lastNames.some((lastName) => following.startsWith(lastName.slice(0, 3).toLowerCase()));
 	};
 

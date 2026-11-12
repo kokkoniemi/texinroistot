@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
-	import type { AdminUser, AdminVersion } from '$lib/types';
+	import type { AdminFeedback, AdminUser, AdminVersion } from '$lib/types';
 
 	export let data: PageData;
 
@@ -11,6 +11,10 @@
 	let versions: AdminVersion[] = [...(data.versions ?? [])];
 	let versionsError = data.versionsError ?? '';
 	let importUrl = data.importUrl ?? '';
+	let feedback: AdminFeedback[] = [...(data.feedback ?? [])];
+	let feedbackError = data.feedbackError ?? '';
+	let isDeletingFeedbackID: number | null = null;
+	let feedbackActionError = '';
 	let isLoggingOut = false;
 	let logoutError = '';
 	let isDeletingAccount = false;
@@ -364,6 +368,33 @@
 		}
 	}
 
+	async function deleteFeedback(item: AdminFeedback): Promise<void> {
+		if (isDeletingFeedbackID !== null) return;
+		if (!window.confirm('Poistetaanko palaute? Tätä ei voi perua.')) return;
+
+		isDeletingFeedbackID = item.id;
+		feedbackActionError = '';
+
+		try {
+			const response = await fetch(`/api/admin/feedback/${item.id}`, { method: 'DELETE' });
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+				feedbackActionError = payload?.error ?? 'Palautteen poistaminen epäonnistui.';
+				return;
+			}
+			feedback = feedback.filter((other) => other.id !== item.id);
+		} catch {
+			feedbackActionError = 'Palautteen poistaminen epäonnistui.';
+		} finally {
+			isDeletingFeedbackID = null;
+		}
+	}
+
+	// A contact that looks like an email address becomes a mailto link.
+	function isEmail(contact: string): boolean {
+		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
+	}
+
 	async function refreshVersions(): Promise<boolean> {
 		try {
 			const response = await fetch('/api/admin/versions');
@@ -438,6 +469,49 @@
 		<p><strong>Kirjautunut käyttäjä:</strong> {data.user.email}</p>
 
 		{#if data.user.isAdmin}
+			<section class="admin-section">
+				<h2>Palautteet ({feedback.length})</h2>
+				{#if feedbackError}
+					<p class="config-error">{feedbackError}</p>
+				{/if}
+				{#if feedbackActionError}
+					<p class="config-error">{feedbackActionError}</p>
+				{/if}
+
+				{#if feedback.length === 0}
+					<p>Palautteita ei ole.</p>
+				{:else}
+					<ul class="feedback-list">
+						{#each feedback as item (item.id)}
+							<li class="feedback-item">
+								<div class="feedback-meta">
+									<span><strong>Lähetetty:</strong> {formatCreatedAt(item.createdAt)}</span>
+									<span>
+										<strong>Lähettäjä:</strong>
+										{#if !item.contact}
+											<em>ei annettu</em>
+										{:else if isEmail(item.contact)}
+											<a href="mailto:{item.contact}">{item.contact}</a>
+										{:else}
+											{item.contact}
+										{/if}
+									</span>
+									<button
+										type="button"
+										class="danger feedback-delete"
+										on:click={() => deleteFeedback(item)}
+										disabled={isDeletingFeedbackID !== null}
+									>
+										{isDeletingFeedbackID === item.id ? 'Poistetaan...' : 'Poista'}
+									</button>
+								</div>
+								<p class="feedback-message">{item.message}</p>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
 			<section class="admin-section">
 				<h2>Versiot</h2>
 				<div class="version-toolbar">
@@ -666,6 +740,45 @@
 	.versions-list ul {
 		padding-left: 0;
 		list-style: none;
+	}
+
+	.feedback-list {
+		margin: 0;
+		padding-left: 0;
+		list-style: none;
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.feedback-item {
+		padding: 0.6rem;
+		border: 1px solid var(--border);
+		background: var(--panel-bg);
+	}
+
+	.feedback-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		align-items: baseline;
+	}
+
+	.feedback-meta a {
+		color: inherit;
+		word-break: break-all;
+	}
+
+	.feedback-delete {
+		margin-left: auto;
+		padding: 0.25rem 0.7rem;
+		font-size: 0.9rem;
+	}
+
+	/* the message as the sender wrote it, line breaks included */
+	.feedback-message {
+		margin: 0.5rem 0 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
 
 	.version-toolbar {

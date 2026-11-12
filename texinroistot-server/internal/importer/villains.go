@@ -166,6 +166,8 @@ func (i *importer) loadVillain(storyID id, r row) error {
 		Hash:       crypt.Hash(fmt.Sprintf("%d%d", villain.ID, storyID)),
 		FirstNames: firstNames,
 		LastName:   lastName,
+		// the ranks of this row only; the villain's ranks gather from all rows
+		Ranks:      slices.Clone(villainRanks),
 		Nicknames:  nicknames,
 		OtherNames: otherNames,
 		CodeNames:  codeNames,

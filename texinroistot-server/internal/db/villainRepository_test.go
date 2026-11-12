@@ -5,7 +5,9 @@ import (
 	"testing"
 )
 
-func TestBuildVillainListWhere_SearchUsesOnlyVillainIdentityFields(t *testing.T) {
+// The search looks in the villain's names and in their roles and destinies,
+// but not in story or publication fields.
+func TestBuildVillainListWhere_SearchUsesVillainNamesRolesAndDestinies(t *testing.T) {
 	whereClause, args, err := buildVillainListWhere(17, VillainListParams{
 		Publication: "all",
 		Search:      "Don",
@@ -21,6 +23,8 @@ func TestBuildVillainListWhere_SearchUsesOnlyVillainIdentityFields(t *testing.T)
 		"array_to_string(vis.nicknames, ' ') ILIKE $2",
 		"array_to_string(vis.other_names, ' ') ILIKE $2",
 		"array_to_string(vis.code_names, ' ') ILIKE $2",
+		"array_to_string(vis.roles, ' ') ILIKE $2",
+		"array_to_string(vis.destiny, ' ') ILIKE $2",
 	}
 	for _, part := range expectedParts {
 		if !strings.Contains(whereClause, part) {
@@ -29,8 +33,6 @@ func TestBuildVillainListWhere_SearchUsesOnlyVillainIdentityFields(t *testing.T)
 	}
 
 	disallowedParts := []string{
-		"array_to_string(vis.roles, ' ') ILIKE",
-		"array_to_string(vis.destiny, ' ') ILIKE",
 		"sip.title ILIKE",
 		"p.issue ILIKE",
 		"p.type::text ILIKE",
@@ -79,6 +81,36 @@ func TestBuildVillainListWhere_SearchArgPositionWithPublicationFilter(t *testing
 	}
 	if args[2] != "%kit%" {
 		t.Fatalf("expected search arg to be %%kit%%, got %v", args[2])
+	}
+}
+
+// The name search looks in names only; the keyword search after it also in
+// roles and destinies, each word with its own parameter.
+func TestBuildVillainListWhere_NameSearchUsesNamesOnly(t *testing.T) {
+	whereClause, args, err := buildVillainListWhere(5, VillainListParams{
+		Publication: "all",
+		Name:        "Hoodoo",
+		Search:      "Vegas",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if strings.Contains(whereClause, "array_to_string(vis.roles, ' ') ILIKE $2") ||
+		strings.Contains(whereClause, "array_to_string(vis.destiny, ' ') ILIKE $2") {
+		t.Fatalf("expected the name search to skip roles and destinies, got %s", whereClause)
+	}
+	for _, part := range []string{
+		"v.last_name ILIKE $2",
+		"vis.last_name ILIKE $3",
+		"array_to_string(vis.roles, ' ') ILIKE $3",
+		"array_to_string(vis.destiny, ' ') ILIKE $3",
+	} {
+		if !strings.Contains(whereClause, part) {
+			t.Fatalf("expected where clause to include %q, got %s", part, whereClause)
+		}
+	}
+	if len(args) != 3 || args[1] != "%Hoodoo%" || args[2] != "%Vegas%" {
+		t.Fatalf("expected args [5 %%Hoodoo%% %%Vegas%%], got %v", args)
 	}
 }
 
