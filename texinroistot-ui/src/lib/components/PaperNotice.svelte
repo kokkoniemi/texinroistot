@@ -1,12 +1,31 @@
 <script lang="ts">
 	// A notice on rough, torn paper, like a poster on a saloon wall: the
 	// front page notice and the Info page use it.
+	import { onMount } from 'svelte';
+
 	export let maxWidth = '40rem';
+
+	// Browsers draw a filtered element into one image of limited size, and a
+	// phone's pixels are small: a tall notice (the Info page on a phone) went
+	// over the limit and its paper was cut off. A notice taller than this many
+	// device pixels goes without the frayed edge and the soft shadow (filters);
+	// a plain shadow of the torn outline takes the shadow's place.
+	const MAX_FILTERED_HEIGHT = 3000;
+
+	let noticeHeight = 0;
+	let pixelRatio = 1;
+	onMount(() => {
+		pixelRatio = window.devicePixelRatio || 1;
+	});
+	$: plain = noticeHeight * pixelRatio > MAX_FILTERED_HEIGHT;
 </script>
 
-<div class="paper-notice" style:max-width={maxWidth}>
+<div class="paper-notice" class:plain style:max-width={maxWidth} bind:clientHeight={noticeHeight}>
 	<!-- The paper: a clipped sheet (torn corners) frayed by the #ragged-edge filter. -->
-	<div class="notice-paper" aria-hidden="true"><div class="notice-sheet"></div></div>
+	<div class="notice-paper" aria-hidden="true">
+		<div class="notice-plain-shadow"></div>
+		<div class="notice-sheet"></div>
+	</div>
 
 	<div class="notice-content">
 		<slot />
@@ -121,7 +140,12 @@
 		box-shadow:
 			inset 0 0 50px rgba(120, 75, 25, 0.3),
 			inset 0 0 8px rgba(90, 55, 20, 0.45);
-		clip-path: polygon(
+		clip-path: var(--torn);
+	}
+
+	/* the torn outline of the sheet, shared by its plain shadow */
+	.notice-paper {
+		--torn: polygon(
 			0 0,
 			/* a slanting tear down from the top edge */ 31% 0,
 			calc(31% + 9px) 16px,
@@ -176,6 +200,29 @@
 
 	.notice-content {
 		padding: 2rem 2rem 2.4rem;
+	}
+
+	/* A notice too tall for filters: no frayed edge or soft shadow, but a
+	   plain, slightly offset shadow of the torn outline. */
+	.notice-plain-shadow {
+		display: none;
+	}
+
+	.paper-notice.plain {
+		filter: none;
+	}
+
+	.paper-notice.plain .notice-paper {
+		filter: none;
+	}
+
+	.paper-notice.plain .notice-plain-shadow {
+		display: block;
+		position: absolute;
+		inset: 0;
+		transform: translate(3px, 6px);
+		background: rgba(15, 8, 3, 0.45);
+		clip-path: var(--torn);
 	}
 	@media (max-width: 640px) {
 		.paper-notice {
