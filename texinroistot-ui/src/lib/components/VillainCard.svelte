@@ -11,6 +11,9 @@
 	import VillainWikiLink from './VillainWikiLink.svelte';
 
 	export let title: string;
+	// Set when the villain is headed by code names only: they are shown in
+	// italics (after the rank), as on the Roistot page.
+	export let codeNameTitle: { rank: string; codeNames: string[] } | null = null;
 	// Set only for villains in several stories; opens a popup with all of them.
 	export let otherStoriesVillainHash: string | undefined = undefined;
 	export let roles: string[] | null | undefined = undefined;
@@ -35,7 +38,13 @@
 </script>
 
 <article class="story-villain-card" data-villain-key={villainKey || undefined}>
-	<h4>{title}</h4>
+	<h4>
+		{#if codeNameTitle}{codeNameTitle.rank
+				? `${codeNameTitle.rank} `
+				: ''}{#each codeNameTitle.codeNames as codeName, index (codeName)}{index > 0 ? '; ' : ''}<em
+					>{codeName}</em
+				>{/each}{:else}{title}{/if}
+	</h4>
 	{#if hasValues(roles)}
 		<p>
 			<strong>Rooli:</strong>

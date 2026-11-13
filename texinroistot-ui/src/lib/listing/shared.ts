@@ -528,6 +528,25 @@ type VillainForTitle = {
 	}> | null;
 };
 
+// A villain with no other name than code names is headed by them (with the
+// rank), shown in italics as on the Roistot page; null when the villain has
+// another name for the heading.
+export function storyVillainCodeNameTitle(
+	villain: VillainForTitle,
+	storyHash: string
+): { rank: string; codeNames: string[] } | null {
+	const realName =
+		`${joinValues(villain.firstNames, '').trim()} ${(villain.lastName ?? '').trim()}`.trim();
+	const appearance = storyVillainForStory(villain, storyHash);
+	const hasAny = (values?: string[] | null) => (values ?? []).some((v) => v.trim());
+	if (realName || hasAny(appearance?.otherNames) || hasAny(appearance?.nicknames)) return null;
+	const codeNames = (appearance?.codeNames ?? [])
+		.map((v) => v.trim())
+		.filter((v, i, arr) => Boolean(v) && arr.indexOf(v) === i);
+	if (codeNames.length === 0) return null;
+	return { rank: joinValues(villain.ranks, '').trim(), codeNames };
+}
+
 export function storyVillainTitle(villain: VillainForTitle, storyHash: string): string {
 	const firstNames = joinValues(villain.firstNames, '').trim();
 	const lastName = (villain.lastName ?? '').trim();

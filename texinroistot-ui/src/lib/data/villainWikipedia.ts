@@ -446,6 +446,11 @@ const entries: Entry[] = [
 		names: ['Hoodoo Brown'],
 		url: 'https://en.wikipedia.org/wiki/Hoodoo_Brown',
 		label: 'Kuka oli oikea Hoodoo Brown?'
+	},
+	{
+		names: ['John Lee'],
+		url: 'https://en.wikipedia.org/wiki/John_D._Lee',
+		label: 'Kuka oli John D. Lee?'
 	}
 ];
 

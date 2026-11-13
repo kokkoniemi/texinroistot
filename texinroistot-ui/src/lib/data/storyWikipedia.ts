@@ -43,6 +43,21 @@ const entries: Entry[] = [
 		titles: ['Voittamattomat'],
 		url: 'https://fi.wikipedia.org/wiki/Feenil%C3%A4isyys',
 		label: 'Keitä olivat Irlannin vapaustaistelijat?'
+	},
+	{
+		titles: ['Konfederaattien kulta'],
+		url: 'https://fi.wikipedia.org/wiki/Ku_Klux_Klan',
+		label: 'Mikä on Ku Klux Klan?'
+	},
+	{
+		titles: ['Naamioidut tappajat'],
+		url: 'https://fi.wikipedia.org/wiki/Mountain_Meadowsin_veril%C3%B6yly',
+		label: 'Mikä oli historiallinen Mountain Meadowsin joukkomurha?'
+	},
+	{
+		titles: ['Kuristajat'],
+		url: 'https://fi.wikipedia.org/wiki/Tugeenit',
+		label: 'Keitä olivat thugit?'
 	}
 ];
 
