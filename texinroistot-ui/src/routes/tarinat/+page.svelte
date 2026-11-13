@@ -12,6 +12,7 @@
 		storyVillainForStory,
 		otherStoriesVillainHash,
 		storyVillainTitle,
+		storyVillainCodeNameTitle,
 		storyMentionTargets,
 		showMentionedVillain
 	} from '$lib/listing/shared';
@@ -395,6 +396,7 @@
 										{@const cardTitle = storyVillainTitle(villain, storyHash)}
 										<VillainCard
 											title={cardTitle}
+											codeNameTitle={storyVillainCodeNameTitle(villain, storyHash)}
 											otherStoriesVillainHash={otherStoriesVillainHash(villain)}
 											roles={appearance?.roles}
 											destiny={appearance?.destiny}

@@ -3,6 +3,29 @@
 	import PaperNotice from '$lib/components/PaperNotice.svelte';
 
 	let feedbackOpen = false;
+
+	const paragraphs = [
+		'Tietokanta sisältää kaikki Tex Willer -sarjakuvassa ennen vuotta 2020 Suomessa julkaistut tarinat. Roistoista on huomioitu kaikki ne, joiden nimi tai kutsumanimi on mainittu tarinassa. Jokaiselle roistolle on määritelty rooli, eli millä agendalla kelmi on tarinassa liikkunut. Kohtalo-kenttään on kirjoitettu mitä lurjukselle on ko. tarinassa tapahtunut. Jos kohtalo ei selviä tarinassa, sitä ei ole määritelty. Roiston nimi tarinassa on se, millä nimellä juuri siinä tarinassa roistoa on kutsuttu.',
+		'Tämä tilasto on täysin subjektiivinen, yhden henkilön näkemys. Roistoksi on määritelty kaikki ne, jotka ovat rikollisia tai vastustavat ystäviämme tarinassa. Osa rikollisista on jo parantanut tapansa ja toimii tarinassa ystäviemme puolella, mutta on silti päätynyt tilastoon. Jos konnan nimi on mainittu tarinassa, mutta maininnasta ei selviä, onko ko. henkilö rikollinen, häntä ei ole merkitty tilastoon. Tällaisia henkilöitä ovat esimerkiksi monet historialliset intiaanipäälliköt, kuten Geronimo, Victorio ym.',
+		'Miksi tietokanta ei sisällä 2020-luvun tarinoita? Tex Willer -tarinoiden taso on valitettavasti laskenut 1990-luvulta saakka. Isä ja poika Bonellin kuolema, Nizzin tarinoiden tason lasku ja Bosellin tulo pääkirjoittajaksi ovat muuttaneet sarjakuvaa liikaa. Viime vuosina tarinoita on julkaistu eri formaateissa niin paljon, että johonkin piti vetää raja. Monet uudet erikoisjulkaisut eivät mielestäni muistuta enää vähääkään Tex Willer -sarjakuvaa – jos haluan lukea Aku Ankkaa tai Blueberryä, luen niitä. Siksi rajasin tilaston vuoteen 2020.',
+		'Tarinoiden tietoihin olen saanut lähteeksi Janne Viitalan ylläpitämän tietokannan. Sivuston teknisestä toteutuksesta on vastannut Mikko K. Kiitos!'
+	];
+
+	// On a phone each paragraph is nailed up on its own paper, each a little
+	// askew and torn in its own way: the tilt in degrees and where the tears
+	// are (percent along the top edge, percent down the side edge, and which
+	// side).
+	const papers: {
+		tilt: number;
+		tearX: number;
+		tearY: number;
+		tearSide: 'left' | 'right';
+	}[] = [
+		{ tilt: -0.6, tearX: 31, tearY: 58, tearSide: 'left' },
+		{ tilt: 0.8, tearX: 60, tearY: 38, tearSide: 'right' },
+		{ tilt: -0.4, tearX: 22, tearY: 70, tearSide: 'right' },
+		{ tilt: 0.5, tearX: 45, tearY: 45, tearSide: 'left' }
+	];
 </script>
 
 <svelte:head>
@@ -12,49 +35,50 @@
 <section class="info-page">
 	<h1 class="on-wall">Info</h1>
 
-	<!-- The same torn paper notice as on the front page. -->
-	<PaperNotice maxWidth="46rem">
-		<article class="info-text">
-			<h2>Texin roistot -tietokanta</h2>
-			<p>
-				Tietokanta sisältää kaikki Tex Willer -sarjakuvassa ennen vuotta 2020 Suomessa julkaistut
-				tarinat. Roistoista on huomioitu kaikki ne, joiden nimi tai kutsumanimi on mainittu
-				tarinassa. Jokaiselle roistolle on määritelty rooli, eli millä agendalla kelmi on tarinassa
-				liikkunut. Kohtalo-kenttään on kirjoitettu mitä lurjukselle on ko. tarinassa tapahtunut. Jos
-				kohtalo ei selviä tarinassa, sitä ei ole määritelty. Roiston nimi tarinassa on se, millä
-				nimellä juuri siinä tarinassa roistoa on kutsuttu.
-			</p>
-			<p>
-				Tämä tilasto on täysin subjektiivinen, yhden henkilön näkemys. Roistoksi on määritelty
-				kaikki ne, jotka ovat rikollisia tai vastustavat ystäviämme tarinassa. Osa rikollisista on
-				jo parantanut tapansa ja toimii tarinassa ystäviemme puolella, mutta on silti päätynyt
-				tilastoon. Jos konnan nimi on mainittu tarinassa, mutta maininnasta ei selviä, onko ko.
-				henkilö rikollinen, häntä ei ole merkitty tilastoon. Tällaisia henkilöitä ovat esimerkiksi
-				monet historialliset intiaanipäälliköt, kuten Geronimo, Victorio ym.
-			</p>
-			<p>
-				Miksi tietokanta ei sisällä 2020-luvun tarinoita? Tex Willer -tarinoiden taso on
-				valitettavasti laskenut 1990-luvulta saakka. Isä ja poika Bonellin kuolema, Nizzin
-				tarinoiden tason lasku ja Bosellin tulo pääkirjoittajaksi ovat muuttaneet sarjakuvaa liikaa.
-				Viime vuosina tarinoita on julkaistu eri formaateissa niin paljon, että johonkin piti vetää
-				raja. Monet uudet erikoisjulkaisut eivät mielestäni muistuta enää vähääkään Tex Willer
-				-sarjakuvaa – jos haluan lukea Aku Ankkaa tai Blueberryä, luen niitä. Siksi rajasin tilaston
-				vuoteen 2020.
-			</p>
-			<p>
-				Tarinoiden tietoihin olen saanut lähteeksi Janne Viitalan ylläpitämän tietokannan. Sivuston
-				teknisestä toteutuksesta on vastannut Mikko K. Kiitos!
-			</p>
-			<p class="signature">Jouni K</p>
-			<p class="feedback-line">
-				Tietokannasta ja sivustosta voi antaa palautetta <button
-					type="button"
-					class="feedback-link"
-					on:click={() => (feedbackOpen = true)}>tästä</button
-				>.
-			</p>
-		</article>
-	</PaperNotice>
+	<!-- Wide screens: the whole text on one torn paper notice, as on the front page. -->
+	<div class="info-whole">
+		<PaperNotice maxWidth="46rem" tornCorners={false}>
+			<article class="info-text">
+				<h2>Texin roistot -tietokanta</h2>
+				{#each paragraphs as paragraph, index (index)}
+					<p>{paragraph}</p>
+				{/each}
+				<p class="signature">Jouni K</p>
+				<p class="feedback-line">
+					Tietokannasta ja sivustosta voi antaa palautetta <button
+						type="button"
+						class="feedback-link"
+						on:click={() => (feedbackOpen = true)}>tästä</button
+					>.
+				</p>
+			</article>
+		</PaperNotice>
+	</div>
+
+	<!-- Phones: each paragraph on its own paper; the heading on the first, the
+	     signature and the feedback line on the last. -->
+	<div class="info-split">
+		{#each paragraphs as paragraph, index (index)}
+			<PaperNotice maxWidth="46rem" tornCorners={false} {...papers[index % papers.length]}>
+				<article class="info-text">
+					{#if index === 0}
+						<h2>Texin roistot -tietokanta</h2>
+					{/if}
+					<p>{paragraph}</p>
+					{#if index === paragraphs.length - 1}
+						<p class="signature">Jouni K</p>
+						<p class="feedback-line">
+							Tietokannasta ja sivustosta voi antaa palautetta <button
+								type="button"
+								class="feedback-link"
+								on:click={() => (feedbackOpen = true)}>tästä</button
+							>.
+						</p>
+					{/if}
+				</article>
+			</PaperNotice>
+		{/each}
+	</div>
 </section>
 
 {#if feedbackOpen}
@@ -64,6 +88,11 @@
 <style>
 	.info-page {
 		margin: 1rem 1.5rem 0;
+	}
+
+	/* one layout at a time; the hidden one is out of the page for screen readers too */
+	.info-split {
+		display: none;
 	}
 
 	.info-text h2 {
@@ -109,6 +138,14 @@
 	@media (max-width: 640px) {
 		.info-page {
 			margin: 0.75rem 0.75rem 0;
+		}
+
+		.info-whole {
+			display: none;
+		}
+
+		.info-split {
+			display: block;
 		}
 	}
 </style>

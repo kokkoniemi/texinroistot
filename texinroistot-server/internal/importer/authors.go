@@ -94,6 +94,14 @@ func splitAuthorColumnNames(raw string) []string {
 	return names
 }
 
+// surnameParticles are the words that belong to the last name when they come
+// before it: "De Angelis", "Della Monica", "de la Fuente".
+var surnameParticles = map[string]bool{
+	"da": true, "dal": true, "dalla": true, "de": true, "dei": true, "degli": true,
+	"del": true, "della": true, "delle": true, "der": true, "di": true, "du": true,
+	"la": true, "le": true, "van": true, "von": true,
+}
+
 func parseAuthorName(name string) (string, string) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -108,8 +116,15 @@ func parseAuthorName(name string) (string, string) {
 		if len(fields) == 1 {
 			return fields[0], ""
 		}
-		firstName := strings.Join(fields[:len(fields)-1], " ")
-		lastName := fields[len(fields)-1]
+		// The last name starts at the last word, or earlier at the particles
+		// before it ("Pasquale Del Vecchio", "Victor de la Fuente"); at least
+		// one word is left for the first name.
+		lastStart := len(fields) - 1
+		for lastStart > 1 && surnameParticles[strings.ToLower(fields[lastStart-1])] {
+			lastStart--
+		}
+		firstName := strings.Join(fields[:lastStart], " ")
+		lastName := strings.Join(fields[lastStart:], " ")
 		return strings.TrimSpace(firstName), strings.TrimSpace(lastName)
 	}
 

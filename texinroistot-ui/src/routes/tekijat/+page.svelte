@@ -3,18 +3,17 @@
 	import {
 		buildPageHref,
 		nonItalianTitlesByFirstPublication,
-		openInOwnWindow,
 		paginationTokens,
-		publicationSummaryFromPublications,
-		translatedPartTitles
+		publicationSummaryFromPublications
 	} from '$lib/listing/shared';
 	import type { Meta, PaginationToken } from '$lib/listing/shared';
-	import type { Story, ListedAuthor, AuthorStoriesResponse } from '$lib/types';
-	import { authorWikipediaUrl } from '$lib/data/authorWikipedia';
+	import { authorStoryList } from '$lib/listing/storyLists';
+	import type { AuthorRole, StoryListSpec } from '$lib/listing/storyLists';
+	import type { Story, ListedAuthor } from '$lib/types';
 	import FilterForm from '$lib/components/FilterForm.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import StoryListPopup from '$lib/components/StoryListPopup.svelte';
 	import StoryPopup from '$lib/components/StoryPopup.svelte';
-	import StoryTitle from '$lib/components/StoryTitle.svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -38,12 +37,12 @@
 	let hasNext = false;
 	let isFilterLoading = false;
 	let pageTokens: PaginationToken[] = [];
-	let expandedAuthorHashes: Record<string, boolean> = {};
-	let loadingAuthorHashes: Record<string, boolean> = {};
-	let errorByAuthorHash: Record<string, string> = {};
-	let storiesByAuthorHash: Record<string, Story[]> = {};
-	let authorListSignature = '';
+	// The author card (the author's stories and Wikipedia link) opened from the list.
+	let openList: StoryListSpec | null = null;
+	// A story chosen from the author card, and the card it was chosen from, so
+	// the story popup's "Edellinen" (or the browser's back) returns to the card.
 	let selectedStory: Story | null = null;
+	let selectedFromList: StoryListSpec | null = null;
 
 	$: authors = data.authors ?? [];
 	$: meta = data.meta ?? { total: 0, page: 1, pageSize: 25, totalPages: 0 };
@@ -52,22 +51,26 @@
 	$: hasNext = meta.page < meta.totalPages;
 	$: isFilterLoading = Boolean($navigating) && $navigating?.to?.url.pathname === '/tekijat';
 	$: pageTokens = paginationTokens(meta.page, meta.totalPages);
-	$: {
-		const nextSignature = authors
-			.map((author) => (author.hash ?? '').trim())
-			.filter(Boolean)
-			.join('|');
-		if (nextSignature !== authorListSignature) {
-			authorListSignature = nextSignature;
-			expandedAuthorHashes = {};
-			loadingAuthorHashes = {};
-			errorByAuthorHash = {};
-			storiesByAuthorHash = {};
-		}
-	}
+	// The translators in one column; the writers and drawers in two: the first
+	// half in the left column, the rest in the right.
+	$: singleColumn = filters.type === 'translator';
+	$: authorColumns = singleColumn
+		? [authors]
+		: [
+				authors.slice(0, Math.ceil(authors.length / 2)),
+				authors.slice(Math.ceil(authors.length / 2))
+			];
 
 	function authorName(author: ListedAuthor): string {
 		return `${author.firstName} ${author.lastName}`.trim() || '-';
+	}
+
+	// The name in the list, surname first: "Bonelli, Giovanni Luigi".
+	function listedName(author: ListedAuthor): string {
+		const firstName = (author.firstName ?? '').trim();
+		const lastName = (author.lastName ?? '').trim();
+		if (firstName && lastName) return `${lastName}, ${firstName}`;
+		return lastName || firstName || '-';
 	}
 
 	function resultLabel(authorType: string): string {
@@ -86,16 +89,14 @@
 		});
 	}
 
-	function normalizeAuthorHash(raw?: string): string {
-		return (raw ?? '').trim();
+	function authorRole(type: string): AuthorRole {
+		return type === 'drawer' || type === 'translator' ? type : 'writer';
 	}
 
-	function hasFetchedAuthorStories(authorHash: string): boolean {
-		return Object.prototype.hasOwnProperty.call(storiesByAuthorHash, authorHash);
-	}
-
-	function authorStories(authorHash: string): Story[] {
-		return storiesByAuthorHash[authorHash] ?? [];
+	function openAuthor(author: ListedAuthor): void {
+		const authorHash = (author.hash ?? '').trim();
+		if (!authorHash) return;
+		openList = authorStoryList(authorName(author), authorHash, authorRole(filters.type));
 	}
 
 	function finnishPublications(story: Story) {
@@ -115,49 +116,8 @@
 		return anyTitle || 'Nimetön tarina';
 	}
 
-	// In the Suomentajat list, show only the titles of the parts the translator
-	// translated; other groups show all titles.
-	function authorStoryTitle(story: Story, authorHash: string): string {
-		if (filters.type !== 'translator') return storyTitle(story);
-		const titles = translatedPartTitles(story, authorHash);
-		return titles.length > 0 ? titles.join('; ') : storyTitle(story);
-	}
-
 	function publicationSummary(story: Story): string {
 		return publicationSummaryFromPublications(finnishPublications(story), 'Ei julkaisutietoja');
-	}
-
-	async function toggleAuthorStories(author: ListedAuthor): Promise<void> {
-		const authorHash = normalizeAuthorHash(author.hash);
-		if (!authorHash) return;
-
-		const isCurrentlyExpanded = Boolean(expandedAuthorHashes[authorHash]);
-		if (isCurrentlyExpanded) {
-			expandedAuthorHashes = { ...expandedAuthorHashes, [authorHash]: false };
-			return;
-		}
-
-		expandedAuthorHashes = { ...expandedAuthorHashes, [authorHash]: true };
-		if (hasFetchedAuthorStories(authorHash) || loadingAuthorHashes[authorHash]) return;
-
-		loadingAuthorHashes = { ...loadingAuthorHashes, [authorHash]: true };
-		errorByAuthorHash = { ...errorByAuthorHash, [authorHash]: '' };
-
-		try {
-			const response = await fetch(
-				`/api/tekijat/${encodeURIComponent(authorHash)}/tarinat?type=${encodeURIComponent(filters.type)}`
-			);
-			if (!response.ok) throw new Error(`Tarinoiden haku epäonnistui (${response.status})`);
-			const payload = (await response.json()) as AuthorStoriesResponse;
-			storiesByAuthorHash = { ...storiesByAuthorHash, [authorHash]: payload.stories ?? [] };
-		} catch (error) {
-			errorByAuthorHash = {
-				...errorByAuthorHash,
-				[authorHash]: error instanceof Error ? error.message : 'Tarinoiden haku epäonnistui'
-			};
-		} finally {
-			loadingAuthorHashes = { ...loadingAuthorHashes, [authorHash]: false };
-		}
 	}
 </script>
 
@@ -214,62 +174,41 @@
 	{#if authors.length === 0}
 		<p class="empty">Ei tuloksia valituilla hakuehdoilla.</p>
 	{:else}
-		<div class="author-list">
-			{#each authors as author (author.hash ?? authorName(author))}
-				{@const authorHash = normalizeAuthorHash(author.hash)}
-				{@const wikipediaUrl = authorWikipediaUrl(authorName(author))}
-				<article class="author-card">
-					<h3>
-						<button
-							type="button"
-							class="author-link"
-							on:click={() => toggleAuthorStories(author)}
-							disabled={!authorHash}
-							aria-expanded={Boolean(expandedAuthorHashes[authorHash])}
-						>
-							{authorName(author)}
-						</button>
-						{#if wikipediaUrl}
-							<a
-								class="wiki-link"
-								href={wikipediaUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								on:click={openInOwnWindow}>Wikipedia</a
+		<!-- All authors on one sheet of paper, in two columns (translators in
+		     one). A name opens the author card: the author's stories and
+		     Wikipedia link. -->
+		<div class="author-list author-sheet" class:single-column={singleColumn}>
+			{#each authorColumns as column, columnIndex (columnIndex)}
+				<ul class="author-column">
+					{#each column as author (author.hash ?? authorName(author))}
+						<li class="author-entry">
+							<button
+								type="button"
+								class="author-link"
+								on:click={() => openAuthor(author)}
+								disabled={!(author.hash ?? '').trim()}
 							>
-						{/if}
-					</h3>
-
-					{#if expandedAuthorHashes[authorHash]}
-						<section class="author-stories">
-							{#if loadingAuthorHashes[authorHash]}
-								<p>Haetaan tarinoita...</p>
-							{:else if errorByAuthorHash[authorHash]}
-								<p class="author-stories-error">{errorByAuthorHash[authorHash]}</p>
-							{:else if authorStories(authorHash).length === 0}
-								<p>Tekijälle ei löytynyt tarinoita.</p>
-							{:else}
-								<ul class="author-story-list">
-									{#each authorStories(authorHash) as story (story.hash)}
-										<li>
-											<button
-												type="button"
-												class="author-story-link"
-												on:click={() => (selectedStory = story)}
-											>
-												<StoryTitle title={authorStoryTitle(story, authorHash)} />
-											</button>
-											<br />
-											<span>{publicationSummary(story)}</span>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</section>
-					{/if}
-				</article>
+								{listedName(author)}
+							</button>
+						</li>
+					{/each}
+				</ul>
 			{/each}
 		</div>
+	{/if}
+
+	{#if openList}
+		{@const list = openList}
+		<StoryListPopup
+			{...list}
+			on:close={() => (openList = null)}
+			on:selectStory={(e) => {
+				// remember the card before closing it ({@const} follows openList)
+				selectedFromList = list;
+				openList = null;
+				selectedStory = e.detail;
+			}}
+		/>
 	{/if}
 
 	{#if selectedStory}
@@ -277,7 +216,16 @@
 			story={selectedStory}
 			title={storyTitle(selectedStory)}
 			publicationSummary={publicationSummary(selectedStory)}
-			on:close={() => (selectedStory = null)}
+			fromList={selectedFromList}
+			on:close={() => {
+				selectedStory = null;
+				selectedFromList = null;
+			}}
+			on:backToList={(e) => {
+				selectedStory = null;
+				selectedFromList = null;
+				openList = e.detail;
+			}}
 			on:selectStory={(e) => (selectedStory = e.detail)}
 		/>
 	{/if}
@@ -314,22 +262,35 @@
 		box-sizing: border-box;
 	}
 
-	/* A compact list: one short row per author, opening to their stories. */
+	/* All authors on one sheet of paper (the paper comes from app.css), one
+	   short row per author, in two columns. */
 	.author-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-	}
-
-	/* the paper background comes from app.css */
-	.author-card {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		border: 1px solid var(--border);
-		padding: 0.5rem 0.9rem;
-		box-shadow: 0 2px 6px var(--shadow);
+		padding: 1rem 1.25rem;
+		box-shadow: 0 4px 10px var(--shadow);
 	}
 
-	.author-card h3 {
+	.author-list.single-column {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.author-column {
+		min-width: 0;
 		margin: 0;
+		padding: 0 1.25rem 0 0;
+		list-style: none;
+	}
+
+	/* a thin line between the columns */
+	.author-column + .author-column {
+		padding: 0 0 0 1.25rem;
+		border-left: 1px solid var(--border-soft);
+	}
+
+	.author-entry {
+		padding: 0.2rem 0;
 		font-size: 1.05rem;
 		line-height: 1.4;
 	}
@@ -346,47 +307,10 @@
 		text-decoration: underline;
 	}
 
-	.wiki-link {
-		margin-left: 0.6rem;
-		font-size: 0.85rem;
-		font-weight: 400;
-	}
-
 	.author-link:disabled {
 		text-decoration: none;
 		color: var(--muted);
 		cursor: default;
-	}
-
-	.author-stories {
-		border: 1px solid var(--border);
-		background: var(--panel-bg);
-		margin-top: 0.55rem;
-		padding: 0.65rem 0.8rem;
-	}
-
-	.author-story-list {
-		margin: 0;
-		padding-left: 1.1rem;
-		display: grid;
-		gap: 0.4rem;
-	}
-
-	.author-story-link {
-		border: 0;
-		padding: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-		font-weight: 700;
-		text-align: left;
-		text-decoration: underline;
-		cursor: pointer;
-	}
-
-	.author-stories-error {
-		margin: 0;
-		color: var(--color-error);
 	}
 
 	.empty {
@@ -398,6 +322,22 @@
 	@media (max-width: 640px) {
 		.tekijat-page {
 			margin: 0.75rem 0.75rem 0;
+		}
+
+		.author-list {
+			padding: 0.75rem 0.85rem;
+		}
+
+		.author-column {
+			padding-right: 0.6rem;
+		}
+
+		.author-column + .author-column {
+			padding: 0 0 0 0.6rem;
+		}
+
+		.author-entry {
+			font-size: 0.98rem;
 		}
 	}
 </style>
