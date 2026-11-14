@@ -58,6 +58,11 @@ const entries: Entry[] = [
 		titles: ['Kuristajat'],
 		url: 'https://fi.wikipedia.org/wiki/Tugeenit',
 		label: 'Keitä olivat thugit?'
+	},
+	{
+		titles: ['Kilpailevat koplat'],
+		url: 'https://en.wikipedia.org/wiki/James%E2%80%93Younger_Gang',
+		label: 'Ketkä olivat todelliset Youngerit?'
 	}
 ];
 

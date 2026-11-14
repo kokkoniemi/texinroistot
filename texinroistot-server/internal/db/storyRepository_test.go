@@ -208,6 +208,19 @@ func TestFinnishSpecialOrderClause(t *testing.T) {
 	}
 }
 
+// In a Finnish special publication (e.g. Kronikka), stories starting in the
+// same issue are ordered by the issue their run ends in, then by the issue
+// text ("20" before "20 b"), before the story order number.
+func TestFinnishSpecialOrderClause_SameStartOrdersByRunEnd(t *testing.T) {
+	clause := finnishSpecialOrderClause(StoryListParams{Publication: "kronikka", Sort: "fi_pub_date"})
+	end := strings.Index(clause, `regexp_match(p.issue, '(\d+)\D*$')`)
+	issue := strings.Index(clause, "SELECT MIN(p.issue)")
+	orderNum := strings.Index(clause, "s.order_num ASC")
+	if end < 0 || issue < 0 || orderNum < 0 || !(end < issue && issue < orderNum) {
+		t.Fatalf("expected the run end, then the issue, before the order number, got %s", clause)
+	}
+}
+
 // Stories starting in the same issue are ordered by where their run ends
 // before the story order number, in the Finnish date sort with and without a year.
 func TestFinnishDateSort_SameStartOrdersByRunEnd(t *testing.T) {
