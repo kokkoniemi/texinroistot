@@ -508,7 +508,37 @@ func finnishSpecialOrderClause(params StoryListParams) string {
 	if types == nil {
 		return ""
 	}
-	return fmt.Sprintf(`%s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`, finnishSpecialDateKeySQL(types))
+	return fmt.Sprintf(`%s ASC NULLS LAST, %s ASC NULLS LAST, %s ASC NULLS LAST, s.order_num ASC NULLS LAST, s.id ASC`,
+		finnishSpecialDateKeySQL(types), finnishSpecialRunEndKeySQL(types), finnishSpecialIssueSQL(types))
+}
+
+// finnishSpecialRunEndKeySQL is the year*100000 + last number of the story's
+// publications of the given Finnish special types, e.g. 2 for "Kronikka 1-2".
+// Stories starting in the same issue are ordered by it: the one ending there
+// comes first, e.g. "Rautatie helvettiin" (1) before "Navajoverta" (1-2).
+func finnishSpecialRunEndKeySQL(types []string) string {
+	return fmt.Sprintf(`(
+	SELECT MIN(
+		COALESCE(%s, 0) * %d
+		+ COALESCE((regexp_match(p.issue, '(\d+)\D*$'))[1]::int, 0)
+	)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type::text IN ('%s')
+)`, publicationYearSQL, finnishDateKeySpan, strings.Join(types, "', '"))
+}
+
+// finnishSpecialIssueSQL is the story's first issue text of the given Finnish
+// special types, so a part issue follows its number: "20" before "20 b".
+func finnishSpecialIssueSQL(types []string) string {
+	return fmt.Sprintf(`(
+	SELECT MIN(p.issue)
+	FROM stories_in_publications AS sip
+	JOIN publications AS p ON p.id = sip.publication
+	WHERE sip.story = s.id
+	AND p.type::text IN ('%s')
+)`, strings.Join(types, "', '"))
 }
 
 // finnishSpecialFilterTypes returns the publication types of a Finnish special

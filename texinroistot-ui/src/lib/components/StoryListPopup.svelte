@@ -1,5 +1,16 @@
+<script lang="ts" context="module">
+	import type { Story as ListStory } from '$lib/types';
+
+	// A list is closed when a story is chosen from it and opened again by the
+	// story card's "Edellinen": the list keeps where it was scrolled to and its
+	// stories, so it comes back as it was. Keyed by the list's loadStories,
+	// which stays the same for the reopened list.
+	const scrollPositions = new WeakMap<() => Promise<ListStory[]>, number>();
+	const loadedStories = new WeakMap<() => Promise<ListStory[]>, ListStory[]>();
+</script>
+
 <script lang="ts">
-	import { createEventDispatcher, getContext, onMount } from 'svelte';
+	import { createEventDispatcher, getContext, onMount, tick } from 'svelte';
 	import {
 		nonItalianTitlesByFirstPublication,
 		openInOwnWindow,
@@ -28,6 +39,7 @@
 	const openedFromStoryCard = getContext<boolean>('inStoryPopup') ?? false;
 
 	let closeButton: HTMLButtonElement;
+	let popup: HTMLDivElement;
 	let stories: Story[] = [];
 	let loading = true;
 	let errorMessage = '';
@@ -41,6 +53,7 @@
 	}
 
 	function selectStory(story: Story): void {
+		scrollPositions.set(loadStories, popup.scrollTop);
 		// the story card opened next takes over this list's history entry
 		handOverPopupStep(historyDepth);
 		dispatch('selectStory', story);
@@ -55,13 +68,21 @@
 
 	onMount(async () => {
 		historyDepth = pushPopupStep(() => dispatch('close'));
-		closeButton.focus();
+		closeButton.focus({ preventScroll: true });
 		try {
-			stories = await loadStories();
+			const loaded = loadedStories.get(loadStories) ?? (await loadStories());
+			loadedStories.set(loadStories, loaded);
+			stories = loaded;
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Tarinoiden haku epäonnistui';
 		} finally {
 			loading = false;
+		}
+		// back from a story chosen here: where the list was scrolled to
+		const scrollTop = scrollPositions.get(loadStories);
+		if (scrollTop) {
+			await tick();
+			popup.scrollTop = scrollTop;
 		}
 	});
 </script>
@@ -76,7 +97,13 @@
 />
 
 <div class="list-popup-backdrop" role="presentation" on:click|self={close}>
-	<div class="list-popup" role="dialog" aria-modal="true" aria-labelledby="list-popup-title">
+	<div
+		class="list-popup"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="list-popup-title"
+		bind:this={popup}
+	>
 		<div class="list-popup-actions">
 			{#if openedFromStoryCard}
 				<button type="button" class="list-popup-back" on:click={close}>&larr; Edellinen</button>

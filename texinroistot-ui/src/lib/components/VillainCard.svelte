@@ -35,6 +35,11 @@
 	const rememberStoryList = getContext<RememberStoryList | undefined>(REMEMBER_STORY_LIST);
 
 	let otherStoriesOpen = false;
+	// The villain's story list, made once so that the list reopened by a story
+	// card's "Edellinen" is the same one (it comes back scrolled as it was).
+	$: otherStoriesList = otherStoriesVillainHash
+		? villainStoryList(title, otherStoriesVillainHash)
+		: null;
 </script>
 
 <article class="story-villain-card" data-villain-key={villainKey || undefined}>
@@ -70,15 +75,14 @@
 	{#if hasValues(codeNames)}
 		<p><strong>Salanimi:</strong> {joinValues(codeNames, '-', '; ')}</p>
 	{/if}
-	{#if otherStoriesVillainHash}
-		{@const villainHash = otherStoriesVillainHash}
+	{#if otherStoriesList}
+		{@const list = otherStoriesList}
 		<p>
 			<button type="button" class="other-stories-link" on:click={() => (otherStoriesOpen = true)}
 				>Näytä roiston muut tarinat</button
 			>
 		</p>
 		{#if otherStoriesOpen}
-			{@const list = villainStoryList(title, villainHash)}
 			<StoryListPopup
 				{...list}
 				on:close={() => (otherStoriesOpen = false)}
