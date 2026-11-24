@@ -165,6 +165,7 @@ var publicationTypesByFilter = map[string][]string{
 	"maxi":                  {"maxi"},
 	"kirjasto":              {"kirjasto"},
 	"kronikka":              {"kronikka"},
+	"muu_erikois":           {"muu_erikois"},
 	"serie_extra":           {"italia_serie_extra"},
 	"texone":                {"italia_texone"},
 	"mini_texone_maxi_tex":  {"italia_mini_texone_maxi_tex"},
@@ -626,6 +627,16 @@ func buildStoryOrderClause(params StoryListParams) string {
 	)`, params.Year)))
 }
 
+// publicationIssueExclusion leaves publications out of a publication filter by
+// their issue: the Tex-nide volumes (1954, bound base series issues) are not
+// listed among "Muut erikoisjulkaisut".
+func publicationIssueExclusion(publication string) string {
+	if publication == "muu_erikois" {
+		return "\n\tAND p.issue NOT ILIKE 'Tex-nide%'"
+	}
+	return ""
+}
+
 func buildStoryListWhere(versionID int, params StoryListParams) (string, []interface{}, error) {
 	clauses := []string{"s.version = $1"}
 	args := []interface{}{versionID}
@@ -636,6 +647,7 @@ func buildStoryListWhere(versionID int, params StoryListParams) (string, []inter
 		return "", nil, err
 	}
 	if len(publicationTypes) > 0 {
+		excluded := publicationIssueExclusion(params.Publication)
 		if params.Year > 0 {
 			clauses = append(clauses, fmt.Sprintf(`
 EXISTS (
@@ -643,9 +655,9 @@ EXISTS (
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
 	WHERE sip.story = s.id
-	AND p.type::text = ANY($%d)
+	AND p.type::text = ANY($%d)%s
 	AND %s = $%d
-)`, argPos, publicationYearSQL, argPos+1))
+)`, argPos, excluded, publicationYearSQL, argPos+1))
 			args = append(args, ArrayParam(publicationTypes), params.Year)
 			argPos += 2
 		} else {
@@ -655,8 +667,8 @@ EXISTS (
 	FROM stories_in_publications AS sip
 	JOIN publications AS p ON p.id = sip.publication
 	WHERE sip.story = s.id
-	AND p.type::text = ANY($%d)
-)`, argPos))
+	AND p.type::text = ANY($%d)%s
+)`, argPos, excluded))
 			args = append(args, ArrayParam(publicationTypes))
 			argPos++
 		}

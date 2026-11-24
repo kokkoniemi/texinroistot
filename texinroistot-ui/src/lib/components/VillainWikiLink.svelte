@@ -29,6 +29,13 @@
 		>
 	</p>
 {/if}
+{#each link?.also ?? [] as other (other.url)}
+	<p class="villain-wiki">
+		<a href={other.url} target="_blank" rel="noopener noreferrer" on:click={openInOwnWindow}
+			>{other.label}</a
+		>
+	</p>
+{/each}
 
 <style>
 	.villain-wiki {

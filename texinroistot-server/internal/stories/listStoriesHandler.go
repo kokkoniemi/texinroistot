@@ -27,6 +27,7 @@ var allowedPublicationFilters = map[string]bool{
 	"maxi":                  true,
 	"kirjasto":              true,
 	"kronikka":              true,
+	"muu_erikois":           true,
 	"serie_extra":           true,
 	"texone":                true,
 	"mini_texone_maxi_tex":  true,

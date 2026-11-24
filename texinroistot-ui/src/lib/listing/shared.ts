@@ -345,6 +345,18 @@ function baseSeriesSummary(publications: StoryPublication[]): string {
 	return items.join(', ');
 }
 
+// A special publication's year, from its year or its issue text
+// ("Erikoisjulkaisu: Tilaajalahja (2002)"); unknown years last.
+function specialPublicationYear(publication: StoryPublication): number {
+	const year = publication.in?.year || Number(publication.in?.issue?.match(/\((\d{4})\)/)?.[1]);
+	return year || 9999;
+}
+
+// The first number in a special publication's issue text ("Kronikka 12-13").
+function specialPublicationNumber(publication: StoryPublication): number {
+	return Number(publication.in?.issue?.match(/\d+/)?.[0] ?? 0);
+}
+
 export function publicationSummaryFromPublications(
 	publications?: StoryPublication[] | null,
 	emptyText = '-'
@@ -384,7 +396,14 @@ export function publicationSummaryFromPublications(
 		const items =
 			type === 'perus' || type === republicationGroup
 				? baseSeriesSummary(groupedPublications)
-				: groupedPublications
+				: [...groupedPublications]
+						// the oldest first, e.g. "Tilaajalahja (2002)" before "Kuuma
+						// iltapäivä (2007)", whatever order the database gives them in
+						.sort(
+							(a, b) =>
+								specialPublicationYear(a) - specialPublicationYear(b) ||
+								specialPublicationNumber(a) - specialPublicationNumber(b)
+						)
 						.map((publication) => publicationItem(publication).trim())
 						.filter((item, index, values) => Boolean(item) && values.indexOf(item) === index)
 						.join(', ');
@@ -678,6 +697,156 @@ export function storyMentionTargets(
 // The heroes, often named right after a villain ("Trevorin Texille").
 const HEROES = ['tex', 'kit', 'carson', 'tiger', 'willer'];
 
+// Words of kinship ("Jimin veli", "veljensä Jimin", "isä-Hardwoodin"), as
+// word beginnings so that their inflected forms count too.
+// Articles and the like written before a name or a place: no first names.
+const NAME_PARTICLES = new Set(['el', 'la', 'los', 'las', 'le', 'the', 'fort', 'san', 'santa']);
+
+// A Finnish word rather than a (foreign) first name: with ä or ö, or ending
+// like a Finnish verb, numeral, adjective or plural ("Kuoli", "Joutui",
+// "Yksi", "Mainitaan", "Entinen", "Roistot"), in a case ending of place or
+// with a possessive suffix ("Kaverinsa").
+function looksFinnish(word: string): boolean {
+	return (
+		/[äöå]/u.test(word) ||
+		/(?:i|aan|iin|nen|ssa|sta|lla|lta|lle|ksi|nsa|[eiouy]t)$/u.test(word) ||
+		['koko', 'eräs', 'vanha', 'vanhan', 'nuori', 'nuoren', 'dakotat'].includes(word)
+	);
+}
+
+// A group of siblings or cousins right after a name, also in a compound
+// ("veljekset", "rosvoveljeksistä", "veljessarjan", "sisaruksia",
+// "serkuksena").
+const SIBLING_GROUP = /^\s+\p{L}*(veljeks|veljess|sisaruks|serkuks|serkus)/iu;
+
+const KINSHIP = [
+	'veli',
+	'velje',
+	'sisko',
+	'sisar',
+	'äiti',
+	'äidi',
+	'isä',
+	'poika',
+	'poja',
+	'tytär',
+	'tyttär',
+	'setä',
+	'sedä',
+	'serkku',
+	'serku',
+	'eno',
+	'täti',
+	'tädi',
+	'vaimo',
+	'puoliso',
+	'lanko',
+	'lango',
+	'käly',
+	'appi',
+	'appe',
+	'anoppi',
+	'isoisä',
+	'isoäiti',
+	'sukulai',
+	'kaksos'
+];
+
+// Titles written before a name ("Kapteeni Garridon", "Sheriffi Jarvisin"):
+// a surname after one of these is still the villain's.
+const TITLES = new Set([
+	'doc',
+	'kapteeni',
+	'sheriffi',
+	'kersantti',
+	'don',
+	'donna',
+	'doña',
+	'eversti',
+	'luutnantti',
+	'sotamies',
+	'majuri',
+	'kenraali',
+	'asianajaja',
+	'tuomari',
+	'tohtori',
+	'senaattori',
+	'notaari',
+	'korpraali',
+	'professori',
+	'ratsumies',
+	'kuvernööri',
+	'pormestari',
+	'pankkiiri',
+	'ruhtinas',
+	'paroni',
+	'päällikkö',
+	'isä',
+	'rouva',
+	'herra',
+	'neiti',
+	'konstaapeli',
+	'komisario',
+	'madame',
+	'capitán',
+	'señor',
+	'señora',
+	'vääpeli',
+	'pastori',
+	'kreivi',
+	'markiisi',
+	'ministeri',
+	'mister',
+	'miss',
+	'sir'
+]);
+
+// The forms a Finnish word takes before a case ending: the word itself and its
+// changed stem, "Keihäs" -> "Keihää(n)", "Kirves" -> "Kirvee(n)", "Vastaus" ->
+// "Vastauks(en)", "Mäkinen" -> "Mäkise(n)", "Pieni" -> "Piene(n)".
+function wordStems(word: string): string[] {
+	const stems = [word];
+	if (word.length < 4) return stems;
+	const stemmed = word
+		.replace(/([aä])s$/u, '$1$1')
+		.replace(/([eiu])s$/u, (_, vowel: string) => (vowel === 'u' ? 'uks' : `${vowel}${vowel}`))
+		.replace(/ys$/u, 'yks')
+		.replace(/nen$/u, 'se')
+		.replace(/([^aeiouyäö])i$/u, '$1e');
+	if (stemmed !== word) stems.push(stemmed);
+	// consonant gradation before the last vowel: "Täplähäntä" -> "Täplähännä(n)",
+	// "Kampa" -> "Kamma(n)", "Lupa" -> "Luva(n)"
+	const gradation: Array<[RegExp, string]> = [
+		[/nt([aeiouyäö])$/u, 'nn$1'],
+		[/mp([aeiouyäö])$/u, 'mm$1'],
+		[/lt([aeiouyäö])$/u, 'll$1'],
+		[/rt([aeiouyäö])$/u, 'rr$1'],
+		[/nk([aeiouyäö])$/u, 'ng$1'],
+		[/([kpt])\1([aeiouyäö])$/u, '$1$2'],
+		[/([aeiouyäöhlr])t([aeiouyäö])$/u, '$1d$2'],
+		[/([aeiouyäö])p([aeiouyäö])$/u, '$1v$2']
+	];
+	for (const [pattern, weak] of gradation) {
+		if (pattern.test(word)) {
+			stems.push(word.replace(pattern, weak));
+			break;
+		}
+	}
+	return stems;
+}
+
+// A word stem with an optional Finnish case ending, as a pattern. After a
+// consonant the ending starts with a vowel ("Tomin", "Tomille"), after a vowel
+// with a vowel or n, l, s, t, k or h ("Joen", "Joelle", "Joesta"); a foreign
+// name may take it after an apostrophe ("Ducaux'n"). So "the Tombs" is not Tom.
+function inflectedForm(stem: string): string {
+	const vowel = '[aeiouyäöéè]';
+	const ending = /[aeiouyäöéè]$/iu.test(stem)
+		? `(?:'\\p{Ll}{1,4}|(?:${vowel}|[nlstkh])\\p{Ll}{0,3})?`
+		: `(?:'\\p{Ll}{1,4}|${vowel}\\p{Ll}{0,3})?`;
+	return `${escapeRegExp(stem)}${ending}`;
+}
+
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -695,7 +864,14 @@ export function mentionSegments(
 	const owners = new Map<string, Set<string>>();
 	const firstNamesAlone = new Set<string>();
 	const lastNamesByKey = new Map<string, string[]>();
+	// Each villain's one-word names (first names, last names, nicknames), and
+	// which of them are first names, in lower case.
+	const wordsByKey = new Map<string, { words: string[]; firstNames: Set<string> }>();
 	for (const target of targets) {
+		wordsByKey.set(target.key, {
+			words: target.names.filter((name) => !name.includes(' ')).map((name) => name.toLowerCase()),
+			firstNames: new Set((target.firstNames ?? []).map((name) => name.toLowerCase()))
+		});
 		if (target.key === selfKey) continue;
 		for (const name of target.names) {
 			const owner = owners.get(name) ?? new Set<string>();
@@ -705,20 +881,94 @@ export function mentionSegments(
 		for (const name of target.firstNames ?? []) firstNamesAlone.add(`${target.key}\n${name}`);
 		lastNamesByKey.set(target.key, target.lastNames ?? []);
 	}
+	// The surnames of the villain whose text this is: a relative of theirs is
+	// named by first name alone ("Jimin veli" in Sanders's text is Jim Sanders).
+	const selfLastNames = (targets.find((target) => target.key === selfKey)?.lastNames ?? []).map(
+		(name) => name.toLowerCase()
+	);
+	const relativeOf = (keys: string[]): string | null => {
+		const relatives = keys.filter((key) =>
+			(lastNamesByKey.get(key) ?? []).some((name) => selfLastNames.includes(name.toLowerCase()))
+		);
+		return relatives.length === 1 ? relatives[0] : null;
+	};
+	// A word of kinship right before or after a mention.
+	const kinshipNear = (before: string, after: string): boolean => {
+		const previous = before.match(/([\p{L}-]+)[^\p{L}]*$/u)?.[1]?.toLowerCase() ?? '';
+		const next = after.match(/^[^\p{L}]*([\p{L}-]+)/u)?.[1]?.toLowerCase() ?? '';
+		return KINSHIP.some((word) => previous.startsWith(word) || next.startsWith(word));
+	};
+	// A first name shared by several villains means the one known by that first
+	// name only, when there is exactly one such: "Samin" is Sam, not Sam Higgins
+	// or Sam Melvin, who are mentioned by their surnames. (Next to a word of
+	// kinship, a relative of the same surname comes first; see below.)
+	const nameOwner = (name: string, keys: Set<string>): string | null => {
+		if (keys.size === 1) return [...keys][0];
+		const onlyFirstName = [...keys].filter(
+			(key) =>
+				firstNamesAlone.has(`${key}\n${name}`) && (lastNamesByKey.get(key) ?? []).length === 0
+		);
+		return onlyFirstName.length === 1 ? onlyFirstName[0] : null;
+	};
 	const names = [...owners.entries()]
-		.filter(([, keys]) => keys.size === 1)
 		.map(([name, keys]) => ({
 			name,
-			key: [...keys][0],
-			firstNameAlone: firstNamesAlone.has(`${[...keys][0]}\n${name}`)
+			key: nameOwner(name, keys),
+			relative: keys.size > 1 ? relativeOf([...keys]) : null
 		}))
+		.filter((entry) => entry.key !== null || entry.relative !== null)
 		.sort((a, b) => b.name.length - a.name.length);
+	const isFirstNameAlone = (key: string, name: string) => firstNamesAlone.has(`${key}\n${name}`);
+	const isLastNameAlone = (key: string, name: string) =>
+		(lastNamesByKey.get(key) ?? []).includes(name);
+	// Someone else's first name right before a surname: "Howard MacLean" is not
+	// Norman MacLean (a villain's own first name before it makes a longer match),
+	// nor "Chris Owensin" Stan Owens. Still the villain's: a title ("Kapteeni
+	// Garridon"), a hero, the villain's own first name or nickname, also
+	// misspelt ("Cobra Galindezin", "Willy Fogartyn" for Willly), or another
+	// villain's surname or nickname ("senaattori Russelilta Masonin").
+	const otherFirstNamePrecedes = (key: string, before: string): boolean => {
+		const match = before.match(/(^|[^\s])(\s*)(\p{Lu}[\p{L}'-]*)\s+$/u);
+		if (!match) return false;
+		const preceding = match[3].toLowerCase();
+		// a Finnish word capitalised at the start of the text or a sentence is no
+		// first name ("Yksi Randolphin miehistä", "Mainitaan Clantonin"), but a
+		// name there is ("John Sutter ampui" is not Victor Sutter)
+		const sentenceStart = match[1] === '' || /[.:;!?]/.test(match[1]);
+		if (sentenceStart && looksFinnish(preceding)) return false;
+		if (NAME_PARTICLES.has(preceding)) return false;
+		// a villain known by surname only may have a first name the data lacks
+		// ("Tom Rebo" for Rebo)
+		if ((wordsByKey.get(key)?.firstNames.size ?? 0) === 0) return false;
+		if (TITLES.has(preceding)) return false;
+		if (HEROES.some((hero) => preceding.startsWith(hero))) return false;
+		if ((wordsByKey.get(key)?.words ?? []).some((word) => preceding.startsWith(word.slice(0, 3)))) {
+			return false;
+		}
+		for (const [other, { words, firstNames }] of wordsByKey) {
+			if (other === key) continue;
+			if (words.some((word) => !firstNames.has(word) && preceding.startsWith(word))) return false;
+		}
+		return true;
+	};
 	// Someone else's surname right after a first name: "Johnny Boyettin" is not
 	// Johnny Behan, "Tom Blackburn" is not a villain called just Tom, and "Red
 	// Corralissa" is a place. A surname starting like the villain's own (a
 	// misspelling, "Sam Ketcumin") still links, and so does a first name
 	// followed by a hero ("Trevorin Texille") or another villain of the story
 	// ("Mandip Mefiston").
+	// A capitalised word right after a surname that is no hero and no villain's
+	// name: the surname is part of another name, a company or a place
+	// ("Standish Oilin omistajista"), not the villain.
+	const nameContinues = (rest: string): boolean => {
+		const following = rest.match(/^\s+(\p{Lu}\p{L}*)/u)?.[1]?.toLowerCase();
+		if (!following) return false;
+		if (HEROES.some((hero) => following.startsWith(hero))) return false;
+		for (const { words } of wordsByKey.values()) {
+			if (words.some((word) => following.startsWith(word.slice(0, 3)))) return false;
+		}
+		return true;
+	};
 	const otherSurnameFollows = (key: string, rest: string): boolean => {
 		const following = rest.match(/^\s+(\p{Lu}\p{L}*)/u)?.[1]?.toLowerCase();
 		if (!following) return false;
@@ -730,7 +980,10 @@ export function mentionSegments(
 		if (
 			names.some(
 				({ name, key: other }) =>
-					other !== key && following.startsWith(name.toLowerCase()) && !isSurname(other, name)
+					other !== null &&
+					other !== key &&
+					following.startsWith(name.toLowerCase()) &&
+					!isSurname(other, name)
 			)
 		) {
 			return false;
@@ -742,16 +995,48 @@ export function mentionSegments(
 	const segments: MentionSegment[] = [];
 	for (const segment of italicSegments(text)) {
 		const taken: Array<{ start: number; end: number; key: string }> = [];
-		for (const { name, key, firstNameAlone } of names) {
-			const pattern = new RegExp(
-				`(^|[^\\p{L}])(${escapeRegExp(name)}(?:'?\\p{Ll}{0,4})?)(?![\\p{L}])`,
-				'gu'
-			);
+		for (const { name, key: owner, relative } of names) {
+			// every capitalised word of a name may be inflected: "Ison Joen" is "Iso
+			// Joe"; a title in lower case before a name is not ("sheriffiksi Amos
+			// Balderin" is Amos Balder)
+			const words = name.split(' ');
+			const inflected = words
+				.map((word, index) =>
+					index < words.length - 1 && /^\p{Ll}/u.test(word)
+						? escapeRegExp(word)
+						: `(?:${wordStems(word).map(inflectedForm).join('|')})`
+				)
+				.join(' ');
+			const pattern = new RegExp(`(^|[^\\p{L}])(${inflected})(?![\\p{L}])`, 'gu');
 			for (const match of segment.text.matchAll(pattern)) {
 				const start = (match.index ?? 0) + match[1].length;
 				const end = start + match[2].length;
 				if (taken.some((range) => start < range.end && end > range.start)) continue;
-				if (firstNameAlone && otherSurnameFollows(key, segment.text.slice(end))) continue;
+				// a family named by the name, not one villain: "Chesterin
+				// rosvoveljeksistä", "Santanan serkuksena"
+				if (SIBLING_GROUP.test(segment.text.slice(end))) continue;
+				// next to a word of kinship, the relative of the same surname
+				const key =
+					relative && kinshipNear(segment.text.slice(0, start), segment.text.slice(end))
+						? relative
+						: owner;
+				if (!key) continue;
+				if (isFirstNameAlone(key, name) && otherSurnameFollows(key, segment.text.slice(end))) {
+					continue;
+				}
+				if (
+					isLastNameAlone(key, name) &&
+					otherFirstNamePrecedes(key, segment.text.slice(0, start))
+				) {
+					continue;
+				}
+				// a surname starting a name of its own, "Standish Oilin" (a company);
+				// such a surname is not inflected itself ("Fraseria Silver Holen" is
+				// Joe Fraser), except for an English "'s" ("Sutter's Restin")
+				const uninflected = /^(?:'s)?$/u.test(match[2].slice(name.length));
+				if (isLastNameAlone(key, name) && uninflected && nameContinues(segment.text.slice(end))) {
+					continue;
+				}
 				taken.push({ start, end, key });
 			}
 		}

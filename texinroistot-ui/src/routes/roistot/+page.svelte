@@ -506,6 +506,14 @@
 		gap: 1rem;
 	}
 
+	/* on a wide screen the cards in two columns, row by row */
+	@media (min-width: 1000px) {
+		.villain-list {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
 	/* the paper background comes from app.css */
 	.villain-card {
 		border: 1px solid var(--border);

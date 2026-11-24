@@ -183,10 +183,28 @@ func TestItalianDateSort_YearThenOrderNumber(t *testing.T) {
 	}
 }
 
+// The Tex-nide volumes are left out of "Muut erikoisjulkaisut", with and
+// without a year, and only there.
+func TestBuildStoryListWhere_OtherSpecialsLeaveOutTexNide(t *testing.T) {
+	for _, year := range []int{0, 1954} {
+		where, _, err := buildStoryListWhere(5, StoryListParams{Publication: "muu_erikois", Sort: "fi_pub_date", Year: year})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if !strings.Contains(where, "p.issue NOT ILIKE 'Tex-nide%'") {
+			t.Fatalf("year %d: expected Tex-nide to be left out, got %s", year, where)
+		}
+	}
+	where, _, _ := buildStoryListWhere(5, StoryListParams{Publication: "kronikka", Sort: "fi_pub_date"})
+	if strings.Contains(where, "Tex-nide") {
+		t.Fatalf("expected no Tex-nide condition for Kronikka, got %s", where)
+	}
+}
+
 // A Finnish special publication filter with the Finnish date sort orders by
 // that publication's own year and number, with or without a year filter.
 func TestFinnishSpecialOrderClause(t *testing.T) {
-	for _, publication := range []string{"suur", "maxi", "kirjasto", "kronikka"} {
+	for _, publication := range []string{"suur", "maxi", "kirjasto", "kronikka", "muu_erikois"} {
 		for _, year := range []int{0, 2006} {
 			params := StoryListParams{Publication: publication, Sort: "fi_pub_date", Year: year}
 			clause := buildStoryOrderClause(params)

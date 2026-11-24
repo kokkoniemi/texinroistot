@@ -47,12 +47,14 @@
 
 	const publicationOptions = [
 		{ value: 'all', label: 'Näytä kaikki' },
+		// the Finnish publications, then (below a dashed line) the Italian ones
 		{ value: 'perus_fi', label: 'Suomen perussarja' },
-		{ value: 'perus_it', label: 'Italian perussarja' },
 		{ value: 'suur', label: 'Suuralbumit' },
-		{ value: 'maxi', label: 'Maxi Tex' },
-		{ value: 'kirjasto', label: 'Kirjasto' },
-		{ value: 'kronikka', label: 'Kronikka' },
+		{ value: 'maxi', label: 'Maxi Tex -albumit' },
+		{ value: 'kirjasto', label: 'Kirjastot' },
+		{ value: 'kronikka', label: 'Kronikat' },
+		{ value: 'muu_erikois', label: 'Muut erikoisjulkaisut' },
+		{ value: 'perus_it', label: 'Italian perussarja' },
 		{ value: 'serie_extra', label: 'Serie extra' },
 		{ value: 'texone', label: 'Texone' },
 		{ value: 'mini_texone_maxi_tex', label: 'Mini Texone & Maxi Tex' },
@@ -272,6 +274,10 @@
 					<option value={option.value} selected={filters.publication === option.value}
 						>{option.label}</option
 					>
+					<!-- a dashed line between the Finnish and the Italian publications -->
+					{#if option.value === 'muu_erikois'}
+						<option disabled>- - - - - - - - - - - - - - - -</option>
+					{/if}
 				{/each}
 			</select>
 		</label>
@@ -327,7 +333,7 @@
 			{#each stories as story (story.hash)}
 				{@const storyHash = story.hash.trim()}
 				{@const italianOriginal = italianOriginalPublication(story)}
-				<article class="story-card">
+				<article class="story-card" class:expanded={Boolean(expandedStoryHashes[storyHash])}>
 					<h3><StoryTitle title={storyTitle(story)} /></h3>
 					<p>
 						<strong>Kertoi:</strong>
@@ -488,6 +494,19 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+
+	/* On a wide screen the cards in two columns, row by row; a card with its
+	   villain list open takes the whole width. */
+	@media (min-width: 1000px) {
+		.story-list {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.story-card.expanded {
+			grid-column: 1 / -1;
+		}
 	}
 
 	/* the paper background comes from app.css */
