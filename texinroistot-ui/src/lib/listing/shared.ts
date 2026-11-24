@@ -23,6 +23,9 @@ export type StoryBase = {
 	drawnBy?: Author[] | null;
 	translatedBy?: Author[] | null;
 	publications?: StoryPublication[] | null;
+	// A story without named villains: why ("Tarinassa ei ollut yhtään
+	// roistoa"), shown in place of the button to its villain list.
+	noVillains?: string;
 };
 
 export type Meta = {
@@ -566,6 +569,22 @@ export function storyVillainCodeNameTitle(
 	return { rank: joinValues(villain.ranks, '').trim(), codeNames };
 }
 
+// A story without named villains has a row of its own whose role explains it
+// ("Tarinassa ei ollut yhtään roistoa"): no names at all. Its text is shown in
+// the story's villain list instead of a villain card.
+export function isNamelessVillain(villain: VillainForTitle, storyHash: string): boolean {
+	const appearance = storyVillainForStory(villain, storyHash);
+	const hasAny = (values?: string[] | null) => (values ?? []).some((value) => value.trim());
+	return (
+		!hasAny(villain.firstNames) &&
+		!(villain.lastName ?? '').trim() &&
+		!hasAny(villain.ranks) &&
+		!hasAny(appearance?.nicknames) &&
+		!hasAny(appearance?.otherNames) &&
+		!hasAny(appearance?.codeNames)
+	);
+}
+
 export function storyVillainTitle(villain: VillainForTitle, storyHash: string): string {
 	const firstNames = joinValues(villain.firstNames, '').trim();
 	const lastName = (villain.lastName ?? '').trim();
@@ -832,6 +851,23 @@ function wordStems(word: string): string[] {
 			break;
 		}
 	}
+	// a word ending in a consonant and -e lengthens the e, the consonant in the
+	// strong grade: "Pyörre" -> "Pyörtee(n)", "Osake" -> "Osakkee(n)",
+	// "Kirje" -> "Kirjee(n)"
+	if (/[^aeiouyäö]e$/u.test(word)) {
+		const strong: Array<[RegExp, string]> = [
+			[/rre$/u, 'rte'],
+			[/lle$/u, 'lte'],
+			[/nne$/u, 'nte'],
+			[/mme$/u, 'mpe'],
+			[/nge$/u, 'nke'],
+			[/([aeiouyäö])([kpt])e$/u, '$1$2$2e'],
+			[/de$/u, 'te'],
+			[/([aeiouyäö])ve$/u, '$1pe']
+		];
+		const rule = strong.find(([pattern]) => pattern.test(word));
+		stems.push(`${rule ? word.replace(rule[0], rule[1]) : word}e`);
+	}
 	return stems;
 }
 
@@ -1033,7 +1069,11 @@ export function mentionSegments(
 				// a surname starting a name of its own, "Standish Oilin" (a company);
 				// such a surname is not inflected itself ("Fraseria Silver Holen" is
 				// Joe Fraser), except for an English "'s" ("Sutter's Restin")
-				const uninflected = /^(?:'s)?$/u.test(match[2].slice(name.length));
+				const ending = match[2].slice(name.length);
+				// a surname in the plural is the family, not one of them:
+				// "Standishit tekivät sopimuksen", "Pattersonien talossa"
+				if (isLastNameAlone(key, name) && /^(?:t|it|ien|jen|iden)$/u.test(ending)) continue;
+				const uninflected = /^(?:'s)?$/u.test(ending);
 				if (isLastNameAlone(key, name) && uninflected && nameContinues(segment.text.slice(end))) {
 					continue;
 				}

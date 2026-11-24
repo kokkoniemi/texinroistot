@@ -1041,14 +1041,55 @@ func (s *storyRepo) hydrateStories(stories []*Story, storyIDs []int) error {
 		return writers, drawers, translators
 	}
 
+	noVillains, err := selectNoVillainsNotes(storyIDs)
+	if err != nil {
+		return err
+	}
+
 	for idx := range stories {
 		infos := authorInfos[stories[idx].ID]
 		stories[idx].WrittenBy, stories[idx].DrawnBy, stories[idx].TranslatedBy = getAuthorsByInfo(infos)
 
 		stories[idx].Publications = storyPublications[stories[idx].ID]
+		stories[idx].NoVillains = noVillains[stories[idx].ID]
 	}
 
 	return nil
+}
+
+// selectNoVillainsNotes returns, for the stories whose only villain row is one
+// without any name, the explanation in that row's role ("Tarinassa ei ollut
+// yhtään roistoa"), by story id.
+func selectNoVillainsNotes(storyIDs []int) (map[int]string, error) {
+	notes := map[int]string{}
+	if len(storyIDs) == 0 {
+		return notes, nil
+	}
+	rows, err := Query(`
+SELECT vis.story, COALESCE(array_to_string(vis.roles, '; '), '')
+FROM villains_in_stories AS vis
+JOIN villains AS v ON v.id = vis.villain
+WHERE vis.story = ANY($1)
+AND NOT `+namedVillainSQL+`
+AND NOT EXISTS (
+	SELECT 1
+	FROM villains_in_stories AS ovis
+	WHERE ovis.story = vis.story
+	AND ovis.villain <> vis.villain
+);`, ArrayParam(storyIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var storyID int
+		var note string
+		if err := rows.Scan(&storyID, &note); err != nil {
+			return nil, err
+		}
+		notes[storyID] = strings.TrimSpace(note)
+	}
+	return notes, rows.Err()
 }
 
 const listPublicationsSQL = `

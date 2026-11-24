@@ -85,9 +85,10 @@ func (*versionRepo) GetActive() (*Version, error) {
 	return &v, nil
 }
 
+// The villain count leaves out the rows of stories without named villains.
 const getVersionStatsSQL = `
 SELECT
-	(SELECT COUNT(*) FROM villains WHERE version = $1) AS villains,
+	(SELECT COUNT(*) FROM villains AS v WHERE v.version = $1 AND ` + namedVillainSQL + `) AS villains,
 	(SELECT COUNT(*) FROM stories WHERE version = $1) AS stories,
 	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_drawer = true) AS drawers,
 	(SELECT COUNT(*) FROM authors WHERE version = $1 AND is_writer = true) AS writers,

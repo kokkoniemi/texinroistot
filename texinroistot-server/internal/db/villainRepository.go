@@ -358,8 +358,28 @@ func searchWordClause(argPos int, texts bool) string {
 )`, param, strings.Join(storyMatches, "\n\t\t\tOR "))
 }
 
+// namedVillainSQL holds for a villain (v) with any name: a first or last name,
+// a rank, or a name of their own in a story. A story without named villains
+// has a row of its own explaining it ("Tarinassa ei ollut yhtään roistoa");
+// that row is shown only in the story's villain list, not among the villains.
+const namedVillainSQL = `(
+	COALESCE(array_to_string(v.first_names, ''), '') <> ''
+	OR COALESCE(v.last_name, '') <> ''
+	OR COALESCE(array_to_string(v.ranks, ''), '') <> ''
+	OR EXISTS (
+		SELECT 1
+		FROM villains_in_stories AS nvis
+		WHERE nvis.villain = v.id
+		AND COALESCE(array_to_string(nvis.nicknames, ''), '')
+			|| COALESCE(array_to_string(nvis.other_names, ''), '')
+			|| COALESCE(array_to_string(nvis.code_names, ''), '')
+			|| COALESCE(array_to_string(nvis.first_names, ''), '')
+			|| COALESCE(nvis.last_name, '') <> ''
+	)
+)`
+
 func buildVillainListWhere(versionID int, params VillainListParams) (string, []interface{}, error) {
-	clauses := []string{"v.version = $1"}
+	clauses := []string{"v.version = $1", namedVillainSQL}
 	args := []interface{}{versionID}
 	argPos := 2
 
@@ -391,10 +411,36 @@ EXISTS (
 	// last name), "sheriffi Starr" (rank and last name), "Don Felipe". Each word
 	// of the keyword search must be in a name or in a role or destiny of the
 	// villain ("pankkirosvo", "Tex ampui").
+	var nameArgs []string
 	for _, word := range strings.Fields(params.Name) {
 		clauses = append(clauses, searchWordClause(argPos, false))
 		args = append(args, "%"+word+"%")
+		nameArgs = append(nameArgs, fmt.Sprintf("$%d", argPos))
 		argPos++
+	}
+	// In a per-story name sort a villain is listed under each of their names;
+	// with a name search only under the names that match it ("Keltainen Koira",
+	// not also "Musta Susi" of the same villain), unless none of them does (the
+	// search matched another name of theirs).
+	if column, expanded := storyVillainNameColumns[params.Sort]; expanded && len(nameArgs) > 0 {
+		matches := func(name string) string {
+			parts := make([]string, len(nameArgs))
+			for i, arg := range nameArgs {
+				parts[i] = fmt.Sprintf("%s ILIKE %s", name, arg)
+			}
+			return strings.Join(parts, " AND ")
+		}
+		clauses = append(clauses, fmt.Sprintf(`
+(
+	(%s)
+	OR NOT EXISTS (
+		SELECT 1
+		FROM villains_in_stories AS mvis
+		CROSS JOIN LATERAL unnest(mvis.%s) AS mn(name)
+		WHERE mvis.villain = v.id
+		AND %s
+	)
+)`, matches("sn.name"), column, matches("btrim(mn.name)")))
 	}
 	for _, word := range strings.Fields(params.Search) {
 		clauses = append(clauses, searchWordClause(argPos, true))

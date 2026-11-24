@@ -150,6 +150,9 @@ type Story struct {
 	DrawnBy      []*Author           `json:"drawnBy"`
 	TranslatedBy []*Author           `json:"translatedBy"`
 	Publications []*StoryPublication `json:"publications"`
+	// For a story without named villains, the explanation its villain row
+	// gives ("Tarinassa ei ollut yhtään roistoa"); empty otherwise.
+	NoVillains string `json:"noVillains,omitempty"`
 }
 
 func (s *Story) GetOrderNumberForDB() interface{} {
