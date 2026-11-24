@@ -155,29 +155,39 @@
 		margin: 0;
 	}
 
+	/* the total stands out on the board wall */
+	.result-total {
+		font-size: 1.05rem;
+		font-weight: 700;
+	}
+
 	.info-wrapper {
 		position: relative;
 		display: inline-block;
 		margin-left: 0.35rem;
 	}
 
+	/* a clear round "i" on the wall: light paper with a gold rim */
 	.info-trigger {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 1.1rem;
-		height: 1.1rem;
+		width: 1.45rem;
+		height: 1.45rem;
 		padding: 0;
-		border: 1px solid var(--border);
+		border: 2px solid var(--gold);
 		border-radius: 50%;
-		background: var(--page-bg);
+		background: var(--panel-bg);
 		color: var(--ink);
 		font: inherit;
-		font-size: 0.8rem;
+		font-size: 0.95rem;
 		font-weight: 700;
 		font-style: italic;
 		line-height: 1;
 		font-family: Georgia, 'Times New Roman', serif;
+		text-shadow: none;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+		vertical-align: middle;
 		cursor: pointer;
 	}
 
@@ -199,7 +209,11 @@
 		border: 1px solid var(--border);
 		background: var(--panel-bg);
 		box-shadow: 0 4px 10px var(--shadow);
-		font-size: 0.85rem;
+		/* dark text on the light box, not the wall's light text */
+		color: var(--ink);
+		text-shadow: none;
+		font-size: 0.9rem;
+		font-weight: 400;
 		line-height: 1.35;
 		white-space: normal;
 	}

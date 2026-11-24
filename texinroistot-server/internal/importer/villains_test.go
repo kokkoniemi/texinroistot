@@ -213,7 +213,7 @@ func TestApplyLatestStoryNames_CombinesFirstNamesUnderTheSameLastName(t *testing
 			last:  "Welt",
 		},
 		{
-			name: "a last name spelling variant goes in parentheses and shares first names",
+			name: "the earliest last name spelling comes first, later ones in parentheses, sharing first names",
 			as: []*db.StoryVillain{
 				{FirstNames: []string{""}, LastName: "Quantrell", Story: &db.Story{OrderNumber: 33}},
 				{FirstNames: []string{"Samuel"}, LastName: "Quantrell", Story: &db.Story{OrderNumber: 34}},
@@ -221,7 +221,15 @@ func TestApplyLatestStoryNames_CombinesFirstNamesUnderTheSameLastName(t *testing
 				{FirstNames: []string{""}, LastName: "Quantrill", Story: &db.Story{OrderNumber: 393}},
 			},
 			first: []string{"Samuel"},
-			last:  "Quantrill (Quantrell)",
+			last:  "Quantrell (Quantrill)",
+		},
+		{
+			name: "Bannion in the early stories, Bannon later",
+			as: []*db.StoryVillain{
+				{LastName: "Bannon", Story: &db.Story{OrderNumber: 600}},
+				{LastName: "Bannion", Story: &db.Story{OrderNumber: 11}},
+			},
+			last: "Bannion (Bannon)",
 		},
 		{
 			name: "different first names are both kept",

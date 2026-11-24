@@ -199,9 +199,9 @@ func (i *importer) getStoryVillainItems(villainID id) []*db.StoryVillain {
 //     share that last name or give none, so Raymond "Ray" Clemmons and Ray
 //     Clemmons stay one name; a first name already contained in another, like
 //     "Ray" in Raymond "Ray", is not repeated.
-//   - Spelling variants (a letter or two apart) count as the same name and are
-//     shown in parentheses after it: Mickey (Miky) Welt, Samuel Quantrill
-//     (Quantrell).
+//   - Spelling variants (a letter or two apart) count as the same name; the
+//     earliest spelling comes first and the later ones in parentheses after
+//     it: Mickey (Miky) Welt, Bannion (Bannon), Samuel Quantrell (Quantrill).
 //   - With a clearly different last name in the latest story, earlier first
 //     names are left out: Kid Rodelo's card shows Philip Rainey.
 func applyLatestStoryNames(villain *db.Villain) {
@@ -218,18 +218,18 @@ func applyLatestStoryNames(villain *db.Villain) {
 		}
 	}
 
-	var firstNames, lastNameVariants []string
+	// the spellings of the last name, in story order: the earliest first
+	var firstNames, lastNameSpellings []string
 	for _, sv := range stories {
 		storyLastName := strings.TrimSpace(sv.LastName)
-		if storyLastName != "" && !strings.EqualFold(storyLastName, lastName) {
-			if !isSpellingVariant(storyLastName, lastName) {
-				continue
-			}
-			if !slices.ContainsFunc(lastNameVariants, func(v string) bool {
-				return strings.EqualFold(v, storyLastName)
-			}) {
-				lastNameVariants = append(lastNameVariants, storyLastName)
-			}
+		if storyLastName != "" && !strings.EqualFold(storyLastName, lastName) &&
+			!isSpellingVariant(storyLastName, lastName) {
+			continue
+		}
+		if storyLastName != "" && !slices.ContainsFunc(lastNameSpellings, func(v string) bool {
+			return strings.EqualFold(v, storyLastName)
+		}) {
+			lastNameSpellings = append(lastNameSpellings, storyLastName)
 		}
 		for _, name := range sv.FirstNames {
 			if name = strings.TrimSpace(name); name != "" {
@@ -242,7 +242,7 @@ func applyLatestStoryNames(villain *db.Villain) {
 		villain.FirstNames = withVariantsInParentheses(withoutContainedNames(firstNames))
 	}
 	if lastName != "" {
-		villain.LastName = withVariantsInParentheses(append([]string{lastName}, lastNameVariants...))[0]
+		villain.LastName = withVariantsInParentheses(lastNameSpellings)[0]
 	}
 }
 

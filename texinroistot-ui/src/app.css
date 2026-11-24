@@ -168,6 +168,13 @@ hr {
 	background-blend-mode: hard-light, normal;
 }
 
+/* In a story without named villains, the explanation in place of the villain
+   list (and of the button that opens it). */
+.story-no-villains {
+	margin: 0.75rem 0 0;
+	font-style: italic;
+}
+
 /*
  * Paper texture over the whole page: faint relief of handled paper
  * (SVG turbulence lit from the top left) and fine grain.

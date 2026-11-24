@@ -114,6 +114,56 @@ func TestBuildVillainListWhere_NameSearchUsesNamesOnly(t *testing.T) {
 	}
 }
 
+// A villain list leaves out the rows of stories without named villains, in
+// every sort and search.
+func TestBuildVillainListWhere_OnlyNamedVillains(t *testing.T) {
+	for _, params := range []VillainListParams{
+		{Publication: "all", Sort: "random"},
+		{Publication: "fi", Sort: "last_name", Name: "jack"},
+		{Publication: "all", VillainHash: "abc"},
+	} {
+		where, _, err := buildVillainListWhere(5, params)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if !strings.Contains(where, namedVillainSQL) {
+			t.Fatalf("%+v: expected only named villains, got %s", params, where)
+		}
+	}
+}
+
+// In a per-story name sort with a name search, a villain is listed only under
+// the names matching the search (unless none does); other sorts are not
+// limited.
+func TestBuildVillainListWhere_NameSortListsOnlyMatchingNames(t *testing.T) {
+	where, _, err := buildVillainListWhere(5, VillainListParams{
+		Publication: "all",
+		Sort:        "other_name",
+		Name:        "keltainen koira",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	for _, part := range []string{
+		"sn.name ILIKE $2 AND sn.name ILIKE $3",
+		"unnest(mvis.other_names)",
+		"btrim(mn.name) ILIKE $2 AND btrim(mn.name) ILIKE $3",
+	} {
+		if !strings.Contains(where, part) {
+			t.Fatalf("expected where clause to include %q, got %s", part, where)
+		}
+	}
+	for _, params := range []VillainListParams{
+		{Publication: "all", Sort: "last_name", Name: "keltainen"},
+		{Publication: "all", Sort: "other_name", Search: "keltainen"},
+	} {
+		where, _, _ := buildVillainListWhere(5, params)
+		if strings.Contains(where, "sn.name") {
+			t.Fatalf("%+v: expected no limit on the listed names, got %s", params, where)
+		}
+	}
+}
+
 // A search of several words requires each word in some name field, so a whole
 // name such as "Hoodoo Brown" (first name + last name) is found.
 func TestBuildVillainListWhere_SearchWordsEachMatchAName(t *testing.T) {

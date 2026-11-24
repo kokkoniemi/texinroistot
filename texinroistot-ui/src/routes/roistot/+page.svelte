@@ -151,6 +151,23 @@
 		});
 	}
 
+	// The first name, the rest in parentheses: "Keltainen Koira (Musta Susi)".
+	function withOthersInParentheses(names: string[]): string {
+		const [first, ...others] = names;
+		if (!first) return '';
+		return others.length > 0 ? `${first} (${others.join(', ')})` : first;
+	}
+
+	// The villain's other (ethnic) names in all of their stories: under the
+	// other name sort the name the villain is listed under leads, the others
+	// follow in parentheses ("Keltainen Koira (Musta Susi)").
+	function villainOtherNames(villain: Villain): string[] {
+		return (villain.as ?? [])
+			.flatMap((appearance) => appearance.otherNames ?? [])
+			.map((name) => name.trim())
+			.filter((name, index, values) => Boolean(name) && values.indexOf(name) === index);
+	}
+
 	function appearanceCodeNames(appearance?: StoryVillain | null): string[] {
 		return (appearance?.codeNames ?? [])
 			.map((codeName) => codeName.trim())
@@ -349,7 +366,10 @@
 				{@const appearance = primaryAppearance(villain)}
 				{@const stories = villainStories(villain)}
 				{@const title = villainTitle(villain)}
-				{@const displayName = joinValues(appearance?.otherNames, '').trim()}
+				{@const displayName =
+					selectedSort === 'other_name'
+						? withOthersInParentheses(listedNameFirst(villainOtherNames(villain), villain.sortName))
+						: joinValues(appearance?.otherNames, '').trim()}
 				{@const codeNames = listedNameFirst(appearanceCodeNames(appearance), villain.sortName)}
 				{@const shownCodeNames =
 					stories.length <= 1

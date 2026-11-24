@@ -13,6 +13,8 @@
 		otherStoriesVillainHash,
 		storyVillainTitle,
 		storyVillainCodeNameTitle,
+		isNamelessVillain,
+		joinValues,
 		storyMentionTargets,
 		showMentionedVillain
 	} from '$lib/listing/shared';
@@ -276,7 +278,8 @@
 					>
 					<!-- a dashed line between the Finnish and the Italian publications -->
 					{#if option.value === 'muu_erikois'}
-						<option disabled>- - - - - - - - - - - - - - - -</option>
+						<!-- non-breaking spaces, so a phone's list keeps it on one line -->
+						<option disabled>{'- '.repeat(9)}-</option>
 					{/if}
 				{/each}
 			</select>
@@ -370,19 +373,24 @@
 					{/if}
 					<p><strong>Ilmestynyt Suomessa:</strong> {publicationSummary(story)}</p>
 
-					<button
-						type="button"
-						class="toggle-villains"
-						on:click={(event) => toggleStoryVillains(storyHash, event.currentTarget)}
-						disabled={!storyHash}
-						aria-expanded={Boolean(expandedStoryHashes[storyHash])}
-					>
-						{#if expandedStoryHashes[storyHash]}
-							Piilota tarinan roistot
-						{:else}
-							Näytä tarinan roistot
-						{/if}
-					</button>
+					<!-- a story without named villains: why, in place of the villain list -->
+					{#if story.noVillains}
+						<p class="story-no-villains">{story.noVillains}</p>
+					{:else}
+						<button
+							type="button"
+							class="toggle-villains"
+							on:click={(event) => toggleStoryVillains(storyHash, event.currentTarget)}
+							disabled={!storyHash}
+							aria-expanded={Boolean(expandedStoryHashes[storyHash])}
+						>
+							{#if expandedStoryHashes[storyHash]}
+								Piilota tarinan roistot
+							{:else}
+								Näytä tarinan roistot
+							{/if}
+						</button>
+					{/if}
 
 					{#if expandedStoryHashes[storyHash]}
 						<section class="story-villains">
@@ -400,25 +408,28 @@
 									{#each storyVillains(storyHash) as villain (villain.hash)}
 										{@const appearance = storyVillainForStory(villain, storyHash)}
 										{@const cardTitle = storyVillainTitle(villain, storyHash)}
-										<VillainCard
-											title={cardTitle}
-											codeNameTitle={storyVillainCodeNameTitle(villain, storyHash)}
-											otherStoriesVillainHash={otherStoriesVillainHash(villain)}
-											roles={appearance?.roles}
-											destiny={appearance?.destiny}
-											codeNames={appearance?.codeNames}
-											villainKey={villain.hash}
-											{villain}
-											{mentionTargets}
-											on:mention={(e) =>
-												showMentionedVillain(
-													document.querySelector<HTMLElement>(
-														`[data-story-villains="${CSS.escape(storyHash)}"]`
-													) ?? undefined,
-													e.detail
-												)}
-											on:selectStory={(e) => openStory(e.detail)}
-										/>
+										<!-- a story without named villains: its explanation, not a card -->
+										{#if isNamelessVillain(villain, storyHash)}
+											<p class="story-no-villains">{joinValues(appearance?.roles, '', '; ')}</p>
+										{:else}<VillainCard
+												title={cardTitle}
+												codeNameTitle={storyVillainCodeNameTitle(villain, storyHash)}
+												otherStoriesVillainHash={otherStoriesVillainHash(villain)}
+												roles={appearance?.roles}
+												destiny={appearance?.destiny}
+												codeNames={appearance?.codeNames}
+												villainKey={villain.hash}
+												{villain}
+												{mentionTargets}
+												on:mention={(e) =>
+													showMentionedVillain(
+														document.querySelector<HTMLElement>(
+															`[data-story-villains="${CSS.escape(storyHash)}"]`
+														) ?? undefined,
+														e.detail
+													)}
+												on:selectStory={(e) => openStory(e.detail)}
+											/>{/if}
 									{/each}
 								</div>
 							{/if}
