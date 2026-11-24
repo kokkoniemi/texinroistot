@@ -8,13 +8,16 @@ import type { Villain } from '$lib/types';
 // environment. Where several villains share the name, a rank or a phrase in
 // one of the villain's roles picks the right one.
 // A villain modelled on several people (more) shows the label followed by a
-// link to each, by name; otherwise the label itself is the link.
+// link to each, by name; otherwise the label itself is the link. A villain who
+// went by another real person's name too gets a question of its own for that
+// one (also), e.g. Charley Harrison alias Tom Blackburn.
 export type WikipediaPerson = { name: string; url: string };
 export type VillainWikipediaLink = {
 	url: string;
 	label: string;
 	name?: string;
 	more?: WikipediaPerson[];
+	also?: { url: string; label: string }[];
 };
 
 type Entry = VillainWikipediaLink & { names: string[]; rank?: string; role?: string };
@@ -451,6 +454,58 @@ const entries: Entry[] = [
 		names: ['John Lee'],
 		url: 'https://en.wikipedia.org/wiki/John_D._Lee',
 		label: 'Kuka oli John D. Lee?'
+	},
+	{
+		names: ['MacCarthy'],
+		url: 'https://www.legendsofamerica.com/mccarty-gang/',
+		label: 'Keitä olivat oikeat McCartyt?'
+	},
+	{
+		names: ['Lonny Logan'],
+		url: 'https://www.truewestmagazine.com/blog/you-cant-go-home-again/',
+		label: 'Kuka oli oikea Lonny Logan?'
+	},
+	{
+		names: ['Dick Broadwell'],
+		url: 'https://www.legendsofamerica.com/richard-broadwell-dalton-gang/',
+		label: 'Kuka oli oikea Dick Broadwell?'
+	},
+	{
+		names: ['Sam Ketchum'],
+		url: 'https://www.legendsofamerica.com/sam-ketchum/',
+		label: 'Kuka oli oikea Sam Ketchum?'
+	},
+	{
+		names: ['Tiburcio Vasquez'],
+		url: 'https://www.legendsofamerica.com/we-tiburciovasquez/',
+		label: 'Kuka oli oikea Tiburcio Vasquez?'
+	},
+	{
+		names: ['Bill Power'],
+		url: 'https://fi.findagrave.com/memorial/1773/bob-power',
+		label: 'Kuka oli oikea Bill Power?'
+	},
+	{
+		names: ['William Towerly'],
+		url: 'https://www.legendsofamerica.com/smith-dixon-gang/',
+		label: 'Kuka oli oikea William Towerly?'
+	},
+	{
+		names: ['Jim Hughes'],
+		url: 'https://fi.findagrave.com/memorial/57577066/james_h-hughes',
+		label: 'Kuka oli oikea Jim Hughes?'
+	},
+	{
+		names: ['Charley Harrison'],
+		url: 'https://sites.rootsweb.com/~wytttp/black_sheep/duncan_blackburn.htm',
+		label: 'Kuka oli oikea Tom Blackburn?',
+		also: [
+			{
+				// the page scrolled to its Charley Harrison section
+				url: 'https://www.legendsofamerica.com/ada-lamont-colorado-madam/#:~:text=Charley%20Harrison%20was%20a%20western%20gambler',
+				label: 'Kuka oli oikea Charley Harrison?'
+			}
+		]
 	}
 ];
 
@@ -511,7 +566,15 @@ export function villainWikipediaLink(
 	if (!villain) return undefined;
 	for (const name of villainNames(villain)) {
 		const entry = entriesByName.get(name)?.find((candidate) => entryMatches(candidate, villain));
-		if (entry) return { url: entry.url, label: entry.label, name: entry.name, more: entry.more };
+		if (entry) {
+			return {
+				url: entry.url,
+				label: entry.label,
+				name: entry.name,
+				more: entry.more,
+				also: entry.also
+			};
+		}
 	}
 	return undefined;
 }
