@@ -833,6 +833,12 @@ function wordStems(word: string): string[] {
 		.replace(/nen$/u, 'se')
 		.replace(/([^aeiouyäö])i$/u, '$1e');
 	if (stemmed !== word) stems.push(stemmed);
+	// -si after a vowel becomes -de ("Susi" -> "Sude(lle)"), after n, r or l
+	// the consonant doubles ("Sudenkynsi" -> "Sudenkynne(lle)", "Varsi" ->
+	// "Varre(n)")
+	if (/[aeiouyäö]si$/u.test(word)) stems.push(word.replace(/si$/u, 'de'));
+	const doubled = word.match(/([nrl])si$/u);
+	if (doubled) stems.push(word.replace(/si$/u, `${doubled[1]}e`));
 	// consonant gradation before the last vowel: "Täplähäntä" -> "Täplähännä(n)",
 	// "Kampa" -> "Kamma(n)", "Lupa" -> "Luva(n)"
 	const gradation: Array<[RegExp, string]> = [

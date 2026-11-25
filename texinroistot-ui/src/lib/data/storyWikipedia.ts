@@ -63,6 +63,43 @@ const entries: Entry[] = [
 		titles: ['Kilpailevat koplat'],
 		url: 'https://en.wikipedia.org/wiki/James%E2%80%93Younger_Gang',
 		label: 'Ketkä olivat todelliset Youngerit?'
+	},
+	{
+		titles: ['Oklahoma!', 'Oklahoma'],
+		url: 'https://en.wikipedia.org/wiki/Land_Rush_of_1889',
+		label: 'Millainen oli todellinen ryntäys Oklahomaan?'
+	},
+	{
+		titles: ['Puhvelisotilaat'],
+		url: 'https://fi.wikipedia.org/wiki/Buffalo_soldier',
+		label: 'Keitä olivat oikeat puhvelisotilaat?'
+	},
+	{
+		titles: ['Lincolnin surmaajat'],
+		url: 'https://fi.wikipedia.org/wiki/Abraham_Lincolnin_murha',
+		label: 'Millainen oli todellisuudessa Lincolnin murha?'
+	},
+	{
+		titles: [
+			'Capitan Blanco',
+			// "Kapinallinen" (its 2nd printing) is also another story's title
+			'Kapinoitsija',
+			'Finneganin rangerit',
+			'Navajon ylpeys',
+			'Mies Denveristä'
+		],
+		url: 'https://en.wikipedia.org/wiki/Comanchero',
+		label: 'Keitä olivat comancherot?'
+	},
+	{
+		titles: ['Moriscon paluu', 'El Moriscon paluu'],
+		url: 'https://fi.wikipedia.org/wiki/Muinaisen_Egyptin_mytologia',
+		label: 'Lue lisää muinaisen Egyptin mytologiasta'
+	},
+	{
+		titles: ['Kahden lipun välillä', 'Kahden lipun välissä', 'Sodan liekit'],
+		url: 'https://fi.wikipedia.org/wiki/Yhdysvaltain_sis%C3%A4llissota',
+		label: 'Lue lisää Yhdysvaltojen sisällissodasta'
 	}
 ];
 

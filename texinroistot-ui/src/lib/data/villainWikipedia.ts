@@ -289,7 +289,7 @@ const entries: Entry[] = [
 		label: 'Kuka oli oikea Roy Bean?'
 	},
 	{
-		names: ['Samuel Quantrill (Quantrell)', 'Samuel Quantrell'],
+		names: ['Samuel Quantrill', 'Samuel Quantrell'],
 		url: 'https://fi.wikipedia.org/wiki/William_Quantrill',
 		label: 'Kuka oli oikea Quantrill?'
 	},
@@ -396,11 +396,6 @@ const entries: Entry[] = [
 		label: 'Kuka oli oikea Delgadito?'
 	},
 	{
-		names: ['Buffalo Chief'],
-		url: 'https://en.wikipedia.org/wiki/Kechewaishke',
-		label: 'Kuka oli oikea Chief Buffalo?'
-	},
-	{
 		names: ['Crazy Horse'],
 		url: 'https://fi.wikipedia.org/wiki/Hullu_Hevonen',
 		label: 'Kuka oli oikea Hullu Hevonen?'
@@ -496,6 +491,16 @@ const entries: Entry[] = [
 		label: 'Kuka oli oikea Jim Hughes?'
 	},
 	{
+		names: ['John Wilkes Booth'],
+		url: 'https://fi.wikipedia.org/wiki/John_Wilkes_Booth',
+		label: 'Kuka oli oikea John Wilkes Booth?'
+	},
+	{
+		names: ['Ray Clemmons', 'Raymond Clemmons'],
+		url: 'https://en.wikipedia.org/wiki/Henry_Plummer',
+		label: 'Kuka oli oikea Bannackin sheriffi ja Viattomien koplan pomo?'
+	},
+	{
 		names: ['Charley Harrison'],
 		url: 'https://sites.rootsweb.com/~wytttp/black_sheep/duncan_blackburn.htm',
 		label: 'Kuka oli oikea Tom Blackburn?',
@@ -528,11 +533,29 @@ function villainNames(villain: Villain): Set<string> {
 	// the villain's own name too, when the story gives another (story villains)
 	const sources = [villain, ...(villain.identity ? [villain.identity] : []), ...(villain.as ?? [])];
 	for (const source of sources) {
-		const firstNames = (source.firstNames ?? []).map((name) => name.trim()).filter(Boolean);
+		// a quoted short form is a first name of its own, and so is the name
+		// without it: Raymond "Ray" is also Raymond and Ray
+		const firstNames = (source.firstNames ?? [])
+			.flatMap((name) => [
+				name,
+				name.replace(/"[^"]*"/g, ''),
+				...[...name.matchAll(/"([^"]*)"/g)].map((quoted) => quoted[1])
+			])
+			.map((name) => name.replace(/\s+/g, ' ').trim())
+			.filter((name, index, all) => Boolean(name) && all.indexOf(name) === index);
 		const lastName = (source.lastName ?? '').trim();
-		names.add(normalize(`${firstNames.join(' ')} ${lastName}`));
-		for (const firstName of firstNames) names.add(normalize(`${firstName} ${lastName}`));
-		if (lastName) names.add(normalize(lastName));
+		const fullFirstName = (source.firstNames ?? []).map((name) => name.trim()).join(' ');
+		// spellings in parentheses are last names of their own, whichever
+		// comes first: "Quantrell (Quantrill)" is Quantrell and Quantrill
+		const spelled = lastName.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+		const lastNames = [lastName, ...(spelled ? [spelled[1], ...spelled[2].split(',')] : [])]
+			.map((name) => name.trim())
+			.filter(Boolean);
+		for (const last of lastNames.length > 0 ? lastNames : ['']) {
+			names.add(normalize(`${fullFirstName} ${last}`));
+			for (const firstName of firstNames) names.add(normalize(`${firstName} ${last}`));
+			if (last) names.add(normalize(last));
+		}
 	}
 	for (const appearance of villain.as ?? []) {
 		for (const name of [...(appearance.nicknames ?? []), ...(appearance.otherNames ?? [])]) {
