@@ -229,6 +229,19 @@
 			flex-wrap: wrap;
 			align-items: baseline;
 			margin: 0.85rem 0;
+			/* the info box opens below the row, across its width */
+			position: relative;
+		}
+
+		.info-wrapper {
+			position: static;
+		}
+
+		.info-popover {
+			left: 0;
+			right: 0;
+			min-width: 0;
+			max-width: none;
 		}
 
 		.result-page {

@@ -733,10 +733,11 @@ function looksFinnish(word: string): boolean {
 	);
 }
 
-// A group of siblings or cousins right after a name, also in a compound
-// ("veljekset", "rosvoveljeksistä", "veljessarjan", "sisaruksia",
-// "serkuksena").
-const SIBLING_GROUP = /^\s+\p{L}*(veljeks|veljess|sisaruks|serkuks|serkus)/iu;
+// A group of siblings or cousins, or a family, right after a name, also in a
+// compound ("veljekset", "rosvoveljesten", "veljessarjan", "sisaruksia",
+// "serkuksena", "rikollisperheen", "suvun"; not "sukulainen", one relative).
+const SIBLING_GROUP =
+	/^\s+\p{L}*(veljeks|veljess|veljest|sisaruks|sisarust|serkuks|serkus|perhe|suvu|suku(?!lai)|klaani)/iu;
 
 const KINSHIP = [
 	'veli',
@@ -748,6 +749,7 @@ const KINSHIP = [
 	'isä',
 	'poika',
 	'poja',
+	'poji',
 	'tytär',
 	'tyttär',
 	'setä',
@@ -833,6 +835,30 @@ function wordStems(word: string): string[] {
 		.replace(/nen$/u, 'se')
 		.replace(/([^aeiouyäö])i$/u, '$1e');
 	if (stemmed !== word) stems.push(stemmed);
+	// a word ending in a vowel and -s with a long vowel stem has the consonant
+	// before it in the strong grade: "Kuningas" -> "Kuninkaa(n)", "Rikas" ->
+	// "Rikkaa(n)", "Hidas" -> "Hitaa(n)", "Varvas" -> "Varpaa(n)"
+	const longVowel = word.match(/^(.*?)([^aeiouyäö]+)([aäei])s$/u);
+	if (longVowel) {
+		const [, start, consonants, vowel] = longVowel;
+		const strong: Record<string, string> = {
+			ng: 'nk',
+			mm: 'mp',
+			nn: 'nt',
+			ll: 'lt',
+			rr: 'rt',
+			k: 'kk',
+			p: 'pp',
+			t: 'tt',
+			d: 't',
+			v: 'p'
+		};
+		const ending = Object.keys(strong).find((weak) => consonants.endsWith(weak));
+		if (ending) {
+			const strengthened = consonants.slice(0, -ending.length) + strong[ending];
+			stems.push(`${start}${strengthened}${vowel}${vowel}`);
+		}
+	}
 	// -si after a vowel becomes -de ("Susi" -> "Sude(lle)"), after n, r or l
 	// the consonant doubles ("Sudenkynsi" -> "Sudenkynne(lle)", "Varsi" ->
 	// "Varre(n)")
@@ -950,7 +976,15 @@ export function mentionSegments(
 			(key) =>
 				firstNamesAlone.has(`${key}\n${name}`) && (lastNamesByKey.get(key) ?? []).length === 0
 		);
-		return onlyFirstName.length === 1 ? onlyFirstName[0] : null;
+		if (onlyFirstName.length === 1) return onlyFirstName[0];
+		// likewise a shared last name means the one known by it alone: "Bakerille"
+		// is Baker, not Freddie Baker, who is mentioned with his first name
+		const onlyLastName = [...keys].filter(
+			(key) =>
+				(lastNamesByKey.get(key) ?? []).includes(name) &&
+				(wordsByKey.get(key)?.firstNames.size ?? 0) === 0
+		);
+		return onlyLastName.length === 1 ? onlyLastName[0] : null;
 	};
 	const names = [...owners.entries()]
 		.map(([name, keys]) => ({
@@ -1055,14 +1089,19 @@ export function mentionSegments(
 				const end = start + match[2].length;
 				if (taken.some((range) => start < range.end && end > range.start)) continue;
 				// a family named by the name, not one villain: "Chesterin
-				// rosvoveljeksistä", "Santanan serkuksena"
-				if (SIBLING_GROUP.test(segment.text.slice(end))) continue;
+				// rosvoveljeksistä", "Santanan serkuksena"; a full name still is the
+				// villain ("Jack Thunderin Perheen", a gang named after him)
+				if (!name.includes(' ') && SIBLING_GROUP.test(segment.text.slice(end))) continue;
 				// next to a word of kinship, the relative of the same surname
-				const key =
-					relative && kinshipNear(segment.text.slice(0, start), segment.text.slice(end))
-						? relative
-						: owner;
+				const nearKin = kinshipNear(segment.text.slice(0, start), segment.text.slice(end));
+				const key = relative && nearKin ? relative : owner;
 				if (!key) continue;
+				// the villain's own surname alone, with no word of kinship, is their
+				// family or gang, not the relative: "Hoganin koplan pomo" in Clyde
+				// Hogan's text is not Stan Hogan
+				if (!nearKin && isLastNameAlone(key, name) && selfLastNames.includes(name.toLowerCase())) {
+					continue;
+				}
 				if (isFirstNameAlone(key, name) && otherSurnameFollows(key, segment.text.slice(end))) {
 					continue;
 				}
