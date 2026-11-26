@@ -32,7 +32,10 @@
 			<img src="/tex-logo.jpg" alt="" class="brand-logo" />
 			<span class="brand-text">
 				<span class="brand-title">Texin roistot</span>
-				<span class="brand-subtitle">Lierot, kelmit ja lurjukset Tex Willer -sarjakuvassa</span>
+				<span class="brand-subtitle"
+					>Lierot, kelmit ja lurjukset <span class="subtitle-end">Tex Willer -sarjakuvassa</span
+					></span
+				>
 			</span>
 		</a>
 		<nav aria-label="Päävalikko">
@@ -215,6 +218,11 @@
 
 		.brand-title {
 			font-size: 1.5rem;
+		}
+
+		/* "Tex Willer -sarjakuvassa" on a line of its own */
+		.subtitle-end {
+			display: block;
 		}
 
 		/* five tabs fit a 375-pixel phone */

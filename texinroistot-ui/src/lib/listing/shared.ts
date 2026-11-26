@@ -546,6 +546,8 @@ type VillainForTitle = {
 		nicknames?: string[] | null;
 		otherNames?: string[] | null;
 		codeNames?: string[] | null;
+		roles?: string[] | null;
+		destiny?: string[] | null;
 		story?: { hash?: string | null } | null;
 	}> | null;
 };
@@ -619,6 +621,10 @@ export type MentionTarget = {
 	names: string[];
 	firstNames?: string[];
 	lastNames?: string[];
+	// the villain's own role and destiny texts in the story
+	texts?: string[];
+	// the villain has a rank ("Kapteeni Tom")
+	ranked?: boolean;
 };
 export type MentionSegment = TextSegment & { mention?: string };
 
@@ -709,7 +715,12 @@ export function storyMentionTargets(
 ): MentionTarget[] {
 	return villains.map((villain) => {
 		const { names, firstNames, lastNames } = mentionNames(villain, storyHash);
-		return { key: villain.hash, names, firstNames, lastNames };
+		const appearance = storyVillainForStory(villain, storyHash);
+		const texts = [...(appearance?.roles ?? []), ...(appearance?.destiny ?? [])].map((text) =>
+			text.replace(/<\/?i>/g, '')
+		);
+		const ranked = (villain.ranks ?? []).some((rank) => rank.trim() !== '');
+		return { key: villain.hash, names, firstNames, lastNames, texts, ranked };
 	});
 }
 
@@ -835,6 +846,9 @@ function wordStems(word: string): string[] {
 		.replace(/nen$/u, 'se')
 		.replace(/([^aeiouyäö])i$/u, '$1e');
 	if (stemmed !== word) stems.push(stemmed);
+	// -is also takes -ikse- ("Mustavaris" -> "Mustavariks(en)"), besides -ii-
+	// ("Kaunis" -> "Kaunii(n)")
+	if (/[^aeiouyäö]is$/u.test(word)) stems.push(word.replace(/is$/u, 'iks'));
 	// a word ending in a vowel and -s with a long vowel stem has the consonant
 	// before it in the strong grade: "Kuningas" -> "Kuninkaa(n)", "Rikas" ->
 	// "Rikkaa(n)", "Hidas" -> "Hitaa(n)", "Varvas" -> "Varpaa(n)"
@@ -915,6 +929,20 @@ function inflectedForm(stem: string): string {
 	return `${escapeRegExp(stem)}${ending}`;
 }
 
+// Whether a text names someone by the name, inflected, and not as the start of
+// a longer name ("Ben Colbertin" does not name Ben).
+function namedAlone(text: string, name: string): boolean {
+	const words = name.split(' ');
+	const inflected = words
+		.map((word, index) =>
+			index < words.length - 1 && /^\p{Ll}/u.test(word)
+				? escapeRegExp(word)
+				: `(?:${wordStems(word).map(inflectedForm).join('|')})`
+		)
+		.join(' ');
+	return new RegExp(`(^|[^\\p{L}])${inflected}(?![\\p{L}'])(?!\\s+\\p{Lu})`, 'u').test(text);
+}
+
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -977,6 +1005,12 @@ export function mentionSegments(
 				firstNamesAlone.has(`${key}\n${name}`) && (lastNamesByKey.get(key) ?? []).length === 0
 		);
 		if (onlyFirstName.length === 1) return onlyFirstName[0];
+		// of several known by that first name only, a villain with a rank is
+		// named with it ("Kapteeni Tom"): "Tomin" alone is the one without
+		const unranked = onlyFirstName.filter(
+			(key) => !targets.find((target) => target.key === key)?.ranked
+		);
+		if (unranked.length === 1) return unranked[0];
 		// likewise a shared last name means the one known by it alone: "Bakerille"
 		// is Baker, not Freddie Baker, who is mentioned with his first name
 		const onlyLastName = [...keys].filter(
@@ -984,7 +1018,25 @@ export function mentionSegments(
 				(lastNamesByKey.get(key) ?? []).includes(name) &&
 				(wordsByKey.get(key)?.firstNames.size ?? 0) === 0
 		);
-		return onlyLastName.length === 1 ? onlyLastName[0] : null;
+		if (onlyLastName.length === 1) return onlyLastName[0];
+		// otherwise the one whose own texts name someone this text names too
+		// ("Joen ja Tomin rikostoveri": the Tom whose text is "Joen kaveri"), or
+		// else the villain whose text this is
+		const plainText = text.replace(/<\/?i>/g, '');
+		const named = targets
+			.filter((target) => !keys.has(target.key) && target.key !== selfKey)
+			.flatMap((target) => target.names)
+			.filter((other) => other !== name && namedAlone(plainText, other));
+		const selfNames = targets.find((target) => target.key === selfKey)?.names ?? [];
+		for (const wanted of [named, selfNames]) {
+			const linked = [...keys].filter((key) =>
+				(targets.find((target) => target.key === key)?.texts ?? []).some((own) =>
+					wanted.some((other) => namedAlone(own, other))
+				)
+			);
+			if (linked.length === 1) return linked[0];
+		}
+		return null;
 	};
 	const names = [...owners.entries()]
 		.map(([name, keys]) => ({
@@ -1071,7 +1123,9 @@ export function mentionSegments(
 	const segments: MentionSegment[] = [];
 	for (const segment of italicSegments(text)) {
 		const taken: Array<{ start: number; end: number; key: string }> = [];
-		for (const { name, key: owner, relative } of names) {
+		// an italic text is a title or the name of a group, not the villain:
+		// "Kobran hampaat" is a gang, not Kobra
+		for (const { name, key: owner, relative } of segment.italic ? [] : names) {
 			// every capitalised word of a name may be inflected: "Ison Joen" is "Iso
 			// Joe"; a title in lower case before a name is not ("sheriffiksi Amos
 			// Balderin" is Amos Balder)
@@ -1093,6 +1147,9 @@ export function mentionSegments(
 				// villain ("Jack Thunderin Perheen", a gang named after him)
 				if (!name.includes(' ') && SIBLING_GROUP.test(segment.text.slice(end))) continue;
 				// next to a word of kinship, the relative of the same surname
+				// a name after "San", "Santa" or "Fort" is a place: "San Estebanin
+				// linnoituksen" is not Esteban de Queretaro
+				if (/(?:^|[^\p{L}])(?:San|Santa|Fort)\s+$/u.test(segment.text.slice(0, start))) continue;
 				const nearKin = kinshipNear(segment.text.slice(0, start), segment.text.slice(end));
 				const key = relative && nearKin ? relative : owner;
 				if (!key) continue;
@@ -1115,6 +1172,9 @@ export function mentionSegments(
 				// such a surname is not inflected itself ("Fraseria Silver Holen" is
 				// Joe Fraser), except for an English "'s" ("Sutter's Restin")
 				const ending = match[2].slice(name.length);
+				// an English word with an apostrophe ending of its own is another
+				// word: "Jackal's Creekissä" is not Jack
+				if (ending !== '' && /^'\p{L}/u.test(segment.text.slice(end))) continue;
 				// a surname in the plural is the family, not one of them:
 				// "Standishit tekivät sopimuksen", "Pattersonien talossa"
 				if (isLastNameAlone(key, name) && /^(?:t|it|ien|jen|iden)$/u.test(ending)) continue;
