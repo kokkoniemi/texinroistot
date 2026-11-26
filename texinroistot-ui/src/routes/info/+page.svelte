@@ -11,6 +11,8 @@
 		'Tarinoiden tietoihin olen saanut lähteeksi Janne Viitalan ylläpitämän tietokannan. Sivuston teknisestä toteutuksesta on vastannut Mikko K. Kiitos!'
 	];
 
+	const permissionNote = 'P.S. Kysy lupa, jos käytät tämän tietokannan tietoja.';
+
 	// On a phone each paragraph is nailed up on its own paper, each a little
 	// askew and torn in its own way: the tilt in degrees and where the tears
 	// are (percent along the top edge, percent down the side edge, and which
@@ -51,6 +53,7 @@
 						on:click={() => (feedbackOpen = true)}>tästä</button
 					>.
 				</p>
+				<p class="permission-line">{permissionNote}</p>
 			</article>
 		</PaperNotice>
 	</div>
@@ -74,6 +77,7 @@
 								on:click={() => (feedbackOpen = true)}>tästä</button
 							>.
 						</p>
+						<p class="permission-line">{permissionNote}</p>
 					{/if}
 				</article>
 			</PaperNotice>
@@ -118,6 +122,12 @@
 		font-family: var(--font-display);
 		font-size: 1.05rem;
 		letter-spacing: 0.02em;
+	}
+
+	/* the last line of the page, a little apart from the feedback line */
+	.info-text .permission-line {
+		margin-top: 0.75rem;
+		font-weight: 700;
 	}
 
 	.feedback-link {
