@@ -32,7 +32,7 @@
 			<img src="/tex-logo.jpg" alt="" class="brand-logo" />
 			<span class="brand-text">
 				<span class="brand-title">Texin roistot</span>
-				<span class="brand-subtitle">Tex Willerin vastustajat, tarinat ja tekijät</span>
+				<span class="brand-subtitle">Lierot, kelmit ja lurjukset Tex Willer -sarjakuvassa</span>
 			</span>
 		</a>
 		<nav aria-label="Päävalikko">
